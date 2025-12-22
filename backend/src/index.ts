@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import autoImportRouter from './routes/admin/autoImport';
+import autoImportRouter from './routes/admin/autoImport.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));

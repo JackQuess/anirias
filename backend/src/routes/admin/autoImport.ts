@@ -1,16 +1,16 @@
 import { Router, type Request, type Response } from 'express';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { runYtDlp } from '../../services/ytDlp';
-import { uploadToBunny } from '../../services/bunnyUpload';
+import { runYtDlp } from '../../services/ytDlp.js';
+import { uploadToBunny } from '../../services/bunnyUpload.js';
 import {
   ensureAnimeSlug,
   ensureSeason,
   expectedCdn,
   getEpisodesWithSeason,
   updateEpisodePath,
-} from '../../services/supabaseAdmin';
-import { buildSourceUrl } from '../../services/episodeResolver';
+} from '../../services/supabaseAdmin.js';
+import { buildSourceUrl } from '../../services/episodeResolver.js';
 
 const router = Router();
 const TMP_ROOT = '/tmp/anirias';
