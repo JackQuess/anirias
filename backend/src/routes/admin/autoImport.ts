@@ -24,12 +24,17 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
     }
 
     const { animeId, urlTemplate, seasonNumber } = req.body || {};
+    console.log("[AUTO IMPORT] INPUT", {
+      animeId,
+      seasonNumber
+    });
     if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
 
     await mkdir(TMP_ROOT, { recursive: true });
 
     const slug = await ensureAnimeSlug(animeId);
     const episodes = await getEpisodesWithSeason(animeId);
+    console.log("[AUTO IMPORT] EPISODES FOUND", episodes.length);
     const filtered = seasonNumber ? episodes.filter((ep) => (ep.seasons?.season_number || 1) === Number(seasonNumber)) : episodes;
 
     let downloaded = 0;
@@ -38,7 +43,8 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
 
     const tasks = filtered.map((ep) => async () => {
       const seasonNum = ep.seasons?.season_number || 1;
-      await ensureSeason(animeId, seasonNum);
+      const season = await ensureSeason(animeId, seasonNum);
+      console.log("[AUTO IMPORT] SEASON FOUND", season);
       const cdnUrl = expectedCdn(slug, seasonNum, ep.episode_number);
       if (ep.video_path === cdnUrl && ep.stream_url === cdnUrl) {
         skipped += 1;
