@@ -11,7 +11,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "express": "^4.19.2",
-    "yt-dlp-exec": "^2.2.2"
+    "youtube-dl-exec": "^2.0.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

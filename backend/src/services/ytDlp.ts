@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import ytdlp from 'yt-dlp-exec';
+import ytdlp from 'youtube-dl-exec';
 
 export async function runYtDlp(pageUrl: string, outFile: string): Promise<void> {
   await mkdir(path.dirname(outFile), { recursive: true });
