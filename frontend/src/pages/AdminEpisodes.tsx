@@ -102,7 +102,6 @@ const AdminEpisodes: React.FC = () => {
         },
         body: JSON.stringify({
           animeId,
-          urlTemplate: autoTemplate,
           seasonNumber: autoMode === 'season' ? autoSeasonNumber : null,
           mode: autoMode
         })
@@ -125,6 +124,7 @@ const AdminEpisodes: React.FC = () => {
 
       setAutoResult(json);
       reload();
+      alert(`Toplam: ${json.total || 0} | Başarılı: ${json.downloaded || 0} | Hata: ${json.failed || 0}`);
     } catch (err: any) {
       setAutoError(err?.message || 'Auto import başarısız');
     } finally {

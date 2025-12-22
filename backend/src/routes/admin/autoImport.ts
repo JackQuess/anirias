@@ -12,7 +12,7 @@ import {
   getSeasonsForAnime,
   updateEpisodePath,
 } from '../../services/supabaseAdmin.js';
-import { buildSourceUrl } from '../../services/episodeResolver.js';
+import { buildAnimelyUrl } from '../../services/episodeResolver.js';
 
 const router = Router();
 const TMP_ROOT = '/tmp/anirias';
@@ -25,7 +25,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    const { animeId, urlTemplate, seasonNumber, mode } = req.body || {};
+    const { animeId, seasonNumber, mode } = req.body || {};
     console.log("[AUTO IMPORT] INPUT", {
       animeId,
       seasonNumber,
@@ -68,18 +68,20 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
           }
 
           const remotePath = `${slug}/season-${seasonNum}/episode-${ep.episode_number}.mp4`;
-          const sourceUrl = buildSourceUrl(slug, seasonNum, ep.episode_number, urlTemplate);
+          const sourceUrl = buildAnimelyUrl(slug, seasonNum, ep.episode_number);
           const tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNum}`, `episode-${ep.episode_number}.mp4`);
 
           try {
+            console.log("[AUTO IMPORT] START Ep", ep.episode_number);
             await runYtDlp(sourceUrl, tmpFile);
             downloaded += 1;
             await uploadToBunny(remotePath, tmpFile);
             await updateEpisodePath(ep.id, cdnUrl);
+            console.log("[AUTO IMPORT] DONE Ep", ep.episode_number);
           } catch (err: any) {
             failed += 1;
             // eslint-disable-next-line no-console
-            console.error(`[AutoImport] Ep ${ep.episode_number} failed:`, err?.message || err);
+            console.error(`[AUTO IMPORT] FAIL Ep ${ep.episode_number}`, err?.message || err);
           } finally {
             await rm(tmpFile, { force: true });
           }
