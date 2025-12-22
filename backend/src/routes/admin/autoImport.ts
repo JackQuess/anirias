@@ -10,7 +10,8 @@ import {
   getEpisodesBySeason,
   getSeasonByNumber,
   getSeasonsForAnime,
-  updateEpisodePath,
+  getEpisodeByKey,
+  upsertEpisodeByKey,
 } from '../../services/supabaseAdmin.js';
 import { buildAnimelyUrl } from '../../services/episodeResolver.js';
 
@@ -56,13 +57,17 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
       console.log("[AUTO IMPORT] CURRENT SEASON", season.season_number, season.id);
       const episodes = await getEpisodesBySeason(season.id);
       console.log("[AUTO IMPORT] EPISODES FOUND", episodes.length);
+      const seen = new Set<number>();
       episodes.forEach((ep) => {
+        if (seen.has(ep.episode_number)) return;
+        seen.add(ep.episode_number);
         tasks.push(async () => {
           const seasonNum = season.season_number;
           const seasonId = await ensureSeason(animeId, seasonNum);
           console.log("[AUTO IMPORT] SEASON FOUND", seasonId);
           const cdnUrl = expectedCdn(slug, seasonNum, ep.episode_number);
-          if (ep.video_path === cdnUrl && ep.stream_url === cdnUrl) {
+          const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
+          if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
             skipped += 1;
             return;
           }
@@ -76,7 +81,15 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
             await runYtDlp(sourceUrl, tmpFile);
             downloaded += 1;
             await uploadToBunny(remotePath, tmpFile);
-            await updateEpisodePath(ep.id, cdnUrl);
+            await upsertEpisodeByKey({
+              animeId,
+              seasonId,
+              episodeNumber: ep.episode_number,
+              cdnUrl,
+              hlsUrl: existing?.hls_url ?? null,
+              durationSeconds: existing?.duration_seconds ?? 0,
+              title: existing?.title || `Bölüm ${ep.episode_number}`,
+            });
             console.log("[AUTO IMPORT] DONE Ep", ep.episode_number);
           } catch (err: any) {
             failed += 1;

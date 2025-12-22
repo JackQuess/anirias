@@ -23,6 +23,8 @@ export type EpisodeRow = {
   video_path: string | null;
   stream_url: string | null;
   status: string | null;
+  hls_url?: string | null;
+  duration_seconds?: number | null;
   seasons?: { season_number?: number | null } | null;
 };
 
@@ -86,11 +88,69 @@ export async function getSeasonByNumber(animeId: string, seasonNumber: number): 
 export async function getEpisodesBySeason(seasonId: string): Promise<EpisodeRow[]> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status')
+    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status, hls_url, duration_seconds')
     .eq('season_id', seasonId)
     .order('episode_number', { ascending: true });
   if (error) throw new Error(`Episode fetch failed: ${error.message}`);
   return (data || []) as EpisodeRow[];
+}
+
+export async function getEpisodeByKey(animeId: string, seasonId: string, episodeNumber: number): Promise<EpisodeRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from('episodes')
+    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status, hls_url, duration_seconds')
+    .eq('anime_id', animeId)
+    .eq('season_id', seasonId)
+    .eq('episode_number', episodeNumber)
+    .maybeSingle();
+  if (error) throw new Error(`Episode fetch failed: ${error.message}`);
+  return data as EpisodeRow | null;
+}
+
+export async function upsertEpisodeByKey(params: {
+  animeId: string;
+  seasonId: string;
+  episodeNumber: number;
+  cdnUrl: string;
+  hlsUrl?: string | null;
+  durationSeconds?: number | null;
+  title?: string | null;
+}) {
+  const { animeId, seasonId, episodeNumber, cdnUrl, hlsUrl, durationSeconds, title } = params;
+  const existing = await getEpisodeByKey(animeId, seasonId, episodeNumber);
+  const payload = {
+    video_path: cdnUrl,
+    stream_url: cdnUrl,
+    hls_url: hlsUrl ?? existing?.hls_url ?? null,
+    duration_seconds: durationSeconds ?? existing?.duration_seconds ?? 0,
+    status: 'ready',
+    updated_at: new Date().toISOString(),
+    title: title || existing?.title || `Bölüm ${episodeNumber}`,
+  };
+
+  if (existing?.id) {
+    const { error } = await supabaseAdmin
+      .from('episodes')
+      .update(payload)
+      .eq('id', existing.id);
+    if (error) throw new Error(`Episode update failed: ${error.message}`);
+    return existing.id;
+  }
+
+  const insertPayload = {
+    ...payload,
+    anime_id: animeId,
+    season_id: seasonId,
+    episode_number: episodeNumber,
+    created_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabaseAdmin
+    .from('episodes')
+    .insert(insertPayload)
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(`Episode insert failed: ${error?.message}`);
+  return data.id;
 }
 
 export async function ensureSeason(animeId: string, seasonNumber: number): Promise<string> {
