@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:20-slim
 
 # Python 3.11 + tools
 RUN apt-get update && apt-get install -y \

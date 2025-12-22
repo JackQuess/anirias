@@ -5,6 +5,7 @@
 - `frontend/`: Vite/React istemci. API çağrıları için `VITE_API_BASE_URL` kullanır. Vercel’e deploy edilir.
 - `backend/`: Express tabanlı API (yt-dlp, Bunny, Supabase Service Role). Railway’e deploy edilir. Giriş: `src/index.ts`, rota: `POST /api/admin/auto-import-all`.
 - `supabase/`: SQL ve yardımcı dosyalar.
+- **Not:** Backend Node.js 20+ gerektirir.
 
 ## Env Dosyaları
 - `frontend/.env.example`: `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, vb.
@@ -17,6 +18,7 @@
 ## Deploy
 - Vercel: `frontend/` dizinini hedefleyin; `VITE_API_BASE_URL` olarak Railway backend URL’sini verin.
 - Railway: `backend/` dizinini Node 18+ ile deploy edin; .env.example’daki değişkenleri tanımlayın.
+- Railway: `backend/` dizinini Node 20+ ile deploy edin (Dockerfile Node 20-slim).
 
 # ANIRIAS - Production SQL Schema
 
