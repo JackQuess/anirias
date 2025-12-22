@@ -26,6 +26,11 @@ export type EpisodeRow = {
   seasons?: { season_number?: number | null } | null;
 };
 
+export type SeasonRow = {
+  id: string;
+  season_number: number;
+};
+
 const slugify = (str: string) =>
   str
     .toLowerCase()
@@ -55,6 +60,37 @@ export async function getEpisodesWithSeason(animeId: string): Promise<EpisodeRow
     ...row,
     seasons: row.seasons ? { season_number: row.seasons.season_number } : null,
   }));
+}
+
+export async function getSeasonsForAnime(animeId: string): Promise<SeasonRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from('seasons')
+    .select('id, season_number')
+    .eq('anime_id', animeId)
+    .order('season_number', { ascending: true });
+  if (error) throw new Error(`Season fetch failed: ${error.message}`);
+  return (data || []) as SeasonRow[];
+}
+
+export async function getSeasonByNumber(animeId: string, seasonNumber: number): Promise<SeasonRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from('seasons')
+    .select('id, season_number')
+    .eq('anime_id', animeId)
+    .eq('season_number', seasonNumber)
+    .maybeSingle();
+  if (error) throw new Error(`Season fetch failed: ${error.message}`);
+  return data as SeasonRow | null;
+}
+
+export async function getEpisodesBySeason(seasonId: string): Promise<EpisodeRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from('episodes')
+    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status')
+    .eq('season_id', seasonId)
+    .order('episode_number', { ascending: true });
+  if (error) throw new Error(`Episode fetch failed: ${error.message}`);
+  return (data || []) as EpisodeRow[];
 }
 
 export async function ensureSeason(animeId: string, seasonNumber: number): Promise<string> {

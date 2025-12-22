@@ -7,7 +7,9 @@ import {
   ensureAnimeSlug,
   ensureSeason,
   expectedCdn,
-  getEpisodesWithSeason,
+  getEpisodesBySeason,
+  getSeasonByNumber,
+  getSeasonsForAnime,
   updateEpisodePath,
 } from '../../services/supabaseAdmin.js';
 import { buildSourceUrl } from '../../services/episodeResolver.js';
@@ -23,57 +25,73 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    const { animeId, urlTemplate, seasonNumber } = req.body || {};
+    const { animeId, urlTemplate, seasonNumber, mode } = req.body || {};
     console.log("[AUTO IMPORT] INPUT", {
       animeId,
-      seasonNumber
+      seasonNumber,
+      mode
     });
     if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
 
     await mkdir(TMP_ROOT, { recursive: true });
 
     const slug = await ensureAnimeSlug(animeId);
-    const episodes = await getEpisodesWithSeason(animeId);
-    console.log("[AUTO IMPORT] EPISODES FOUND", episodes.length);
-    const filtered = seasonNumber ? episodes.filter((ep) => (ep.seasons?.season_number || 1) === Number(seasonNumber)) : episodes;
+    let seasons;
+    if (mode === 'all' || seasonNumber === null || seasonNumber === undefined) {
+      seasons = await getSeasonsForAnime(animeId);
+    } else {
+      const season = await getSeasonByNumber(animeId, Number(seasonNumber));
+      if (!season) return res.status(404).json({ success: false, error: 'Season not found' });
+      seasons = [season];
+    }
+    console.log("[AUTO IMPORT] SEASONS FOUND", seasons.length);
 
     let downloaded = 0;
     let skipped = 0;
     let failed = 0;
 
-    const tasks = filtered.map((ep) => async () => {
-      const seasonNum = ep.seasons?.season_number || 1;
-      const season = await ensureSeason(animeId, seasonNum);
-      console.log("[AUTO IMPORT] SEASON FOUND", season);
-      const cdnUrl = expectedCdn(slug, seasonNum, ep.episode_number);
-      if (ep.video_path === cdnUrl && ep.stream_url === cdnUrl) {
-        skipped += 1;
-        return;
-      }
+    const tasks: Array<() => Promise<void>> = [];
 
-      const remotePath = `${slug}/season-${seasonNum}/episode-${ep.episode_number}.mp4`;
-      const sourceUrl = buildSourceUrl(slug, seasonNum, ep.episode_number, urlTemplate);
-      const tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNum}`, `episode-${ep.episode_number}.mp4`);
+    for (const season of seasons) {
+      console.log("[AUTO IMPORT] CURRENT SEASON", season.season_number, season.id);
+      const episodes = await getEpisodesBySeason(season.id);
+      console.log("[AUTO IMPORT] EPISODES FOUND", episodes.length);
+      episodes.forEach((ep) => {
+        tasks.push(async () => {
+          const seasonNum = season.season_number;
+          const seasonId = await ensureSeason(animeId, seasonNum);
+          console.log("[AUTO IMPORT] SEASON FOUND", seasonId);
+          const cdnUrl = expectedCdn(slug, seasonNum, ep.episode_number);
+          if (ep.video_path === cdnUrl && ep.stream_url === cdnUrl) {
+            skipped += 1;
+            return;
+          }
 
-      try {
-        await runYtDlp(sourceUrl, tmpFile);
-        downloaded += 1;
-        await uploadToBunny(remotePath, tmpFile);
-        await updateEpisodePath(ep.id, cdnUrl);
-      } catch (err: any) {
-        failed += 1;
-        // eslint-disable-next-line no-console
-        console.error(`[AutoImport] Ep ${ep.episode_number} failed:`, err?.message || err);
-      } finally {
-        await rm(tmpFile, { force: true });
-      }
-    });
+          const remotePath = `${slug}/season-${seasonNum}/episode-${ep.episode_number}.mp4`;
+          const sourceUrl = buildSourceUrl(slug, seasonNum, ep.episode_number, urlTemplate);
+          const tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNum}`, `episode-${ep.episode_number}.mp4`);
+
+          try {
+            await runYtDlp(sourceUrl, tmpFile);
+            downloaded += 1;
+            await uploadToBunny(remotePath, tmpFile);
+            await updateEpisodePath(ep.id, cdnUrl);
+          } catch (err: any) {
+            failed += 1;
+            // eslint-disable-next-line no-console
+            console.error(`[AutoImport] Ep ${ep.episode_number} failed:`, err?.message || err);
+          } finally {
+            await rm(tmpFile, { force: true });
+          }
+        });
+      });
+    }
 
     await runWithConcurrency(tasks, MAX_CONCURRENCY);
 
     return res.json({
       success: failed === 0,
-      total: filtered.length,
+      total: tasks.length,
       downloaded,
       skipped,
       failed,

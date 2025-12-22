@@ -18,6 +18,7 @@ const AdminEpisodes: React.FC = () => {
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
   const [autoTemplate, setAutoTemplate] = useState<string>('https://animely.net/anime/{anime_slug}/izle/{episode_number}');
   const [autoSeasonNumber, setAutoSeasonNumber] = useState<number>(1);
+  const [autoMode, setAutoMode] = useState<'season' | 'all'>('season');
   const [autoResult, setAutoResult] = useState<any | null>(null);
   const [autoError, setAutoError] = useState<string | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
@@ -77,7 +78,11 @@ const AdminEpisodes: React.FC = () => {
 
   const runAutoImport = async () => {
     if (!animeId) return;
-    const ok = window.confirm(`Seçili anime ve sezon ${autoSeasonNumber} için Auto Import çalışacak. Emin misin?`);
+    const ok = window.confirm(
+      autoMode === 'all'
+        ? 'Seçili animedeki TÜM sezonlar için Auto Import çalışacak. Emin misin?'
+        : `Seçili anime ve sezon ${autoSeasonNumber} için Auto Import çalışacak. Emin misin?`
+    );
     if (!ok) return;
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
     if (!apiBase) {
@@ -98,7 +103,8 @@ const AdminEpisodes: React.FC = () => {
         body: JSON.stringify({
           animeId,
           urlTemplate: autoTemplate,
-          seasonNumber: autoSeasonNumber
+          seasonNumber: autoMode === 'season' ? autoSeasonNumber : null,
+          mode: autoMode
         })
       });
 
@@ -441,13 +447,41 @@ const AdminEpisodes: React.FC = () => {
                 </p>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Sezon</label>
-                <input
-                  type="number"
-                  value={autoSeasonNumber}
-                  onChange={(e) => setAutoSeasonNumber(parseInt(e.target.value) || autoSeasonNumber)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-emerald-400"
-                />
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Mod</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAutoMode('season')}
+                    className={`flex-1 px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                      autoMode === 'season'
+                        ? 'bg-emerald-500 text-white border-emerald-400'
+                        : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Sadece Seçili Sezon
+                  </button>
+                  <button
+                    onClick={() => setAutoMode('all')}
+                    className={`flex-1 px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                      autoMode === 'all'
+                        ? 'bg-emerald-500 text-white border-emerald-400'
+                        : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Tüm Sezonlar (AUTO)
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Sezon</label>
+                  <input
+                    type="number"
+                    value={autoSeasonNumber}
+                    onChange={(e) => setAutoSeasonNumber(parseInt(e.target.value) || autoSeasonNumber)}
+                    className={`w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-emerald-400 ${
+                      autoMode === 'all' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={autoMode === 'all'}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Admin Token (X-ADMIN-TOKEN)</label>
