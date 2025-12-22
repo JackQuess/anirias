@@ -1,38 +1,19 @@
-import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-
-const YT_DLP_BIN = process.env.YTDLP_PATH || 'yt-dlp';
+import ytdlp from 'yt-dlp-exec';
 
 export async function runYtDlp(pageUrl: string, outFile: string): Promise<void> {
   await mkdir(path.dirname(outFile), { recursive: true });
 
-  const args = [
-    '-f',
-    'bv*+ba/b',
-    '--merge-output-format',
-    'mp4',
-    '--retries',
-    '3',
-    '--fragment-retries',
-    '3',
-    '--concurrent-fragments',
-    '8',
-    '--no-part',
-    '--no-continue',
-    '-o',
-    outFile,
-    pageUrl,
-  ];
-
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(YT_DLP_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stderr = '';
-    child.stderr.on('data', (d) => (stderr += d.toString()));
-    child.on('error', (err) => reject(err));
-    child.on('close', (code) => {
-      if (code === 0) return resolve();
-      reject(new Error(`yt-dlp exited with code ${code}: ${stderr}`));
-    });
-  });
+  await ytdlp(pageUrl, {
+    output: outFile,
+    format: 'bv*+ba/b',
+    mergeOutputFormat: 'mp4',
+    retries: 3,
+    fragmentRetries: 3,
+    concurrentFragments: 8,
+    noPart: true,
+    noContinue: true,
+    quiet: false,
+  } as any);
 }
