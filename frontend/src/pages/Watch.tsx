@@ -94,11 +94,31 @@ const Watch: React.FC = () => {
   // Data Loading
   const { data: anime } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
   const { data: episodes } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
-  
+
   const currentEpNum = parseInt(episodeId || '1');
-  const currentEpisode = episodes?.find(e => e.episode_number === currentEpNum);
-  const prevEpisode = episodes?.find(e => e.episode_number === currentEpNum - 1);
-  const nextEpisode = episodes?.find(e => e.episode_number === currentEpNum + 1);
+
+  const defaultSeasonNumber = useMemo(() => {
+    if (!episodes || episodes.length === 0) return 1;
+    const withSeason = episodes.filter((ep) => ep.seasons?.season_number);
+    if (withSeason.length > 0) {
+      return Math.min(...withSeason.map((ep) => ep.seasons?.season_number || 1));
+    }
+    return 1;
+  }, [episodes]);
+
+  const seasonNumber = useMemo(() => {
+    const match = episodes?.find((ep) => ep.episode_number === currentEpNum);
+    return match?.seasons?.season_number || defaultSeasonNumber;
+  }, [episodes, currentEpNum, defaultSeasonNumber]);
+
+  const seasonEpisodes = useMemo(() => {
+    if (!episodes) return [];
+    return episodes.filter((ep) => (ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber);
+  }, [episodes, seasonNumber, defaultSeasonNumber]);
+
+  const currentEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum);
+  const prevEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum - 1);
+  const nextEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum + 1);
 
   const fallbackCdnUrl = useMemo(() => {
     if (!anime?.slug || !currentEpisode?.seasons?.season_number) return null;
