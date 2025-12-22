@@ -10,6 +10,11 @@ export async function uploadToBunny(remotePath: string, localFile: string) {
     throw new Error('Bunny storage env vars missing');
   }
 
+  console.log("[BUNNY DEBUG]", {
+    zone: process.env.BUNNY_STORAGE_ZONE,
+    keyLen: process.env.BUNNY_STORAGE_API_KEY?.length
+  });
+
   const info = await stat(localFile);
   if (!info.isFile()) throw new Error('Local file missing for upload');
 
