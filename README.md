@@ -1,4 +1,23 @@
 
+# ANIRIAS Monorepo (Frontend + Backend)
+
+## Yapı
+- `frontend/`: Vite/React istemci. API çağrıları için `VITE_API_BASE_URL` kullanır. Vercel’e deploy edilir.
+- `backend/`: Express tabanlı API (yt-dlp, Bunny, Supabase Service Role). Railway’e deploy edilir. Giriş: `src/index.ts`, rota: `POST /api/admin/auto-import-all`.
+- `supabase/`: SQL ve yardımcı dosyalar.
+
+## Env Dosyaları
+- `frontend/.env.example`: `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, vb.
+- `backend/.env.example`: `ADMIN_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BUNNY_STORAGE_*`, `PORT`, `YTDLP_PATH`, `MAX_CONCURRENCY`.
+
+## Çalıştırma
+- Frontend: `cd frontend && npm install && npm run dev` (veya `npm run build`).
+- Backend: `cd backend && npm install && npm run dev` (veya `npm run build`).
+
+## Deploy
+- Vercel: `frontend/` dizinini hedefleyin; `VITE_API_BASE_URL` olarak Railway backend URL’sini verin.
+- Railway: `backend/` dizinini Node 18+ ile deploy edin; .env.example’daki değişkenleri tanımlayın.
+
 # ANIRIAS - Production SQL Schema
 
 Bu SQL komutlarını Supabase SQL Editöründe (SQL Editor) çalıştırarak veritabanınızı oluşturun.

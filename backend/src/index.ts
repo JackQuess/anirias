@@ -1,10 +1,10 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import autoImportRouter from './routes/admin/autoImport';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req: Request, res: Response) => res.json({ ok: true }));
 app.use('/api/admin', autoImportRouter);
 
 const PORT = Number(process.env.PORT || 3001);

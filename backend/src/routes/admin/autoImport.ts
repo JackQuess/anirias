@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { runYtDlp } from '../../services/ytDlp';
@@ -16,7 +16,7 @@ const router = Router();
 const TMP_ROOT = '/tmp/anirias';
 const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
 
-router.post('/auto-import-all', async (req, res) => {
+router.post('/auto-import-all', async (req: Request, res: Response) => {
   try {
     const adminToken = req.header('x-admin-token');
     if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {

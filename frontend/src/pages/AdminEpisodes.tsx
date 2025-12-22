@@ -79,13 +79,15 @@ const AdminEpisodes: React.FC = () => {
     if (!animeId) return;
     const ok = window.confirm(`Seçili anime ve sezon ${autoSeasonNumber} için Auto Import çalışacak. Emin misin?`);
     if (!ok) return;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (!apiBase) {
+      alert('VITE_API_BASE_URL tanımlı değil. Lütfen frontend .env dosyasında ayarla.');
+      return;
+    }
     setAutoRunning(true);
     setAutoError(null);
     setAutoResult(null);
     try {
-      const apiBase =
-        (import.meta as any).env?.VITE_API_BASE_URL ||
-        (typeof window !== 'undefined' ? window.location.origin : '');
       const url = `${apiBase}/api/admin/auto-import-all`;
       const res = await fetch(url, {
         method: 'POST',
