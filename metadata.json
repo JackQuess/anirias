@@ -1,0 +1,5 @@
+{
+  "name": "ANIRIAS",
+  "description": "Premium Anime Streaming Platform built with React, Supabase, and Tailwind CSS.",
+  "requestFramePermissions": []
+}
