@@ -128,7 +128,13 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
     workers.push(worker);
   }
   await Promise.all(workers);
-}, { connection });
+}, {
+  connection,
+  // Prevent long downloads from being marked stalled
+  lockDuration: 1000 * 60 * 15, // 15 minutes
+  stalledInterval: 1000 * 60 * 5, // check every 5 minutes
+  maxStalledCount: 2,
+});
 
 autoImportWorker.on('ready', () => console.log('[WORKER] Ready'));
 autoImportWorker.on('error', (err) => console.error('[WORKER] Error', err));
