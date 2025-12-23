@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import autoImportRouter from './routes/admin/autoImport.js';
+import autoImportProgressRouter from './routes/admin/autoImportProgress.js';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req: Request, res: Response) => res.json({ ok: true }));
 app.use('/api/admin', autoImportRouter);
+app.use('/api/admin', autoImportProgressRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
