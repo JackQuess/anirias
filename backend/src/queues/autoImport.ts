@@ -19,14 +19,20 @@ const connection: ConnectionOptions | undefined = redisUrl
     })()
   : undefined;
 
+console.log('[WORKER] Bootstrapping auto-import queue/worker');
 export const autoImportQueue = new Queue('auto-import', { connection });
+autoImportQueue
+  .waitUntilReady()
+  .then(() => console.log('[WORKER] Queue connected to Redis'))
+  .catch((err) => console.error('[WORKER] Queue connection error', err));
 
 const TMP_ROOT = '/tmp/anirias';
 const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
 
 type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' };
 
-new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
+export const autoImportWorker = new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
+  console.log('[WORKER] Job received', { jobId: job.id, data: job.data });
   const { animeId, seasonNumber, mode } = job.data;
   await mkdir(TMP_ROOT, { recursive: true });
   const slug = await ensureAnimeSlug(animeId);
@@ -123,3 +129,9 @@ new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
   }
   await Promise.all(workers);
 }, { connection });
+
+autoImportWorker.on('ready', () => console.log('[WORKER] Ready'));
+autoImportWorker.on('error', (err) => console.error('[WORKER] Error', err));
+autoImportWorker.on('active', (job) => console.log('[WORKER] Processing job', job.id));
+autoImportWorker.on('completed', (job) => console.log('[WORKER] Completed job', job.id));
+autoImportWorker.on('failed', (job, err) => console.error('[WORKER] Failed job', job?.id, err));
