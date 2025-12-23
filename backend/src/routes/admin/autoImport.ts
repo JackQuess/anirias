@@ -24,7 +24,7 @@ let importProgress: {
   success: number;
   failed: number;
   currentEpisode: number | null;
-  status: 'idle' | 'running' | 'done';
+  status: 'idle' | 'running' | 'done' | 'failed';
 } = { total: 0, processed: 0, success: 0, failed: 0, currentEpisode: null, status: 'idle' };
 
 router.post('/auto-import-all', async (req: Request, res: Response) => {
