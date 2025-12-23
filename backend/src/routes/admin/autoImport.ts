@@ -27,6 +27,15 @@ let importProgress: {
   status: 'idle' | 'running' | 'done' | 'failed';
 } = { total: 0, processed: 0, success: 0, failed: 0, currentEpisode: null, status: 'idle' };
 
+router.use((req, res, next) => {
+  const origin = process.env.CORS_ORIGIN || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 router.post('/auto-import-all', async (req: Request, res: Response) => {
   try {
     const adminToken = req.header('x-admin-token');
