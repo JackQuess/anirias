@@ -267,7 +267,15 @@ export const db = {
 
   addComment: async (comment: Partial<Comment>) => {
     if (!checkEnv()) return;
-    await supabase!.from('comments').insert([comment]);
+    const payload = {
+      user_id: comment.user_id,
+      anime_id: comment.anime_id,
+      episode_id: comment.episode_id ?? null,
+      episode_no: comment.episode_no ?? null,
+      text: comment.text,
+      created_at: new Date().toISOString()
+    };
+    await supabase!.from('comments').insert([payload]);
   },
 
   // --- PROFILE ---
