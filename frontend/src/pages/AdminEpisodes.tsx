@@ -124,7 +124,8 @@ const AdminEpisodes: React.FC = () => {
       if (!apiBase) return;
       const timer = setInterval(async () => {
         try {
-          const res = await fetch(`${apiBase}/api/admin/auto-import-progress`);
+          if (!autoResult?.jobId) return;
+          const res = await fetch(`${apiBase}/api/admin/auto-import-progress/${autoResult.jobId}`);
           const data = await res.json();
           setProgress((prev) => ({
             total: Number(data?.total ?? prev.total ?? 0),

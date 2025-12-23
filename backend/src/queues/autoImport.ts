@@ -1,0 +1,115 @@
+import { Queue, Worker, QueueScheduler, JobsOptions } from 'bullmq';
+import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../services/supabaseAdmin.js';
+import { buildAnimelyUrl } from '../services/episodeResolver.js';
+import { runYtDlp } from '../services/ytDlp.js';
+import { uploadToBunny } from '../services/bunnyUpload.js';
+import { mkdir, rm } from 'node:fs/promises';
+import path from 'node:path';
+
+const connection = { url: process.env.REDIS_URL };
+
+export const autoImportQueue = new Queue('auto-import', { connection });
+export const autoImportScheduler = new QueueScheduler('auto-import', { connection });
+
+const TMP_ROOT = '/tmp/anirias';
+const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
+
+type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' };
+
+new Worker<JobData>('auto-import', async (job) => {
+  const { animeId, seasonNumber, mode } = job.data;
+  await mkdir(TMP_ROOT, { recursive: true });
+  const slug = await ensureAnimeSlug(animeId);
+  const seasons = mode === 'all' || seasonNumber == null
+    ? await getSeasonsForAnime(animeId)
+    : (() => {
+        if (seasonNumber == null) return [];
+        return getSeasonByNumber(animeId, Number(seasonNumber)).then((s) => (s ? [s] : []));
+      })();
+  const seasonList = await seasons;
+  const tasks: Array<() => Promise<void>> = [];
+  for (const season of seasonList) {
+    const episodes = await getEpisodesBySeason(season.id);
+    const seen = new Set<number>();
+    episodes.forEach((ep) => {
+      if (seen.has(ep.episode_number)) return;
+      seen.add(ep.episode_number);
+      tasks.push(async () => {
+        const seasonId = await ensureSeason(animeId, season.season_number);
+        const cdnUrl = expectedCdn(slug, season.season_number, ep.episode_number);
+        const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
+        if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
+          const prev = (job.progress as any) || {};
+          await job.updateProgress({
+            total: tasks.length,
+            processed: (prev.processed || 0) + 1,
+            success: prev.success || 0,
+            failed: prev.failed || 0,
+            currentEpisode: ep.episode_number,
+          });
+          return;
+        }
+        const remotePath = `${slug}/season-${season.season_number}/episode-${ep.episode_number}.mp4`;
+        const sourceUrl = buildAnimelyUrl(slug, season.season_number, ep.episode_number);
+        const tmpFile = path.join(TMP_ROOT, animeId, `season-${season.season_number}`, `episode-${ep.episode_number}.mp4`);
+        let progress = (job.progress as any) || {};
+        try {
+          await job.updateProgress({
+            total: tasks.length,
+            processed: progress.processed || 0,
+            success: progress.success || 0,
+            failed: progress.failed || 0,
+            currentEpisode: ep.episode_number,
+          });
+          await runYtDlp(sourceUrl, tmpFile);
+          await uploadToBunny(remotePath, tmpFile);
+          await upsertEpisodeByKey({
+            animeId,
+            seasonId,
+            episodeNumber: ep.episode_number,
+            cdnUrl,
+            hlsUrl: existing?.hls_url ?? null,
+            durationSeconds: existing?.duration_seconds ?? 0,
+            title: existing?.title || `Bölüm ${ep.episode_number}`,
+          });
+          progress = (job.progress as any) || {};
+          await job.updateProgress({
+            total: tasks.length,
+            processed: (progress.processed || 0) + 1,
+            success: (progress.success || 0) + 1,
+            failed: progress.failed || 0,
+            currentEpisode: ep.episode_number,
+          });
+        } catch (err) {
+          progress = (job.progress as any) || {};
+          await job.updateProgress({
+            total: tasks.length,
+            processed: (progress.processed || 0) + 1,
+            success: progress.success || 0,
+            failed: (progress.failed || 0) + 1,
+            currentEpisode: ep.episode_number,
+          });
+        } finally {
+          await rm(tmpFile, { force: true });
+        }
+      });
+    });
+  }
+
+  await job.updateProgress({ total: tasks.length, processed: 0, success: 0, failed: 0, currentEpisode: null });
+
+  const queueTasks = [...tasks];
+  const workers: Promise<void>[] = [];
+  for (let i = 0; i < Math.min(MAX_CONCURRENCY, queueTasks.length); i++) {
+    const worker = (async function run() {
+      const next = queueTasks.shift();
+      if (!next) return;
+      await next();
+      if (queueTasks.length > 0) {
+        await run();
+      }
+    })();
+    workers.push(worker);
+  }
+  await Promise.all(workers);
+}, { connection });
