@@ -20,11 +20,12 @@ const TMP_ROOT = '/tmp/anirias';
 const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
 let importProgress: {
   total: number;
-  completed: number;
+  processed: number;
+  success: number;
   failed: number;
-  current: number | null;
+  currentEpisode: number | null;
   status: 'idle' | 'running' | 'completed' | 'failed';
-} = { total: 0, completed: 0, failed: 0, current: null, status: 'idle' };
+} = { total: 0, processed: 0, success: 0, failed: 0, currentEpisode: null, status: 'idle' };
 
 router.post('/auto-import-all', async (req: Request, res: Response) => {
   try {
@@ -76,7 +77,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
           const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
           if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
             skipped += 1;
-            importProgress.completed = downloaded + skipped;
+            importProgress.processed = downloaded + skipped + failed;
             return;
           }
 
@@ -85,7 +86,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
           const tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNum}`, `episode-${ep.episode_number}.mp4`);
 
           try {
-            importProgress.current = ep.episode_number;
+            importProgress.currentEpisode = ep.episode_number;
             console.log("[AUTO IMPORT] START Ep", ep.episode_number);
             await runYtDlp(sourceUrl, tmpFile);
             downloaded += 1;
@@ -100,12 +101,14 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
               title: existing?.title || `Bölüm ${ep.episode_number}`,
             });
             console.log("[AUTO IMPORT] DONE Ep", ep.episode_number);
-            importProgress.completed = downloaded + skipped;
+            importProgress.success = downloaded;
+            importProgress.processed = downloaded + skipped + failed;
           } catch (err: any) {
             failed += 1;
             // eslint-disable-next-line no-console
             console.error(`[AUTO IMPORT] FAIL Ep ${ep.episode_number}`, err?.message || err);
             importProgress.failed = failed;
+            importProgress.processed = downloaded + skipped + failed;
           } finally {
             await rm(tmpFile, { force: true });
           }
@@ -113,7 +116,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
       });
     }
 
-    importProgress = { total: tasks.length, completed: 0, failed: 0, current: null, status: 'running' };
+    importProgress = { total: tasks.length, processed: 0, success: 0, failed: 0, currentEpisode: null, status: 'running' };
     await runWithConcurrency(tasks, MAX_CONCURRENCY);
     importProgress.status = failed === 0 ? 'completed' : 'failed';
 
@@ -130,7 +133,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/auto-import/progress', (_req: Request, res: Response) => {
+router.get('/auto-import-progress', (_req: Request, res: Response) => {
   res.json(importProgress);
 });
 

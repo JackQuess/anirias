@@ -117,7 +117,7 @@ const AdminEpisodes: React.FC = () => {
       if (!apiBase) return;
       const timer = setInterval(async () => {
         try {
-          const res = await fetch(`${apiBase}/api/admin/auto-import/progress`);
+          const res = await fetch(`${apiBase}/api/admin/auto-import-progress`);
           const data = await res.json();
           setProgress(data);
           if (data?.status === 'completed' || data?.status === 'failed') {
