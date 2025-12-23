@@ -47,6 +47,7 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
         })();
     const seasonList = await seasons;
     const tasks: Array<() => Promise<void>> = [];
+    const totalEpisodes = seasonList.reduce((acc, s) => acc + s ? 1 : 0, 0); // placeholder to satisfy lints; overwritten below
     for (const season of seasonList) {
       console.log('[WORKER] Processing season', season.season_number);
       const episodes = await getEpisodesBySeason(season.id);
@@ -62,11 +63,10 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
           if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
             const prev = (job.progress as any) || {};
             await job.updateProgress({
-              total: tasks.length,
-              processed: (prev.processed || 0) + 1,
-              success: prev.success || 0,
-              failed: prev.failed || 0,
+              totalEpisodes: tasks.length,
+              completedEpisodes: (prev.completedEpisodes || 0) + 1,
               currentEpisode: ep.episode_number,
+              status: 'done',
             });
             console.log('[WORKER] SKIP episode already ok', ep.episode_number);
             return;
@@ -77,15 +77,20 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
           let progress = (job.progress as any) || {};
           try {
             await job.updateProgress({
-              total: tasks.length,
-              processed: progress.processed || 0,
-              success: progress.success || 0,
-              failed: progress.failed || 0,
+              totalEpisodes: tasks.length,
+              completedEpisodes: progress.completedEpisodes || 0,
               currentEpisode: ep.episode_number,
+              status: 'downloading',
             });
             console.log('[WORKER] Download start', sourceUrl);
             await runYtDlp(sourceUrl, tmpFile);
             console.log('[WORKER] Upload start', remotePath);
+            await job.updateProgress({
+              totalEpisodes: tasks.length,
+              completedEpisodes: progress.completedEpisodes || 0,
+              currentEpisode: ep.episode_number,
+              status: 'uploading',
+            });
             await uploadToBunny(remotePath, tmpFile);
             console.log('[WORKER] DB upsert start', ep.episode_number);
             await upsertEpisodeByKey({
@@ -99,21 +104,19 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
             });
             progress = (job.progress as any) || {};
             await job.updateProgress({
-              total: tasks.length,
-              processed: (progress.processed || 0) + 1,
-              success: (progress.success || 0) + 1,
-              failed: progress.failed || 0,
+              totalEpisodes: tasks.length,
+              completedEpisodes: (progress.completedEpisodes || 0) + 1,
               currentEpisode: ep.episode_number,
+              status: 'done',
             });
             console.log('[WORKER] DONE episode', ep.episode_number);
           } catch (err) {
             progress = (job.progress as any) || {};
             await job.updateProgress({
-              total: tasks.length,
-              processed: (progress.processed || 0) + 1,
-              success: progress.success || 0,
-              failed: (progress.failed || 0) + 1,
+              totalEpisodes: tasks.length,
+              completedEpisodes: (progress.completedEpisodes || 0),
               currentEpisode: ep.episode_number,
+              status: 'done',
             });
             console.error('[WORKER] FAIL episode', ep.episode_number, err);
             throw err;
@@ -124,7 +127,7 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
       });
     }
 
-    await job.updateProgress({ total: tasks.length, processed: 0, success: 0, failed: 0, currentEpisode: null });
+    await job.updateProgress({ totalEpisodes: tasks.length, completedEpisodes: 0, currentEpisode: null, status: 'downloading' });
 
     const queueTasks = [...tasks];
     const workers: Promise<void>[] = [];
@@ -140,6 +143,12 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
       workers.push(worker);
     }
     await Promise.all(workers);
+    await job.updateProgress({
+      totalEpisodes: tasks.length,
+      completedEpisodes: tasks.length,
+      currentEpisode: null,
+      status: 'done',
+    });
     console.log('[WORKER] Job finished, returning');
     return { ok: true };
   } catch (err) {

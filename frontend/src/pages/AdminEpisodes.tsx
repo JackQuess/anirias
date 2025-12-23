@@ -125,17 +125,18 @@ const AdminEpisodes: React.FC = () => {
       const timer = setInterval(async () => {
         try {
           if (!autoResult?.jobId) return;
-          const res = await fetch(`${apiBase}/api/admin/auto-import-progress/${autoResult.jobId}`);
+          const res = await fetch(`${apiBase}/api/admin/auto-import/${autoResult.jobId}/progress`);
           const data = await res.json();
+          const prog = data?.progress || {};
           setProgress((prev) => ({
-            total: Number(data?.total ?? prev.total ?? 0),
-            processed: Number(data?.processed ?? prev.processed ?? 0),
-            success: Number(data?.success ?? prev.success ?? 0),
-            failed: Number(data?.failed ?? prev.failed ?? 0),
-            currentEpisode: data?.currentEpisode ?? null,
-            status: data?.status || 'idle'
+            total: Number(prog?.totalEpisodes ?? prev.total ?? 0),
+            processed: Number(prog?.completedEpisodes ?? prev.processed ?? 0),
+            success: Number(prog?.completedEpisodes ?? prev.success ?? 0),
+            failed: Number(prev.failed ?? 0),
+            currentEpisode: prog?.currentEpisode ?? null,
+            status: data?.state || 'idle'
           }));
-          if (data?.status === 'completed' || data?.status === 'failed') {
+          if (data?.state === 'completed' || data?.state === 'failed') {
             clearInterval(timer);
             setProgressTimer(null);
             setAutoRunning(false);
@@ -205,7 +206,7 @@ const AdminEpisodes: React.FC = () => {
         success: 0,
         failed: 0,
         currentEpisode: null,
-        status: 'running'
+        status: 'waiting'
       }));
     } catch (err: any) {
       setAutoError(err?.message || 'Auto import başarısız');

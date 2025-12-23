@@ -87,6 +87,27 @@ router.get('/auto-import-progress/:jobId', async (req: Request, res: Response) =
   }
 });
 
+router.get('/auto-import/:jobId/progress', async (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  try {
+    const job = await autoImportQueue.getJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    const state = await job.getState();
+    const progress: any = job.progress || {};
+    res.status(200).json({
+      state,
+      progress,
+      finishedOn: job.finishedOn,
+      failedReason: job.failedReason || null,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Progress fetch failed' });
+  }
+});
+
 router.get('/bunny/check-file', async (req: Request, res: Response) => {
   try {
     const adminToken = req.header('x-admin-token');
