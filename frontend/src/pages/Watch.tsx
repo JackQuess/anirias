@@ -88,12 +88,14 @@ const Watch: React.FC = () => {
   const [showControls, setShowControls] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [showMobileSheet, setShowMobileSheet] = useState(false);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   // Data Loading
   const { data: anime } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
   const { data: episodes } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
+  const { data: progressList } = useLoad(() => user ? db.getWatchProgressForAnime(user.id, animeId!) : Promise.resolve([]), [user, animeId]);
 
   const currentEpNum = parseInt(episodeId || '1');
 
@@ -119,6 +121,15 @@ const Watch: React.FC = () => {
   const currentEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum);
   const prevEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum - 1);
   const nextEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum + 1);
+  const progressMap = useMemo(() => {
+    const map = new Map<string, { progress: number; duration: number }>();
+    if (progressList) {
+      progressList.forEach((p: any) => {
+        map.set(p.episode_id, { progress: p.progress_seconds || 0, duration: p.duration_seconds || 0 });
+      });
+    }
+    return map;
+  }, [progressList]);
 
   const fallbackCdnUrl = useMemo(() => {
     if (!anime?.slug || !currentEpisode?.seasons?.season_number) return null;
@@ -375,7 +386,7 @@ const Watch: React.FC = () => {
             duration_seconds: Math.floor(videoRef.current.duration || 0)
           });
         }
-      }, 5000);
+      }, 10000);
       return () => clearInterval(interval);
     }
   }, [user, currentEpisode, animeId]);
@@ -421,7 +432,7 @@ const Watch: React.FC = () => {
           <div className="flex-1 space-y-4 lg:space-y-6 w-full min-w-0 overflow-hidden">
             <div 
               ref={playerContainerRef}
-              className="w-full aspect-video bg-black lg:rounded-[1.5rem] overflow-hidden lg:border border-white/5 shadow-2xl select-none sticky top-0 lg:static z-50 ring-1 ring-white/5"
+              className="w-full aspect-video bg-black lg:rounded-[1.5rem] overflow-hidden lg:border border-white/5 shadow-2xl select-none sticky top-0 lg:static z-50 ring-1 ring-white/5 max-h-[80vh]"
               onMouseMove={showControlsTemporary}
               onTouchStart={showControlsTemporary}
               onDoubleClick={toggleFullscreen}
@@ -488,11 +499,11 @@ const Watch: React.FC = () => {
                     </div>
 
                     <div className="relative flex items-center justify-center w-full px-3 md:px-8 pb-10 md:pb-16 pointer-events-auto">
-                      <div className="flex items-center justify-between w-full max-w-5xl gap-2 md:gap-5">
+                      <div className="flex items-center justify-between w-full max-w-5xl gap-3 md:gap-5">
                         <button
                           onClick={() => goToEpisode(prevEpisode)}
                           disabled={!prevEpisode}
-                          className={`relative w-10 h-10 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
+                          className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
                             prevEpisode ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
                           }`}
                         >
@@ -501,7 +512,7 @@ const Watch: React.FC = () => {
 
                         <button
                           onClick={() => skipTime(-10)}
-                          className="relative w-10 h-10 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
+                          className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
                         >
                           <RotateCcwIcon size={24} />
                           <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black tracking-tight">10</span>
@@ -509,14 +520,14 @@ const Watch: React.FC = () => {
 
                         <button
                           onClick={(e) => togglePlay(e as any)}
-                          className="w-[64px] h-[64px] md:w-20 md:h-20 rounded-full bg-white text-brand-black shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
+                          className="w-[76px] h-[76px] md:w-20 md:h-20 rounded-full bg-white text-brand-black shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
                         >
                           {isPlaying ? <PauseIcon size={40} /> : <PlayIcon size={40} />}
                         </button>
 
                         <button
                           onClick={() => skipTime(10)}
-                          className="relative w-10 h-10 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
+                          className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
                         >
                           <RotateCwIcon size={24} />
                           <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black tracking-tight">10</span>
@@ -525,7 +536,7 @@ const Watch: React.FC = () => {
                         <button
                           onClick={() => goToEpisode(nextEpisode)}
                           disabled={!nextEpisode}
-                          className={`relative w-10 h-10 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
+                          className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
                             nextEpisode ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
                           }`}
                         >
@@ -535,7 +546,7 @@ const Watch: React.FC = () => {
                     </div>
 
                     <div className="relative pointer-events-auto px-5 pb-6">
-                      <div className="relative h-[6px] bg-white/15 rounded-full overflow-hidden">
+                      <div className="relative h-[8px] bg-white/15 rounded-full overflow-hidden">
                         <div className="absolute top-0 left-0 h-full bg-white/30" style={{ width: `${duration ? (buffered / duration) * 100 : 0}%` }} />
                         <div className="absolute top-0 left-0 h-full bg-white" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
                         <input
@@ -549,7 +560,7 @@ const Watch: React.FC = () => {
                           onMouseUp={isMobile ? undefined : handleSeekEnd}
                           onTouchStart={handleSeekStart}
                           onTouchEnd={handleSeekEnd}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer touch-pan-x"
                         />
                       </div>
                       <div className="flex items-center justify-between text-white text-sm font-semibold tracking-wide mt-3 px-1 drop-shadow">
@@ -610,6 +621,20 @@ const Watch: React.FC = () => {
                          <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
                             <p className={`text-[9px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
+                            {progressMap.has(ep.id) && (
+                              <div className="mt-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-400"
+                                  style={{
+                                    width: `${(() => {
+                                      const p = progressMap.get(ep.id);
+                                      if (!p || !p.duration) return 0;
+                                      return Math.min(100, (p.progress / p.duration) * 100);
+                                    })()}%`
+                                  }}
+                                />
+                              </div>
+                            )}
                          </div>
                        </button>
                      );
@@ -637,6 +662,46 @@ const Watch: React.FC = () => {
                 </div>
              </div>
           </aside>
+
+          {/* Mobile bottom sheet for episode list */}
+          <div className="xl:hidden fixed bottom-4 left-0 right-0 z-[120] px-4">
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowMobileSheet((p) => !p)}
+                className="bg-brand-red text-white font-black uppercase tracking-widest text-[11px] px-4 py-3 rounded-2xl shadow-lg shadow-brand-red/30"
+              >
+                Bölüm Listesi
+              </button>
+            </div>
+            {showMobileSheet && (
+              <div className="mt-3 bg-brand-surface border border-brand-border rounded-3xl p-4 max-h-[50vh] overflow-y-auto space-y-2 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                  <h3 className="text-[11px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
+                  <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-sm">✕</button>
+                </div>
+                {episodes?.map((ep) => {
+                  const isCurrent = ep.episode_number === currentEpNum;
+                  return (
+                    <button
+                      key={ep.id}
+                      onClick={() => { navigate(`/watch/${animeId}/${ep.episode_number}`); setShowMobileSheet(false); }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left ${
+                        isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
+                        {ep.episode_number}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                        <p className="text-[10px] text-gray-400">24 DK</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
