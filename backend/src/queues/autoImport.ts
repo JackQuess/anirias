@@ -21,10 +21,17 @@ const connection: ConnectionOptions | undefined = redisUrl
 
 console.log('[WORKER] Bootstrapping auto-import queue/worker');
 export const autoImportQueue = new Queue('auto-import', { connection });
-autoImportQueue
+export let workerReady = false;
+export const workerReadyPromise = autoImportQueue
   .waitUntilReady()
-  .then(() => console.log('[WORKER] Queue connected to Redis'))
-  .catch((err) => console.error('[WORKER] Queue connection error', err));
+  .then(() => {
+    workerReady = true;
+    console.log('[WORKER] Queue connected to Redis');
+  })
+  .catch((err) => {
+    console.error('[WORKER] Queue connection error', err);
+    throw err;
+  });
 
 const TMP_ROOT = '/tmp/anirias';
 type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' };
@@ -80,9 +87,7 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
         const remotePath = `${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
         const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
         tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
-        const downloadPromise = runYtDlp(sourceUrl, tmpFile);
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Episode download timeout')), 1000 * 60));
-        await Promise.race([downloadPromise, timeout]);
+        await runYtDlp(sourceUrl, tmpFile);
         await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'uploading', percent: pct });
         await uploadToBunny(remotePath, tmpFile);
         await upsertEpisodeByKey({
@@ -137,3 +142,6 @@ autoImportWorker.on('error', (err: unknown) => console.error('[WORKER] Error', e
 autoImportWorker.on('active', (job: Job<JobData>) => console.log('[WORKER] Processing job', job.id));
 autoImportWorker.on('completed', (job: Job<JobData>) => console.log('[WORKER] Completed job', job.id));
 autoImportWorker.on('failed', (job: Job<JobData> | undefined, err: unknown) => console.error('[WORKER] Failed job', job?.id, err));
+autoImportWorker.on('progress', (job: Job<JobData>, progress) =>
+  console.log('[WORKER] Progress', { jobId: job.id, progress })
+);
