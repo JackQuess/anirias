@@ -6,5 +6,5 @@ export const proxyImage = (url?: string | null): string => {
   if (url.includes('images.weserv.nl/?url=')) return url;
   if (url.startsWith('/')) return url;
   const stripped = url.replace(/^https?:\/\//, '');
-  return `https://images.weserv.nl/?url=${stripped}`;
+  return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}`;
 };

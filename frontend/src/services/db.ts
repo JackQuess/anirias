@@ -271,7 +271,6 @@ export const db = {
       user_id: comment.user_id,
       anime_id: comment.anime_id,
       episode_id: comment.episode_id ?? null,
-      episode_no: comment.episode_no ?? null,
       text: comment.text,
       created_at: new Date().toISOString()
     };
