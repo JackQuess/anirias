@@ -27,7 +27,14 @@ const AdminEpisodes: React.FC = () => {
   const [cdnToken, setCdnToken] = useState('');
   const [cdnTestResult, setCdnTestResult] = useState<{ exists: boolean; status: number } | null>(null);
   const [cdnTesting, setCdnTesting] = useState(false);
-  const [progress, setProgress] = useState<{ total: number; completed: number; failed: number; current: number | null; status: string } | null>(null);
+  const [progress, setProgress] = useState<{ total: number; processed: number; success: number; failed: number; currentEpisode: number | null; status: string }>({
+    total: 0,
+    processed: 0,
+    success: 0,
+    failed: 0,
+    currentEpisode: null,
+    status: 'idle'
+  });
   const [progressTimer, setProgressTimer] = useState<ReturnType<typeof setInterval> | null>(null);
 
   // Form State for new Episode
@@ -119,7 +126,14 @@ const AdminEpisodes: React.FC = () => {
         try {
           const res = await fetch(`${apiBase}/api/admin/auto-import-progress`);
           const data = await res.json();
-          setProgress(data);
+          setProgress((prev) => ({
+            total: Number(data?.total ?? prev.total ?? 0),
+            processed: Number(data?.processed ?? prev.processed ?? 0),
+            success: Number(data?.success ?? prev.success ?? 0),
+            failed: Number(data?.failed ?? prev.failed ?? 0),
+            currentEpisode: data?.currentEpisode ?? null,
+            status: data?.status || 'idle'
+          }));
           if (data?.status === 'completed' || data?.status === 'failed') {
             clearInterval(timer);
             setProgressTimer(null);
@@ -185,11 +199,12 @@ const AdminEpisodes: React.FC = () => {
 
       setAutoResult(json);
       setProgress((p) => ({
-        total: json.total || p?.total || 0,
-        completed: json.downloaded + (json.skipped || 0),
-        failed: json.failed || 0,
-        current: null,
-        status: json.failed > 0 ? 'failed' : 'completed'
+        total: Number(json?.total ?? p.total ?? 0),
+        processed: Number((json?.downloaded ?? 0) + (json?.skipped ?? 0) + (json?.failed ?? 0)),
+        success: Number(json?.downloaded ?? 0),
+        failed: Number(json?.failed ?? 0),
+        currentEpisode: null,
+        status: json?.failed > 0 ? 'failed' : 'completed'
       }));
       reload();
       alert(`Toplam: ${json.total || 0} | Başarılı: ${json.downloaded || 0} | Hata: ${json.failed || 0}`);
@@ -656,7 +671,7 @@ const AdminEpisodes: React.FC = () => {
             {progress && (
               <div className="mt-3 bg-black/40 border border-white/10 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between text-sm text-white">
-                  <span>{progress.completed} / {progress.total} bölüm işlendi</span>
+                  <span>{progress.processed} / {progress.total} bölüm işlendi</span>
                   <span className={`text-xs font-black uppercase ${progress.status === 'completed' ? 'text-emerald-400' : progress.failed > 0 ? 'text-yellow-300' : 'text-white'}`}>
                     {progress.status === 'completed' ? 'Tamamlandı' : progress.status === 'failed' ? 'Hata' : 'Devam'}
                   </span>
@@ -664,11 +679,11 @@ const AdminEpisodes: React.FC = () => {
                 <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${progress.failed === progress.total ? 'bg-red-500' : progress.failed > 0 ? 'bg-yellow-400' : 'bg-emerald-400'}`}
-                    style={{ width: `${progress.total ? Math.min(100, (progress.completed / progress.total) * 100) : 0}%` }}
+                    style={{ width: `${progress.total ? Math.min(100, (progress.processed / progress.total) * 100) : 0}%` }}
                   />
                 </div>
                 <div className="flex items-center gap-3 text-[11px] text-gray-300">
-                  <span>Başarılı: {progress.completed - progress.failed}</span>
+                  <span>Başarılı: {progress.success}</span>
                   <span>Hata: {progress.failed}</span>
                   <span>Toplam: {progress.total}</span>
                 </div>
