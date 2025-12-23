@@ -23,6 +23,12 @@ const AdminEpisodes: React.FC = () => {
   const [autoError, setAutoError] = useState<string | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
   const [adminTokenInput, setAdminTokenInput] = useState('');
+  const [cdnTestUrl, setCdnTestUrl] = useState('');
+  const [cdnToken, setCdnToken] = useState('');
+  const [cdnTestResult, setCdnTestResult] = useState<{ exists: boolean; status: number } | null>(null);
+  const [cdnTesting, setCdnTesting] = useState(false);
+  const [progress, setProgress] = useState<{ total: number; completed: number; failed: number; current: number | null; status: string } | null>(null);
+  const [progressTimer, setProgressTimer] = useState<NodeJS.Timer | null>(null);
 
   // Form State for new Episode
   const [newEp, setNewEp] = useState<Partial<Episode>>({
@@ -76,6 +82,61 @@ const AdminEpisodes: React.FC = () => {
   };
   const formatHlsPreview = (url?: string | null) => url || '';
 
+  const handleCdnTest = async () => {
+    if (!cdnTestUrl) {
+      alert('CDN URL girin.');
+      return;
+    }
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (!apiBase) {
+      alert('VITE_API_BASE_URL tanımlı değil.');
+      return;
+    }
+    setCdnTesting(true);
+    setCdnTestResult(null);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/bunny/check-file?url=${encodeURIComponent(cdnTestUrl)}`, {
+        method: 'GET',
+        headers: {
+          'X-ADMIN-TOKEN': cdnToken || ''
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setCdnTestResult({ exists: !!data.exists, status: data.status });
+    } catch (err: any) {
+      alert(err?.message || 'CDN testi başarısız');
+    } finally {
+      setCdnTesting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (autoRunning) {
+      const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+      if (!apiBase) return;
+      const timer = setInterval(async () => {
+        try {
+          const res = await fetch(`${apiBase}/api/admin/auto-import/progress`);
+          const data = await res.json();
+          setProgress(data);
+          if (data?.status === 'completed' || data?.status === 'failed') {
+            clearInterval(timer);
+            setProgressTimer(null);
+            setAutoRunning(false);
+          }
+        } catch {
+          // ignore polling errors
+        }
+      }, 2000);
+      setProgressTimer(timer as any);
+      return () => {
+        clearInterval(timer);
+        setProgressTimer(null);
+      };
+    }
+  }, [autoRunning]);
+
   const runAutoImport = async () => {
     if (!animeId) return;
     const ok = window.confirm(
@@ -123,12 +184,23 @@ const AdminEpisodes: React.FC = () => {
       }
 
       setAutoResult(json);
+      setProgress((p) => ({
+        total: json.total || p?.total || 0,
+        completed: json.downloaded + (json.skipped || 0),
+        failed: json.failed || 0,
+        current: null,
+        status: json.failed > 0 ? 'failed' : 'completed'
+      }));
       reload();
       alert(`Toplam: ${json.total || 0} | Başarılı: ${json.downloaded || 0} | Hata: ${json.failed || 0}`);
     } catch (err: any) {
       setAutoError(err?.message || 'Auto import başarısız');
     } finally {
       setAutoRunning(false);
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        setProgressTimer(null);
+      }
     }
   };
 
@@ -260,6 +332,38 @@ const AdminEpisodes: React.FC = () => {
           >
             🎬 Video Patch
           </button>
+          <div className="flex items-center gap-2 bg-white/5 border border-brand-border rounded-2xl px-4 py-3">
+            <input
+              type="text"
+              value={cdnTestUrl}
+              onChange={(e) => setCdnTestUrl(e.target.value)}
+              placeholder="https://anirias-videos.b-cdn.net/..."
+              className="bg-transparent text-white text-xs outline-none flex-1"
+            />
+            <input
+              type="password"
+              value={cdnToken}
+              onChange={(e) => setCdnToken(e.target.value)}
+              placeholder="Admin Token"
+              className="bg-transparent text-white text-xs outline-none w-32"
+            />
+            <button
+              onClick={handleCdnTest}
+              disabled={cdnTesting}
+              className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl disabled:opacity-60"
+            >
+              CDN'de Test Et
+            </button>
+            {cdnTestResult && (
+              <span
+                className={`text-[10px] font-black uppercase px-3 py-1 rounded-xl ${
+                  cdnTestResult.exists ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                }`}
+              >
+                {cdnTestResult.exists ? `OK (${cdnTestResult.status})` : `YOK (${cdnTestResult.status})`}
+              </span>
+            )}
+          </div>
           <button
             onClick={() => setIsAutoModalOpen(true)}
             className="bg-emerald-500/20 hover:bg-emerald-500/30 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/40 transition-all"
@@ -549,6 +653,27 @@ const AdminEpisodes: React.FC = () => {
                 {autoRunning ? 'Çalışıyor...' : 'İçe Aktarmayı Başlat'}
               </button>
             </div>
+            {progress && (
+              <div className="mt-3 bg-black/40 border border-white/10 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm text-white">
+                  <span>{progress.completed} / {progress.total} bölüm işlendi</span>
+                  <span className={`text-xs font-black uppercase ${progress.status === 'completed' ? 'text-emerald-400' : progress.failed > 0 ? 'text-yellow-300' : 'text-white'}`}>
+                    {progress.status === 'completed' ? 'Tamamlandı' : progress.status === 'failed' ? 'Hata' : 'Devam'}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 ${progress.failed === progress.total ? 'bg-red-500' : progress.failed > 0 ? 'bg-yellow-400' : 'bg-emerald-400'}`}
+                    style={{ width: `${progress.total ? Math.min(100, (progress.completed / progress.total) * 100) : 0}%` }}
+                  />
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-gray-300">
+                  <span>Başarılı: {progress.completed - progress.failed}</span>
+                  <span>Hata: {progress.failed}</span>
+                  <span>Toplam: {progress.total}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

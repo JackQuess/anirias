@@ -216,6 +216,16 @@ export const db = {
     return data;
   },
 
+  getWatchProgressForAnime: async (userId: string, animeId: string): Promise<Array<{ episode_id: string; progress_seconds: number; duration_seconds: number }>> => {
+    if (!checkEnv()) return [];
+    const { data } = await supabase!
+      .from('watch_progress')
+      .select('episode_id, progress_seconds, duration_seconds')
+      .eq('user_id', userId)
+      .eq('anime_id', animeId);
+    return data || [];
+  },
+
   getContinueWatching: async (userId: string): Promise<WatchProgress[]> => {
     if (!checkEnv()) return [];
     const { data } = await supabase!.from('watch_progress')

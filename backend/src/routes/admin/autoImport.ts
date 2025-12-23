@@ -18,6 +18,13 @@ import { buildAnimelyUrl } from '../../services/episodeResolver.js';
 const router = Router();
 const TMP_ROOT = '/tmp/anirias';
 const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
+let importProgress: {
+  total: number;
+  completed: number;
+  failed: number;
+  current: number | null;
+  status: 'idle' | 'running' | 'completed' | 'failed';
+} = { total: 0, completed: 0, failed: 0, current: null, status: 'idle' };
 
 router.post('/auto-import-all', async (req: Request, res: Response) => {
   try {
@@ -69,6 +76,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
           const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
           if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
             skipped += 1;
+            importProgress.completed = downloaded + skipped;
             return;
           }
 
@@ -77,6 +85,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
           const tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNum}`, `episode-${ep.episode_number}.mp4`);
 
           try {
+            importProgress.current = ep.episode_number;
             console.log("[AUTO IMPORT] START Ep", ep.episode_number);
             await runYtDlp(sourceUrl, tmpFile);
             downloaded += 1;
@@ -91,10 +100,12 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
               title: existing?.title || `Bölüm ${ep.episode_number}`,
             });
             console.log("[AUTO IMPORT] DONE Ep", ep.episode_number);
+            importProgress.completed = downloaded + skipped;
           } catch (err: any) {
             failed += 1;
             // eslint-disable-next-line no-console
             console.error(`[AUTO IMPORT] FAIL Ep ${ep.episode_number}`, err?.message || err);
+            importProgress.failed = failed;
           } finally {
             await rm(tmpFile, { force: true });
           }
@@ -102,7 +113,9 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
       });
     }
 
+    importProgress = { total: tasks.length, completed: 0, failed: 0, current: null, status: 'running' };
     await runWithConcurrency(tasks, MAX_CONCURRENCY);
+    importProgress.status = failed === 0 ? 'completed' : 'failed';
 
     return res.json({
       success: failed === 0,
@@ -112,8 +125,13 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
       failed,
     });
   } catch (err: any) {
+    importProgress.status = 'failed';
     return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
   }
+});
+
+router.get('/auto-import/progress', (_req: Request, res: Response) => {
+  res.json(importProgress);
 });
 
 router.get('/bunny/check-file', async (req: Request, res: Response) => {
