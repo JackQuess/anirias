@@ -35,7 +35,6 @@ const AdminEpisodes: React.FC = () => {
     currentEpisode: number | null;
     status: string;
     percent: number;
-    mode?: string;
     message?: string;
     lastUpdateAt?: number;
     error?: string | null;
@@ -47,7 +46,6 @@ const AdminEpisodes: React.FC = () => {
     currentEpisode: null,
     status: 'idle',
     percent: 0,
-    mode: 'worker',
     message: '',
     lastUpdateAt: Date.now(),
     error: null
@@ -150,7 +148,6 @@ const AdminEpisodes: React.FC = () => {
           const percent = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : Number(prog?.percent ?? progress.percent ?? 0);
           const statusText = prog?.status || data?.state || 'idle';
           const message = prog?.message || (statusText === 'completed' ? 'Tamamlandı' : 'Devam ediyor');
-          const mode = prog?.mode || data?.mode || progress.mode || 'worker';
           setProgress((prev) => ({
             total: totalEpisodes,
             processed: completedEpisodes,
@@ -159,7 +156,6 @@ const AdminEpisodes: React.FC = () => {
             currentEpisode: prog?.currentEpisode ?? null,
             status: statusText,
             percent,
-            mode,
             message,
             lastUpdateAt: Date.now(),
             error: prog?.error ?? null
@@ -236,7 +232,6 @@ const AdminEpisodes: React.FC = () => {
         currentEpisode: null,
         status: 'waiting',
         percent: 0,
-        mode: json?.mode || 'worker',
         message: 'Başlatıldı',
         lastUpdateAt: Date.now(),
         error: null
@@ -706,7 +701,7 @@ const AdminEpisodes: React.FC = () => {
                 <div className="flex items-center justify-between text-sm text-white">
                   <span>{progress.processed} / {progress.total} bölüm işlendi</span>
                   <span className="text-[10px] font-black uppercase px-2 py-1 rounded-lg bg-white/10 text-gray-200">
-                    {progress.mode === 'fallback' ? 'Fallback' : 'Worker'} Mode
+                    Direct Mode
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-white/10 overflow-hidden">
