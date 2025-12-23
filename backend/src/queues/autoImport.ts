@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueScheduler, type Job } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../services/supabaseAdmin.js';
 import { buildAnimelyUrl } from '../services/episodeResolver.js';
 import { runYtDlp } from '../services/ytDlp.js';
@@ -6,10 +6,9 @@ import { uploadToBunny } from '../services/bunnyUpload.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-const connection = { url: process.env.REDIS_URL };
+const connection: any = process.env.REDIS_URL ? { url: process.env.REDIS_URL } : undefined;
 
 export const autoImportQueue = new Queue('auto-import', { connection });
-export const autoImportScheduler = new QueueScheduler('auto-import', { connection });
 
 const TMP_ROOT = '/tmp/anirias';
 const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
