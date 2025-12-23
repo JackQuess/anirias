@@ -234,9 +234,17 @@ const Watch: React.FC = () => {
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
-        await playerContainerRef.current?.requestFullscreen();
+        if (playerContainerRef.current?.requestFullscreen) {
+          await playerContainerRef.current.requestFullscreen();
+        } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
+          (videoRef.current as any).webkitEnterFullscreen();
+        }
       } else {
-        await document.exitFullscreen();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen();
+        }
       }
     } catch {
       // ignore
@@ -479,12 +487,12 @@ const Watch: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="relative flex items-center justify-center w-full px-4 md:px-8 pb-12 md:pb-16 pointer-events-auto">
-                      <div className="flex items-center justify-between w-full max-w-5xl gap-3 md:gap-5">
+                    <div className="relative flex items-center justify-center w-full px-3 md:px-8 pb-10 md:pb-16 pointer-events-auto">
+                      <div className="flex items-center justify-between w-full max-w-5xl gap-2 md:gap-5">
                         <button
                           onClick={() => goToEpisode(prevEpisode)}
                           disabled={!prevEpisode}
-                          className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
+                          className={`relative w-10 h-10 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
                             prevEpisode ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
                           }`}
                         >
@@ -493,7 +501,7 @@ const Watch: React.FC = () => {
 
                         <button
                           onClick={() => skipTime(-10)}
-                          className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
+                          className="relative w-10 h-10 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
                         >
                           <RotateCcwIcon size={24} />
                           <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black tracking-tight">10</span>
@@ -501,14 +509,14 @@ const Watch: React.FC = () => {
 
                         <button
                           onClick={(e) => togglePlay(e as any)}
-                          className="w-[72px] h-[72px] md:w-20 md:h-20 rounded-full bg-white text-brand-black shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
+                          className="w-[64px] h-[64px] md:w-20 md:h-20 rounded-full bg-white text-brand-black shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
                         >
                           {isPlaying ? <PauseIcon size={40} /> : <PlayIcon size={40} />}
                         </button>
 
                         <button
                           onClick={() => skipTime(10)}
-                          className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
+                          className="relative w-10 h-10 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
                         >
                           <RotateCwIcon size={24} />
                           <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black tracking-tight">10</span>
@@ -517,7 +525,7 @@ const Watch: React.FC = () => {
                         <button
                           onClick={() => goToEpisode(nextEpisode)}
                           disabled={!nextEpisode}
-                          className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
+                          className={`relative w-10 h-10 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
                             nextEpisode ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
                           }`}
                         >
