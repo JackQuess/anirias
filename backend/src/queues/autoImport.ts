@@ -33,101 +33,119 @@ type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' 
 
 export const autoImportWorker = new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
   console.log('[WORKER] Job received', { jobId: job.id, data: job.data });
-  const { animeId, seasonNumber, mode } = job.data;
-  await mkdir(TMP_ROOT, { recursive: true });
-  const slug = await ensureAnimeSlug(animeId);
-  const seasons = mode === 'all' || seasonNumber == null
-    ? await getSeasonsForAnime(animeId)
-    : (() => {
-        if (seasonNumber == null) return [];
-        return getSeasonByNumber(animeId, Number(seasonNumber)).then((s) => (s ? [s] : []));
-      })();
-  const seasonList = await seasons;
-  const tasks: Array<() => Promise<void>> = [];
-  for (const season of seasonList) {
-    const episodes = await getEpisodesBySeason(season.id);
-    const seen = new Set<number>();
-    episodes.forEach((ep) => {
-      if (seen.has(ep.episode_number)) return;
-      seen.add(ep.episode_number);
-      tasks.push(async () => {
-        const seasonId = await ensureSeason(animeId, season.season_number);
-        const cdnUrl = expectedCdn(slug, season.season_number, ep.episode_number);
-        const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
-        if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
-          const prev = (job.progress as any) || {};
-          await job.updateProgress({
-            total: tasks.length,
-            processed: (prev.processed || 0) + 1,
-            success: prev.success || 0,
-            failed: prev.failed || 0,
-            currentEpisode: ep.episode_number,
-          });
-          return;
-        }
-        const remotePath = `${slug}/season-${season.season_number}/episode-${ep.episode_number}.mp4`;
-        const sourceUrl = buildAnimelyUrl(slug, season.season_number, ep.episode_number);
-        const tmpFile = path.join(TMP_ROOT, animeId, `season-${season.season_number}`, `episode-${ep.episode_number}.mp4`);
-        let progress = (job.progress as any) || {};
-        try {
-          await job.updateProgress({
-            total: tasks.length,
-            processed: progress.processed || 0,
-            success: progress.success || 0,
-            failed: progress.failed || 0,
-            currentEpisode: ep.episode_number,
-          });
-          await runYtDlp(sourceUrl, tmpFile);
-          await uploadToBunny(remotePath, tmpFile);
-          await upsertEpisodeByKey({
-            animeId,
-            seasonId,
-            episodeNumber: ep.episode_number,
-            cdnUrl,
-            hlsUrl: existing?.hls_url ?? null,
-            durationSeconds: existing?.duration_seconds ?? 0,
-            title: existing?.title || `Bölüm ${ep.episode_number}`,
-          });
-          progress = (job.progress as any) || {};
-          await job.updateProgress({
-            total: tasks.length,
-            processed: (progress.processed || 0) + 1,
-            success: (progress.success || 0) + 1,
-            failed: progress.failed || 0,
-            currentEpisode: ep.episode_number,
-          });
-        } catch (err) {
-          progress = (job.progress as any) || {};
-          await job.updateProgress({
-            total: tasks.length,
-            processed: (progress.processed || 0) + 1,
-            success: progress.success || 0,
-            failed: (progress.failed || 0) + 1,
-            currentEpisode: ep.episode_number,
-          });
-        } finally {
-          await rm(tmpFile, { force: true });
-        }
+  try {
+    const { animeId, seasonNumber, mode } = job.data;
+    await mkdir(TMP_ROOT, { recursive: true });
+    console.log('[WORKER] Ensuring slug');
+    const slug = await ensureAnimeSlug(animeId);
+    console.log('[WORKER] Fetching seasons');
+    const seasons = mode === 'all' || seasonNumber == null
+      ? await getSeasonsForAnime(animeId)
+      : (() => {
+          if (seasonNumber == null) return [];
+          return getSeasonByNumber(animeId, Number(seasonNumber)).then((s) => (s ? [s] : []));
+        })();
+    const seasonList = await seasons;
+    const tasks: Array<() => Promise<void>> = [];
+    for (const season of seasonList) {
+      console.log('[WORKER] Processing season', season.season_number);
+      const episodes = await getEpisodesBySeason(season.id);
+      const seen = new Set<number>();
+      episodes.forEach((ep) => {
+        if (seen.has(ep.episode_number)) return;
+        seen.add(ep.episode_number);
+        tasks.push(async () => {
+          console.log('[WORKER] START episode', ep.episode_number);
+          const seasonId = await ensureSeason(animeId, season.season_number);
+          const cdnUrl = expectedCdn(slug, season.season_number, ep.episode_number);
+          const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
+          if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
+            const prev = (job.progress as any) || {};
+            await job.updateProgress({
+              total: tasks.length,
+              processed: (prev.processed || 0) + 1,
+              success: prev.success || 0,
+              failed: prev.failed || 0,
+              currentEpisode: ep.episode_number,
+            });
+            console.log('[WORKER] SKIP episode already ok', ep.episode_number);
+            return;
+          }
+          const remotePath = `${slug}/season-${season.season_number}/episode-${ep.episode_number}.mp4`;
+          const sourceUrl = buildAnimelyUrl(slug, season.season_number, ep.episode_number);
+          const tmpFile = path.join(TMP_ROOT, animeId, `season-${season.season_number}`, `episode-${ep.episode_number}.mp4`);
+          let progress = (job.progress as any) || {};
+          try {
+            await job.updateProgress({
+              total: tasks.length,
+              processed: progress.processed || 0,
+              success: progress.success || 0,
+              failed: progress.failed || 0,
+              currentEpisode: ep.episode_number,
+            });
+            console.log('[WORKER] Download start', sourceUrl);
+            await runYtDlp(sourceUrl, tmpFile);
+            console.log('[WORKER] Upload start', remotePath);
+            await uploadToBunny(remotePath, tmpFile);
+            console.log('[WORKER] DB upsert start', ep.episode_number);
+            await upsertEpisodeByKey({
+              animeId,
+              seasonId,
+              episodeNumber: ep.episode_number,
+              cdnUrl,
+              hlsUrl: existing?.hls_url ?? null,
+              durationSeconds: existing?.duration_seconds ?? 0,
+              title: existing?.title || `Bölüm ${ep.episode_number}`,
+            });
+            progress = (job.progress as any) || {};
+            await job.updateProgress({
+              total: tasks.length,
+              processed: (progress.processed || 0) + 1,
+              success: (progress.success || 0) + 1,
+              failed: progress.failed || 0,
+              currentEpisode: ep.episode_number,
+            });
+            console.log('[WORKER] DONE episode', ep.episode_number);
+          } catch (err) {
+            progress = (job.progress as any) || {};
+            await job.updateProgress({
+              total: tasks.length,
+              processed: (progress.processed || 0) + 1,
+              success: progress.success || 0,
+              failed: (progress.failed || 0) + 1,
+              currentEpisode: ep.episode_number,
+            });
+            console.error('[WORKER] FAIL episode', ep.episode_number, err);
+            throw err;
+          } finally {
+            await rm(tmpFile, { force: true });
+          }
+        });
       });
-    });
-  }
+    }
 
-  await job.updateProgress({ total: tasks.length, processed: 0, success: 0, failed: 0, currentEpisode: null });
+    await job.updateProgress({ total: tasks.length, processed: 0, success: 0, failed: 0, currentEpisode: null });
 
-  const queueTasks = [...tasks];
-  const workers: Promise<void>[] = [];
-  for (let i = 0; i < Math.min(MAX_CONCURRENCY, queueTasks.length); i++) {
-    const worker = (async function run() {
-      const next = queueTasks.shift();
-      if (!next) return;
-      await next();
-      if (queueTasks.length > 0) {
-        await run();
-      }
-    })();
-    workers.push(worker);
+    const queueTasks = [...tasks];
+    const workers: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(MAX_CONCURRENCY, queueTasks.length); i++) {
+      const worker = (async function run() {
+        const next = queueTasks.shift();
+        if (!next) return;
+        await next();
+        if (queueTasks.length > 0) {
+          await run();
+        }
+      })();
+      workers.push(worker);
+    }
+    await Promise.all(workers);
+    console.log('[WORKER] Job finished, returning');
+    return { ok: true };
+  } catch (err) {
+    console.error('[WORKER] Job error', err);
+    throw err;
   }
-  await Promise.all(workers);
 }, {
   connection,
   // Prevent long downloads from being marked stalled
