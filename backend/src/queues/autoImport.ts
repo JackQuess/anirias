@@ -67,36 +67,34 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
 
     const totalEpisodes = episodeQueue.length;
     let completedEpisodes = 0;
-    await job.updateProgress({
-      mode: 'worker',
-      totalEpisodes,
-      completedEpisodes,
-      currentEpisode: null,
-      status: 'preparing',
-      percent: 0,
-      message: 'Hazırlanıyor...',
-      lastUpdateAt: Date.now(),
-      error: null
-    });
-
-    const limit = 2;
-    const queue = [...episodeQueue];
-    const calcPercent = () => (totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0);
-    const runNext = async (): Promise<void> => {
-      const item = queue.shift();
-      if (!item) return;
-      const { seasonNumber, episodeNumber } = item;
-      const pctBase = calcPercent();
+    const progressUpdate = async (fields: Partial<any>) => {
+      const percent = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
       await job.updateProgress({
         mode: 'worker',
         totalEpisodes,
         completedEpisodes,
+        percent,
+        lastUpdateAt: Date.now(),
+        ...fields,
+      });
+    };
+
+    await progressUpdate({
+      currentEpisode: null,
+      status: 'preparing',
+      message: 'Hazırlanıyor...',
+      error: null,
+    });
+
+    const concurrency = 2;
+    const taskQueue = [...episodeQueue];
+    const runTask = async (item: { seasonNumber: number; episodeNumber: number; seasonId: string }) => {
+      const { seasonNumber, episodeNumber } = item;
+      await progressUpdate({
         currentEpisode: episodeNumber,
         status: 'downloading',
-        percent: pctBase,
         message: `Bölüm ${episodeNumber} indiriliyor (arka planda)`,
-        lastUpdateAt: Date.now(),
-        error: null
+        error: null,
       });
       console.log('[WORKER] START episode', episodeNumber);
       let tmpFile: string | null = null;
@@ -106,52 +104,31 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
         const existing = await getEpisodeByKey(animeId, ensuredSeasonId, episodeNumber);
         if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
           completedEpisodes += 1;
-          const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
-          await job.updateProgress({
-            mode: 'worker',
-            totalEpisodes,
-            completedEpisodes,
+          await progressUpdate({
             currentEpisode: episodeNumber,
             status: 'done',
-            percent: afterPct,
             message: `Bölüm ${episodeNumber} atlandı`,
-            lastUpdateAt: Date.now(),
-            error: null
+            error: null,
           });
           console.log('[WORKER] SKIP episode already ok', episodeNumber);
-          await runNext();
           return;
         }
         const remotePath = `${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
         const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
         tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
-        const downloadPromise = runYtDlp(sourceUrl, tmpFile);
-        const timeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Episode download timeout (20m)')), 1000 * 60 * 20)
-        );
-        await Promise.race([downloadPromise, timeout]);
-        await job.updateProgress({
-          mode: 'worker',
-          totalEpisodes,
-          completedEpisodes,
+        await runYtDlp(sourceUrl, tmpFile);
+        await progressUpdate({
           currentEpisode: episodeNumber,
           status: 'uploading',
-          percent: pctBase,
           message: `Bölüm ${episodeNumber} yükleniyor`,
-          lastUpdateAt: Date.now(),
-          error: null
+          error: null,
         });
         await uploadToBunny(remotePath, tmpFile);
-        await job.updateProgress({
-          mode: 'worker',
-          totalEpisodes,
-          completedEpisodes,
+        await progressUpdate({
           currentEpisode: episodeNumber,
           status: 'patching',
-          percent: pctBase,
           message: `Bölüm ${episodeNumber} Supabase güncelleniyor`,
-          lastUpdateAt: Date.now(),
-          error: null
+          error: null,
         });
         await upsertEpisodeByKey({
           animeId,
@@ -163,32 +140,20 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
           title: existing?.title || `Bölüm ${episodeNumber}`,
         });
         completedEpisodes += 1;
-        const afterPct = calcPercent();
-        await job.updateProgress({
-          mode: 'worker',
-          totalEpisodes,
-          completedEpisodes,
+        await progressUpdate({
           currentEpisode: episodeNumber,
           status: 'done',
-          percent: afterPct,
           message: `Bölüm ${episodeNumber} tamamlandı`,
-          lastUpdateAt: Date.now(),
-          error: null
+          error: null,
         });
         console.log('[WORKER] DONE episode', episodeNumber);
       } catch (err) {
         completedEpisodes += 1;
-        const afterPct = calcPercent();
-        await job.updateProgress({
-          mode: 'worker',
-          totalEpisodes,
-          completedEpisodes,
+        await progressUpdate({
           currentEpisode: episodeNumber,
           status: 'error',
-          percent: afterPct,
           message: `Bölüm ${episodeNumber} hata aldı`,
-          lastUpdateAt: Date.now(),
-          error: err instanceof Error ? err.message : 'unknown'
+          error: err instanceof Error ? err.message : 'unknown',
         });
         console.error('[WORKER] FAIL episode', episodeNumber, err);
       } finally {
@@ -196,16 +161,20 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
           await rm(tmpFile, { force: true });
         }
       }
-      if (queue.length > 0) {
-        await runNext();
-      }
     };
 
-    const workers: Promise<void>[] = [];
-    for (let i = 0; i < Math.min(limit, queue.length); i++) {
-      workers.push(runNext());
+    const runners: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(concurrency, taskQueue.length); i++) {
+      const runner = async () => {
+        while (taskQueue.length) {
+          const next = taskQueue.shift();
+          if (!next) break;
+          await runTask(next);
+        }
+      };
+      runners.push(runner());
     }
-    await Promise.all(workers);
+    await Promise.all(runners);
 
     await job.updateProgress({
       mode: 'worker',
