@@ -200,19 +200,17 @@ const AdminEpisodes: React.FC = () => {
 
       setAutoResult(json);
       setProgress((p) => ({
-        total: Number(json?.total ?? p.total ?? 0),
-        processed: Number((json?.downloaded ?? 0) + (json?.skipped ?? 0) + (json?.failed ?? 0)),
-        success: Number(json?.downloaded ?? 0),
-        failed: Number(json?.failed ?? 0),
+        total: p.total ?? 0,
+        processed: 0,
+        success: 0,
+        failed: 0,
         currentEpisode: null,
-        status: json?.failed > 0 ? 'failed' : 'completed'
+        status: 'running'
       }));
-      reload();
-      alert(`Toplam: ${json.total || 0} | Başarılı: ${json.downloaded || 0} | Hata: ${json.failed || 0}`);
     } catch (err: any) {
       setAutoError(err?.message || 'Auto import başarısız');
-    } finally {
       setAutoRunning(false);
+    } finally {
       if (progressTimer) {
         clearInterval(progressTimer);
         setProgressTimer(null);

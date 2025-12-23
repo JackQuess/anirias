@@ -32,7 +32,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
 
     console.log('[AUTO IMPORT] QUEUE ADD');
     const job = await autoImportQueue.add('auto-import', { animeId, seasonNumber, mode });
-    return res.json({ jobId: job.id });
+    return res.json({ jobId: job.id, status: 'queued' });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
   }
@@ -58,7 +58,7 @@ router.post('/auto-import', async (req: Request, res: Response) => {
 
     console.log('[AUTO IMPORT] QUEUE ADD');
     const job = await autoImportQueue.add('auto-import', { animeId, seasonNumber, mode });
-    return res.json({ jobId: job.id });
+    return res.json({ jobId: job.id, status: 'queued' });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
   }
