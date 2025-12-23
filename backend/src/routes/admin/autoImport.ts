@@ -116,6 +116,21 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/bunny/check-file', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    const url = req.query.url as string | undefined;
+    if (!url) return res.status(400).json({ success: false, error: 'url required' });
+    const head = await fetch(url, { method: 'HEAD' });
+    return res.json({ exists: head.ok, status: head.status });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Check failed' });
+  }
+});
+
 async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number) {
   const queue = [...tasks];
   const workers: Promise<void>[] = [];

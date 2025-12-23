@@ -25,6 +25,7 @@ export type EpisodeRow = {
   status: string | null;
   hls_url?: string | null;
   duration_seconds?: number | null;
+  title?: string | null;
   seasons?: { season_number?: number | null } | null;
 };
 

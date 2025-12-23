@@ -17,10 +17,11 @@ RUN ln -sf /usr/bin/python3.11 /usr/bin/python
 
 WORKDIR /app
 
-COPY backend/package*.json ./
+# If the build context is the backend folder, these paths work; if context is repo root, adjust build command to set context to backend/.
+COPY package*.json ./
 RUN npm install
 
-COPY backend .
+COPY . .
 
 RUN npm run build
 
