@@ -81,11 +81,12 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
 
     const limit = 2;
     const queue = [...episodeQueue];
+    const calcPercent = () => (totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0);
     const runNext = async (): Promise<void> => {
       const item = queue.shift();
       if (!item) return;
       const { seasonNumber, episodeNumber } = item;
-      const pctBase = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+      const pctBase = calcPercent();
       await job.updateProgress({
         mode: 'worker',
         totalEpisodes,
@@ -125,7 +126,9 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
         const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
         tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
         const downloadPromise = runYtDlp(sourceUrl, tmpFile);
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Episode download timeout (10m)')), 1000 * 60 * 10));
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Episode download timeout (20m)')), 1000 * 60 * 20)
+        );
         await Promise.race([downloadPromise, timeout]);
         await job.updateProgress({
           mode: 'worker',
@@ -139,6 +142,17 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
           error: null
         });
         await uploadToBunny(remotePath, tmpFile);
+        await job.updateProgress({
+          mode: 'worker',
+          totalEpisodes,
+          completedEpisodes,
+          currentEpisode: episodeNumber,
+          status: 'patching',
+          percent: pctBase,
+          message: `Bölüm ${episodeNumber} Supabase güncelleniyor`,
+          lastUpdateAt: Date.now(),
+          error: null
+        });
         await upsertEpisodeByKey({
           animeId,
           seasonId: ensuredSeasonId,
@@ -149,7 +163,7 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
           title: existing?.title || `Bölüm ${episodeNumber}`,
         });
         completedEpisodes += 1;
-        const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+        const afterPct = calcPercent();
         await job.updateProgress({
           mode: 'worker',
           totalEpisodes,
@@ -164,7 +178,7 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
         console.log('[WORKER] DONE episode', episodeNumber);
       } catch (err) {
         completedEpisodes += 1;
-        const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+        const afterPct = calcPercent();
         await job.updateProgress({
           mode: 'worker',
           totalEpisodes,
