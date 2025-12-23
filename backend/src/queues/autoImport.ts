@@ -1,4 +1,4 @@
-import { Queue, Worker, type Job } from 'bullmq';
+import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
 import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../services/supabaseAdmin.js';
 import { buildAnimelyUrl } from '../services/episodeResolver.js';
 import { runYtDlp } from '../services/ytDlp.js';
@@ -6,7 +6,18 @@ import { uploadToBunny } from '../services/bunnyUpload.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-const connection: any = process.env.REDIS_URL ? { url: process.env.REDIS_URL } : undefined;
+const redisUrl = process.env.REDIS_URL;
+const connection: ConnectionOptions | undefined = redisUrl
+  ? (() => {
+      const url = new URL(redisUrl);
+      return {
+        host: url.hostname,
+        port: Number(url.port || 6379),
+        password: url.password || undefined,
+        username: url.username || undefined,
+      };
+    })()
+  : undefined;
 
 export const autoImportQueue = new Queue('auto-import', { connection });
 
