@@ -27,8 +27,6 @@ autoImportQueue
   .catch((err) => console.error('[WORKER] Queue connection error', err));
 
 const TMP_ROOT = '/tmp/anirias';
-const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
-
 type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' };
 
 export const autoImportWorker = new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
@@ -46,8 +44,7 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
           return getSeasonByNumber(animeId, Number(seasonNumber)).then((s) => (s ? [s] : []));
         })();
     const seasonList = await seasons;
-    const tasks: Array<() => Promise<void>> = [];
-    const totalEpisodes = seasonList.reduce((acc, s) => acc + s ? 1 : 0, 0); // placeholder to satisfy lints; overwritten below
+    const episodeQueue: Array<{ seasonNumber: number; episodeNumber: number; seasonId: string }> = [];
     for (const season of seasonList) {
       console.log('[WORKER] Processing season', season.season_number);
       const episodes = await getEpisodesBySeason(season.id);
@@ -55,99 +52,71 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
       episodes.forEach((ep) => {
         if (seen.has(ep.episode_number)) return;
         seen.add(ep.episode_number);
-        tasks.push(async () => {
-          console.log('[WORKER] START episode', ep.episode_number);
-          const seasonId = await ensureSeason(animeId, season.season_number);
-          const cdnUrl = expectedCdn(slug, season.season_number, ep.episode_number);
-          const existing = await getEpisodeByKey(animeId, seasonId, ep.episode_number);
-          if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
-            const prev = (job.progress as any) || {};
-            await job.updateProgress({
-              totalEpisodes: tasks.length,
-              completedEpisodes: (prev.completedEpisodes || 0) + 1,
-              currentEpisode: ep.episode_number,
-              status: 'done',
-            });
-            console.log('[WORKER] SKIP episode already ok', ep.episode_number);
-            return;
-          }
-          const remotePath = `${slug}/season-${season.season_number}/episode-${ep.episode_number}.mp4`;
-          const sourceUrl = buildAnimelyUrl(slug, season.season_number, ep.episode_number);
-          const tmpFile = path.join(TMP_ROOT, animeId, `season-${season.season_number}`, `episode-${ep.episode_number}.mp4`);
-          let progress = (job.progress as any) || {};
-          try {
-            await job.updateProgress({
-              totalEpisodes: tasks.length,
-              completedEpisodes: progress.completedEpisodes || 0,
-              currentEpisode: ep.episode_number,
-              status: 'downloading',
-            });
-            console.log('[WORKER] Download start', sourceUrl);
-            await runYtDlp(sourceUrl, tmpFile);
-            console.log('[WORKER] Upload start', remotePath);
-            await job.updateProgress({
-              totalEpisodes: tasks.length,
-              completedEpisodes: progress.completedEpisodes || 0,
-              currentEpisode: ep.episode_number,
-              status: 'uploading',
-            });
-            await uploadToBunny(remotePath, tmpFile);
-            console.log('[WORKER] DB upsert start', ep.episode_number);
-            await upsertEpisodeByKey({
-              animeId,
-              seasonId,
-              episodeNumber: ep.episode_number,
-              cdnUrl,
-              hlsUrl: existing?.hls_url ?? null,
-              durationSeconds: existing?.duration_seconds ?? 0,
-              title: existing?.title || `Bölüm ${ep.episode_number}`,
-            });
-            progress = (job.progress as any) || {};
-            await job.updateProgress({
-              totalEpisodes: tasks.length,
-              completedEpisodes: (progress.completedEpisodes || 0) + 1,
-              currentEpisode: ep.episode_number,
-              status: 'done',
-            });
-            console.log('[WORKER] DONE episode', ep.episode_number);
-          } catch (err) {
-            progress = (job.progress as any) || {};
-            await job.updateProgress({
-              totalEpisodes: tasks.length,
-              completedEpisodes: (progress.completedEpisodes || 0),
-              currentEpisode: ep.episode_number,
-              status: 'done',
-            });
-            console.error('[WORKER] FAIL episode', ep.episode_number, err);
-            throw err;
-          } finally {
-            await rm(tmpFile, { force: true });
-          }
-        });
+        episodeQueue.push({ seasonNumber: season.season_number, episodeNumber: ep.episode_number, seasonId: season.id });
       });
     }
 
-    await job.updateProgress({ totalEpisodes: tasks.length, completedEpisodes: 0, currentEpisode: null, status: 'downloading' });
+    const totalEpisodes = episodeQueue.length;
+    let completedEpisodes = 0;
+    await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: null, status: 'downloading', percent: 0 });
 
-    const queueTasks = [...tasks];
-    const workers: Promise<void>[] = [];
-    for (let i = 0; i < Math.min(MAX_CONCURRENCY, queueTasks.length); i++) {
-      const worker = (async function run() {
-        const next = queueTasks.shift();
-        if (!next) return;
-        await next();
-        if (queueTasks.length > 0) {
-          await run();
+    for (const item of episodeQueue) {
+      const { seasonNumber, episodeNumber, seasonId } = item;
+      const pct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+      await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'downloading', percent: pct });
+      console.log('[WORKER] START episode', episodeNumber);
+      let tmpFile: string | null = null;
+      try {
+        const ensuredSeasonId = await ensureSeason(animeId, seasonNumber);
+        const cdnUrl = expectedCdn(slug, seasonNumber, episodeNumber);
+        const existing = await getEpisodeByKey(animeId, ensuredSeasonId, episodeNumber);
+        if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
+          completedEpisodes += 1;
+          const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+          await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'done', percent: afterPct });
+          console.log('[WORKER] SKIP episode already ok', episodeNumber);
+          continue;
         }
-      })();
-      workers.push(worker);
+        const remotePath = `${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
+        const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
+        tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
+        const downloadPromise = runYtDlp(sourceUrl, tmpFile);
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Episode download timeout')), 1000 * 60));
+        await Promise.race([downloadPromise, timeout]);
+        await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'uploading', percent: pct });
+        await uploadToBunny(remotePath, tmpFile);
+        await upsertEpisodeByKey({
+          animeId,
+          seasonId: ensuredSeasonId,
+          episodeNumber,
+          cdnUrl,
+          hlsUrl: existing?.hls_url ?? null,
+          durationSeconds: existing?.duration_seconds ?? 0,
+          title: existing?.title || `Bölüm ${episodeNumber}`,
+        });
+        completedEpisodes += 1;
+        const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+        await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'done', percent: afterPct });
+        console.log('[WORKER] DONE episode', episodeNumber);
+      } catch (err) {
+        completedEpisodes += 1;
+        const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+        await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'done', percent: afterPct });
+        console.error('[WORKER] FAIL episode', episodeNumber, err);
+        continue;
+      } finally {
+        if (tmpFile) {
+          await rm(tmpFile, { force: true });
+        }
+      }
     }
-    await Promise.all(workers);
+
     await job.updateProgress({
-      totalEpisodes: tasks.length,
-      completedEpisodes: tasks.length,
+      totalEpisodes,
+      completedEpisodes,
       currentEpisode: null,
       status: 'done',
+      percent: 100,
     });
     console.log('[WORKER] Job finished, returning');
     return { ok: true };
@@ -164,7 +133,7 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
 });
 
 autoImportWorker.on('ready', () => console.log('[WORKER] Ready'));
-autoImportWorker.on('error', (err) => console.error('[WORKER] Error', err));
-autoImportWorker.on('active', (job) => console.log('[WORKER] Processing job', job.id));
-autoImportWorker.on('completed', (job) => console.log('[WORKER] Completed job', job.id));
-autoImportWorker.on('failed', (job, err) => console.error('[WORKER] Failed job', job?.id, err));
+autoImportWorker.on('error', (err: unknown) => console.error('[WORKER] Error', err));
+autoImportWorker.on('active', (job: Job<JobData>) => console.log('[WORKER] Processing job', job.id));
+autoImportWorker.on('completed', (job: Job<JobData>) => console.log('[WORKER] Completed job', job.id));
+autoImportWorker.on('failed', (job: Job<JobData> | undefined, err: unknown) => console.error('[WORKER] Failed job', job?.id, err));
