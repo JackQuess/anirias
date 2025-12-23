@@ -1,6 +1,4 @@
-// bullmq types may be unavailable at build time; treat as any
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { Queue, Worker } = require('bullmq');
+import { Queue, Worker } from 'bullmq';
 type Job = any;
 type ConnectionOptions = any;
 import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../services/supabaseAdmin.js';
