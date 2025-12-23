@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# yt-dlp
-RUN pip3 install --no-cache-dir -U yt-dlp
+# yt-dlp (allow install in managed env)
+RUN python3 -m pip install --no-cache-dir --break-system-packages -U yt-dlp
 
 # Ensure python points to 3.11
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python
