@@ -725,6 +725,15 @@ const AdminEpisodes: React.FC = () => {
                   <span>Toplam: {progress.total}</span>
                   {progress.error && <span className="text-red-400">Hata: {progress.error}</span>}
                 </div>
+                <div className="text-xs text-gray-400">
+                  Bölüm indiriliyor (arka planda) · Bu işlem devam ederken sayfadan ayrılabilirsin
+                </div>
+                {(progress.status === 'downloading' || progress.status === 'uploading') && (
+                  <div className="flex items-center gap-2 text-gray-200 text-xs">
+                    <div className="h-3 w-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                    Devam ediyor
+                  </div>
+                )}
               </div>
             )}
           </div>

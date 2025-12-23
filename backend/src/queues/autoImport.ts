@@ -79,17 +79,21 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
       error: null
     });
 
-    for (const item of episodeQueue) {
-      const { seasonNumber, episodeNumber, seasonId } = item;
-      const pct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+    const limit = 2;
+    const queue = [...episodeQueue];
+    const runNext = async (): Promise<void> => {
+      const item = queue.shift();
+      if (!item) return;
+      const { seasonNumber, episodeNumber } = item;
+      const pctBase = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
       await job.updateProgress({
         mode: 'worker',
         totalEpisodes,
         completedEpisodes,
         currentEpisode: episodeNumber,
         status: 'downloading',
-        percent: pct,
-        message: `Bölüm ${episodeNumber} indiriliyor`,
+        percent: pctBase,
+        message: `Bölüm ${episodeNumber} indiriliyor (arka planda)`,
         lastUpdateAt: Date.now(),
         error: null
       });
@@ -114,19 +118,22 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
             error: null
           });
           console.log('[WORKER] SKIP episode already ok', episodeNumber);
-          continue;
+          await runNext();
+          return;
         }
         const remotePath = `${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
         const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
         tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
-        await runYtDlp(sourceUrl, tmpFile);
+        const downloadPromise = runYtDlp(sourceUrl, tmpFile);
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Episode download timeout (10m)')), 1000 * 60 * 10));
+        await Promise.race([downloadPromise, timeout]);
         await job.updateProgress({
           mode: 'worker',
           totalEpisodes,
           completedEpisodes,
           currentEpisode: episodeNumber,
           status: 'uploading',
-          percent: pct,
+          percent: pctBase,
           message: `Bölüm ${episodeNumber} yükleniyor`,
           lastUpdateAt: Date.now(),
           error: null
@@ -170,13 +177,21 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
           error: err instanceof Error ? err.message : 'unknown'
         });
         console.error('[WORKER] FAIL episode', episodeNumber, err);
-        continue;
       } finally {
         if (tmpFile) {
           await rm(tmpFile, { force: true });
         }
       }
+      if (queue.length > 0) {
+        await runNext();
+      }
+    };
+
+    const workers: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(limit, queue.length); i++) {
+      workers.push(runNext());
     }
+    await Promise.all(workers);
 
     await job.updateProgress({
       mode: 'worker',
@@ -198,7 +213,7 @@ export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
 }, {
   connection,
   // Prevent long downloads from being marked stalled
-  lockDuration: 1000 * 60 * 15, // 15 minutes
+  lockDuration: 1000 * 60 * 20, // 20 minutes
   stalledInterval: 1000 * 60 * 5, // check every 5 minutes
   maxStalledCount: 2,
 });
