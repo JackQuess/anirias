@@ -1,14 +1,16 @@
 import { Router, type Request, type Response } from 'express';
-import { autoImportQueue, autoImportWorker, workerReady, workerReadyPromise } from '../../queues/autoImport.js';
-import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../../services/supabaseAdmin.js';
-import { buildAnimelyUrl } from '../../services/episodeResolver.js';
-import { runYtDlp } from '../../services/ytDlp.js';
-import { uploadToBunny } from '../../services/bunnyUpload.js';
-import { mkdir, rm } from 'node:fs/promises';
-import path from 'node:path';
+import {
+  ensureAnimeSlug,
+  expectedCdn,
+  getEpisodesBySeason,
+  getSeasonByNumber,
+  getSeasonsForAnime,
+  getEpisodeByKey,
+  upsertEpisodeByKey
+} from '../../services/supabaseAdmin.js';
 
 const router = Router();
-const fallbackProgress: Record<string, any> = {};
+const directProgress: Record<string, any> = {};
 
 router.use((req, res, next) => {
   const origin = process.env.CORS_ORIGIN || '*';
@@ -20,128 +22,23 @@ router.use((req, res, next) => {
 });
 
 router.post('/auto-import-all', async (req: Request, res: Response) => {
-  try {
-    const adminToken = req.header('x-admin-token');
-    console.log('[AUTO IMPORT] HEADER TOKEN', adminToken);
-    console.log('[AUTO IMPORT] ENV TOKEN', process.env.ADMIN_TOKEN);
-    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    console.log('[AUTO IMPORT] RAW BODY', req.body);
-    const { animeId, seasonNumber, mode } = req.body || {};
-    console.log("[AUTO IMPORT] INPUT", {
-      animeId,
-      seasonNumber,
-      mode
-    });
-    if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
-
-    console.log('[AUTO IMPORT] QUEUE ADD');
-    try {
-      const job = await autoImportQueue.add('auto-import', { animeId, seasonNumber, mode });
-      const ready = await Promise.race([
-        workerReadyPromise.then(() => true).catch(() => false),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(workerReady), 3000))
-      ]);
-      if (!ready) throw new Error('Worker not ready, using fallback');
-      return res.json({ jobId: job.id, status: 'started', mode: 'worker' });
-    } catch (enqueueErr) {
-      console.error('[AUTO IMPORT] Worker enqueue failed, using fallback', enqueueErr);
-      const jobId = `fallback-${Date.now()}`;
-      runFallbackImport(jobId, { animeId, seasonNumber, mode }).catch((err) => {
-        console.error('[AUTO IMPORT] Fallback fatal error', err);
-      });
-      return res.json({ jobId, status: 'started', mode: 'fallback' });
-    }
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
-  }
+  return handleAutoImport(req, res);
 });
 
 router.post('/auto-import', async (req: Request, res: Response) => {
-  try {
-    const adminToken = req.header('x-admin-token');
-    console.log('[AUTO IMPORT] HEADER TOKEN', adminToken);
-    console.log('[AUTO IMPORT] ENV TOKEN', process.env.ADMIN_TOKEN);
-    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    console.log('[AUTO IMPORT] RAW BODY', req.body);
-    const { animeId, seasonNumber, mode } = req.body || {};
-    console.log("[AUTO IMPORT] INPUT", {
-      animeId,
-      seasonNumber,
-      mode
-    });
-    if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
-
-    console.log('[AUTO IMPORT] QUEUE ADD');
-    const job = await autoImportQueue.add('auto-import', { animeId, seasonNumber, mode });
-    return res.json({ jobId: job.id, status: 'queued' });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
-  }
+  return handleAutoImport(req, res);
 });
 
 router.get('/auto-import-progress/:jobId', async (req: Request, res: Response) => {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  try {
-    const job = await autoImportQueue.getJob(req.params.jobId);
-    if (!job) return res.status(404).json({ error: 'Job not found' });
-    const state = await job.getState();
-    const progress: any = job.progress || {};
-    res.status(200).json({
-      status: state,
-      totalEpisodes: progress.total ?? 0,
-      completed: progress.processed ?? 0,
-      failed: progress.failed ?? 0,
-      success: progress.success ?? 0,
-      currentEpisode: progress.currentEpisode ?? null,
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Progress fetch failed' });
-  }
+  const state = directProgress[req.params.jobId];
+  if (!state) return res.status(404).json({ error: 'Job not found' });
+  return res.json(state);
 });
 
 router.get('/auto-import/:jobId/progress', async (req: Request, res: Response) => {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  const fb = fallbackProgress[req.params.jobId];
-  if (fb) {
-    return res.status(200).json(fb);
-  }
-  try {
-    const job = await autoImportQueue.getJob(req.params.jobId);
-    if (!job) return res.status(404).json({ error: 'Job not found' });
-    const state = await job.getState();
-    const progress: any = job.progress || {};
-    res.status(200).json({
-      state,
-      progress: {
-        mode: progress.mode || 'worker',
-        status: progress.status || state,
-        currentEpisode: progress.currentEpisode ?? null,
-        totalEpisodes: progress.totalEpisodes ?? progress.total ?? 0,
-        completedEpisodes: progress.completedEpisodes ?? progress.processed ?? 0,
-        percent: progress.percent ?? 0,
-        message: progress.message || '',
-        lastUpdateAt: progress.lastUpdateAt || Date.now(),
-        error: progress.error || null,
-        failed: progress.failed ?? 0
-      },
-      finishedOn: job.finishedOn,
-      failedReason: job.failedReason || null,
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Progress fetch failed' });
-  }
+  const state = directProgress[req.params.jobId];
+  if (!state) return res.status(404).json({ error: 'Job not found' });
+  return res.json(state);
 });
 
 router.get('/bunny/check-file', async (req: Request, res: Response) => {
@@ -159,50 +56,36 @@ router.get('/bunny/check-file', async (req: Request, res: Response) => {
   }
 });
 
-async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number) {
-  const queue = [...tasks];
-  const workers: Promise<void>[] = [];
+export default router;
 
-  for (let i = 0; i < Math.min(limit, queue.length); i++) {
-    const worker = (async function run() {
-      const next = queue.shift();
-      if (!next) return;
-      try {
-        await next();
-      } finally {
-        if (queue.length > 0) {
-          await run();
-        }
-      }
-    })();
-    workers.push(worker as unknown as Promise<void>);
-  }
-
-  await Promise.all(workers);
-}
-
-async function runFallbackImport(jobId: string, params: { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' }) {
-  const { animeId, seasonNumber, mode } = params;
-  console.log('[FALLBACK] Start import', { jobId, animeId, seasonNumber, mode });
-  const progressState = {
-    state: 'active',
-    progress: {
-      mode: 'fallback',
-      totalEpisodes: 0,
-      completedEpisodes: 0,
-      currentEpisode: null as number | null,
-      status: 'preparing',
-      percent: 0,
-      message: 'Hazırlanıyor...',
-      lastUpdateAt: Date.now(),
-      error: null as string | null
-    },
-    finishedOn: null as number | null,
-    failedReason: null as string | null
-  };
-  fallbackProgress[jobId] = progressState;
+async function handleAutoImport(req: Request, res: Response) {
   try {
-    await mkdir('/tmp/anirias', { recursive: true });
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { animeId, seasonNumber, mode } = req.body || {};
+    if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
+
+    const jobId = `direct-${Date.now()}`;
+    directProgress[jobId] = {
+      state: 'active',
+      progress: {
+        mode: 'direct',
+        totalEpisodes: 0,
+        completedEpisodes: 0,
+        currentEpisode: null,
+        status: 'preparing',
+        percent: 0,
+        message: 'Hazırlanıyor...',
+        lastUpdateAt: Date.now(),
+        error: null
+      },
+      finishedOn: null,
+      failedReason: null
+    };
+
     const slug = await ensureAnimeSlug(animeId);
     const seasons = mode === 'all' || seasonNumber == null
       ? await getSeasonsForAnime(animeId)
@@ -212,6 +95,7 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
         })();
     const seasonList = await seasons;
     const episodeQueue: Array<{ seasonNumber: number; episodeNumber: number; seasonId: string }> = [];
+
     for (const season of seasonList) {
       const episodes = await getEpisodesBySeason(season.id);
       const seen = new Set<number>();
@@ -221,85 +105,106 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
         episodeQueue.push({ seasonNumber: season.season_number, episodeNumber: ep.episode_number, seasonId: season.id });
       });
     }
+
     const totalEpisodes = episodeQueue.length;
-    progressState.progress.totalEpisodes = totalEpisodes;
+    let completedEpisodes = 0;
+    let updated = 0;
+    let skipped = 0;
+    let missing = 0;
+
+    directProgress[jobId].progress.totalEpisodes = totalEpisodes;
+
     for (const item of episodeQueue) {
-      const { seasonNumber, episodeNumber } = item;
-      progressState.progress.currentEpisode = episodeNumber;
-      progressState.progress.status = 'downloading';
-      progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
-      progressState.progress.message = `Bölüm ${episodeNumber} indiriliyor`;
-      progressState.progress.lastUpdateAt = Date.now();
-      console.log('[FALLBACK] START episode', episodeNumber);
-      let tmpFile: string | null = null;
-      try {
-        const seasonId = await ensureSeason(animeId, seasonNumber);
-        const cdnUrl = expectedCdn(slug, seasonNumber, episodeNumber);
-        const existing = await getEpisodeByKey(animeId, seasonId, episodeNumber);
-        if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
-          progressState.progress.completedEpisodes += 1;
-          progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
-          progressState.progress.message = `Bölüm ${episodeNumber} atlandı`;
-          progressState.progress.lastUpdateAt = Date.now();
-          console.log('[FALLBACK] SKIP episode already ok', episodeNumber);
-          continue;
-        }
-        const remotePath = `${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
-        const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
-        tmpFile = path.join('/tmp/anirias', animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
-        await runYtDlp(sourceUrl, tmpFile);
-        progressState.progress.status = 'uploading';
-        progressState.progress.message = `Bölüm ${episodeNumber} yükleniyor`;
-        progressState.progress.lastUpdateAt = Date.now();
-        await uploadToBunny(remotePath, tmpFile);
-        await upsertEpisodeByKey({
-          animeId,
-          seasonId,
-          episodeNumber,
-          cdnUrl,
-          hlsUrl: existing?.hls_url ?? null,
-          durationSeconds: existing?.duration_seconds ?? 0,
-          title: existing?.title || `Bölüm ${episodeNumber}`,
-        });
-        progressState.progress.completedEpisodes += 1;
-        progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
-        progressState.progress.status = 'done';
-        progressState.progress.message = `Bölüm ${episodeNumber} tamamlandı`;
-        progressState.progress.lastUpdateAt = Date.now();
-        console.log('[FALLBACK] DONE episode', episodeNumber);
-      } catch (err) {
-        progressState.progress.completedEpisodes += 1;
-        progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
-        progressState.progress.status = 'error';
-        progressState.progress.message = `Bölüm ${episodeNumber} hata aldı`;
-        progressState.progress.error = err instanceof Error ? err.message : 'unknown';
-        progressState.progress.lastUpdateAt = Date.now();
-        console.error('[FALLBACK] FAIL episode', episodeNumber, err);
+      const { seasonNumber: sNo, episodeNumber: eNo, seasonId } = item;
+      const percent = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
+      directProgress[jobId].progress = {
+        ...directProgress[jobId].progress,
+        currentEpisode: eNo,
+        status: 'checking',
+        percent,
+        message: `Bölüm ${eNo} kontrol ediliyor`,
+        lastUpdateAt: Date.now(),
+        error: null
+      };
+
+      const cdnUrl = expectedCdn(slug, sNo, eNo);
+      const head = await fetch(cdnUrl, { method: 'HEAD' });
+      if (!head.ok) {
+        missing += 1;
+        completedEpisodes += 1;
+        directProgress[jobId].progress = {
+          ...directProgress[jobId].progress,
+          completedEpisodes,
+          status: 'error',
+          percent: totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0,
+          message: `Bölüm ${eNo} CDN bulunamadı`,
+          lastUpdateAt: Date.now(),
+          error: `HTTP ${head.status}`
+        };
         continue;
-      } finally {
-        if (tmpFile) await rm(tmpFile, { force: true });
       }
+
+      const existing = await getEpisodeByKey(animeId, seasonId, eNo);
+      if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
+        skipped += 1;
+        completedEpisodes += 1;
+        directProgress[jobId].progress = {
+          ...directProgress[jobId].progress,
+          completedEpisodes,
+          status: 'done',
+          percent: totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0,
+          message: `Bölüm ${eNo} zaten güncel`,
+          lastUpdateAt: Date.now(),
+          error: null
+        };
+        continue;
+      }
+
+      await upsertEpisodeByKey({
+        animeId,
+        seasonId,
+        episodeNumber: eNo,
+        cdnUrl,
+        hlsUrl: existing?.hls_url ?? null,
+        durationSeconds: existing?.duration_seconds ?? 0,
+        title: existing?.title || `Bölüm ${eNo}`
+      });
+
+      updated += 1;
+      completedEpisodes += 1;
+      directProgress[jobId].progress = {
+        ...directProgress[jobId].progress,
+        completedEpisodes,
+        status: 'done',
+        percent: totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0,
+        message: `Bölüm ${eNo} güncellendi`,
+        lastUpdateAt: Date.now(),
+        error: null
+      };
     }
-    progressState.state = 'completed';
-    progressState.finishedOn = Date.now();
-    progressState.progress.currentEpisode = null;
-    progressState.progress.status = 'done';
-    progressState.progress.percent = 100;
-    progressState.progress.message = 'İş tamamlandı';
-    progressState.progress.lastUpdateAt = Date.now();
-    fallbackProgress[jobId] = progressState;
-    console.log('[FALLBACK] Job completed', jobId);
+
+    directProgress[jobId].state = 'completed';
+    directProgress[jobId].finishedOn = Date.now();
+    directProgress[jobId].progress = {
+      ...directProgress[jobId].progress,
+      currentEpisode: null,
+      status: 'done',
+      percent: 100,
+      message: 'İş tamamlandı',
+      lastUpdateAt: Date.now()
+    };
+
+    return res.json({
+      success: true,
+      jobId,
+      status: 'completed',
+      mode: 'direct',
+      total: totalEpisodes,
+      updated,
+      skipped,
+      missing
+    });
   } catch (err: any) {
-    progressState.state = 'failed';
-    progressState.failedReason = err?.message || 'Fallback failed';
-    progressState.finishedOn = Date.now();
-    progressState.progress.status = 'error';
-    progressState.progress.message = 'İş hata aldı';
-    progressState.progress.error = err?.message || 'unknown';
-    progressState.progress.lastUpdateAt = Date.now();
-    fallbackProgress[jobId] = progressState;
-    console.error('[FALLBACK] Job failed', jobId, err);
+    return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
   }
 }
-
-export default router;

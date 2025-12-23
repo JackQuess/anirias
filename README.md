@@ -9,7 +9,7 @@
 
 ## Env Dosyaları
 - `frontend/.env.example`: `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, vb.
-- `backend/.env.example`: `ADMIN_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BUNNY_STORAGE_*`, `PORT`, `YTDLP_PATH`, `MAX_CONCURRENCY`.
+- `backend/.env.example`: `ADMIN_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BUNNY_STORAGE_*`, `PORT`.
 
 ## Çalıştırma
 - Frontend: `cd frontend && npm install && npm run dev` (veya `npm run build`).
