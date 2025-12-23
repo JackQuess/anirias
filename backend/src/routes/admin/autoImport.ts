@@ -15,10 +15,13 @@ router.use((req, res, next) => {
 router.post('/auto-import-all', async (req: Request, res: Response) => {
   try {
     const adminToken = req.header('x-admin-token');
+    console.log('[AUTO IMPORT] HEADER TOKEN', adminToken);
+    console.log('[AUTO IMPORT] ENV TOKEN', process.env.ADMIN_TOKEN);
     if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
+    console.log('[AUTO IMPORT] RAW BODY', req.body);
     const { animeId, seasonNumber, mode } = req.body || {};
     console.log("[AUTO IMPORT] INPUT", {
       animeId,
@@ -27,6 +30,33 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
     });
     if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
 
+    console.log('[AUTO IMPORT] QUEUE ADD');
+    const job = await autoImportQueue.add('auto-import', { animeId, seasonNumber, mode });
+    return res.json({ jobId: job.id });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });
+  }
+});
+
+router.post('/auto-import', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    console.log('[AUTO IMPORT] HEADER TOKEN', adminToken);
+    console.log('[AUTO IMPORT] ENV TOKEN', process.env.ADMIN_TOKEN);
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    console.log('[AUTO IMPORT] RAW BODY', req.body);
+    const { animeId, seasonNumber, mode } = req.body || {};
+    console.log("[AUTO IMPORT] INPUT", {
+      animeId,
+      seasonNumber,
+      mode
+    });
+    if (!animeId) return res.status(400).json({ success: false, error: 'animeId required' });
+
+    console.log('[AUTO IMPORT] QUEUE ADD');
     const job = await autoImportQueue.add('auto-import', { animeId, seasonNumber, mode });
     return res.json({ jobId: job.id });
   } catch (err: any) {
