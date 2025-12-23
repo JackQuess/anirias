@@ -28,7 +28,7 @@ const AdminEpisodes: React.FC = () => {
   const [cdnTestResult, setCdnTestResult] = useState<{ exists: boolean; status: number } | null>(null);
   const [cdnTesting, setCdnTesting] = useState(false);
   const [progress, setProgress] = useState<{ total: number; completed: number; failed: number; current: number | null; status: string } | null>(null);
-  const [progressTimer, setProgressTimer] = useState<NodeJS.Timer | null>(null);
+  const [progressTimer, setProgressTimer] = useState<ReturnType<typeof setInterval> | null>(null);
 
   // Form State for new Episode
   const [newEp, setNewEp] = useState<Partial<Episode>>({
