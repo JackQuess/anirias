@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueScheduler, JobsOptions } from 'bullmq';
+import { Queue, Worker, QueueScheduler, type Job } from 'bullmq';
 import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../services/supabaseAdmin.js';
 import { buildAnimelyUrl } from '../services/episodeResolver.js';
 import { runYtDlp } from '../services/ytDlp.js';
@@ -16,7 +16,7 @@ const MAX_CONCURRENCY = Number(process.env.MAX_CONCURRENCY || 2);
 
 type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' };
 
-new Worker<JobData>('auto-import', async (job) => {
+new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
   const { animeId, seasonNumber, mode } = job.data;
   await mkdir(TMP_ROOT, { recursive: true });
   const slug = await ensureAnimeSlug(animeId);
