@@ -24,7 +24,7 @@ let importProgress: {
   success: number;
   failed: number;
   currentEpisode: number | null;
-  status: 'idle' | 'running' | 'completed' | 'failed';
+  status: 'idle' | 'running' | 'done';
 } = { total: 0, processed: 0, success: 0, failed: 0, currentEpisode: null, status: 'idle' };
 
 router.post('/auto-import-all', async (req: Request, res: Response) => {
@@ -118,7 +118,7 @@ router.post('/auto-import-all', async (req: Request, res: Response) => {
 
     importProgress = { total: tasks.length, processed: 0, success: 0, failed: 0, currentEpisode: null, status: 'running' };
     await runWithConcurrency(tasks, MAX_CONCURRENCY);
-    importProgress.status = failed === 0 ? 'completed' : 'failed';
+    importProgress.status = 'done';
 
     return res.json({
       success: failed === 0,
