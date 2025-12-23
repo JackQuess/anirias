@@ -27,13 +27,30 @@ const AdminEpisodes: React.FC = () => {
   const [cdnToken, setCdnToken] = useState('');
   const [cdnTestResult, setCdnTestResult] = useState<{ exists: boolean; status: number } | null>(null);
   const [cdnTesting, setCdnTesting] = useState(false);
-  const [progress, setProgress] = useState<{ total: number; processed: number; success: number; failed: number; currentEpisode: number | null; status: string }>({
+  const [progress, setProgress] = useState<{
+    total: number;
+    processed: number;
+    success: number;
+    failed: number;
+    currentEpisode: number | null;
+    status: string;
+    percent: number;
+    mode?: string;
+    message?: string;
+    lastUpdateAt?: number;
+    error?: string | null;
+  }>({
     total: 0,
     processed: 0,
     success: 0,
     failed: 0,
     currentEpisode: null,
-    status: 'idle'
+    status: 'idle',
+    percent: 0,
+    mode: 'worker',
+    message: '',
+    lastUpdateAt: Date.now(),
+    error: null
   });
   const [progressTimer, setProgressTimer] = useState<ReturnType<typeof setInterval> | null>(null);
 
@@ -128,13 +145,24 @@ const AdminEpisodes: React.FC = () => {
           const res = await fetch(`${apiBase}/api/admin/auto-import/${autoResult.jobId}/progress`);
           const data = await res.json();
           const prog = data?.progress || {};
+          const totalEpisodes = Number(prog?.totalEpisodes ?? progress.total ?? 0);
+          const completedEpisodes = Number(prog?.completedEpisodes ?? prog?.processed ?? progress.processed ?? 0);
+          const percent = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : Number(prog?.percent ?? progress.percent ?? 0);
+          const statusText = prog?.status || data?.state || 'idle';
+          const message = prog?.message || (statusText === 'completed' ? 'Tamamlandı' : 'Devam ediyor');
+          const mode = prog?.mode || data?.mode || progress.mode || 'worker';
           setProgress((prev) => ({
-            total: Number(prog?.totalEpisodes ?? prev.total ?? 0),
-            processed: Number(prog?.completedEpisodes ?? prev.processed ?? 0),
-            success: Number(prog?.completedEpisodes ?? prev.success ?? 0),
-            failed: Number(prev.failed ?? 0),
+            total: totalEpisodes,
+            processed: completedEpisodes,
+            success: completedEpisodes,
+            failed: Number(prog?.failed ?? prev.failed ?? 0),
             currentEpisode: prog?.currentEpisode ?? null,
-            status: data?.state || 'idle'
+            status: statusText,
+            percent,
+            mode,
+            message,
+            lastUpdateAt: Date.now(),
+            error: prog?.error ?? null
           }));
           if (data?.state === 'completed' || data?.state === 'failed') {
             clearInterval(timer);
@@ -206,7 +234,12 @@ const AdminEpisodes: React.FC = () => {
         success: 0,
         failed: 0,
         currentEpisode: null,
-        status: 'waiting'
+        status: 'waiting',
+        percent: 0,
+        mode: json?.mode || 'worker',
+        message: 'Başlatıldı',
+        lastUpdateAt: Date.now(),
+        error: null
       }));
     } catch (err: any) {
       setAutoError(err?.message || 'Auto import başarısız');
@@ -672,20 +705,25 @@ const AdminEpisodes: React.FC = () => {
               <div className="mt-3 bg-black/40 border border-white/10 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between text-sm text-white">
                   <span>{progress.processed} / {progress.total} bölüm işlendi</span>
-                  <span className={`text-xs font-black uppercase ${progress.status === 'completed' ? 'text-emerald-400' : progress.failed > 0 ? 'text-yellow-300' : 'text-white'}`}>
-                    {progress.status === 'completed' ? 'Tamamlandı' : progress.status === 'failed' ? 'Hata' : 'Devam'}
+                  <span className="text-[10px] font-black uppercase px-2 py-1 rounded-lg bg-white/10 text-gray-200">
+                    {progress.mode === 'fallback' ? 'Fallback' : 'Worker'} Mode
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-500 ${progress.failed === progress.total ? 'bg-red-500' : progress.failed > 0 ? 'bg-yellow-400' : 'bg-emerald-400'}`}
-                    style={{ width: `${progress.total ? Math.min(100, (progress.processed / progress.total) * 100) : 0}%` }}
+                    className={`h-full transition-all duration-500 ${progress.status === 'error' ? 'bg-red-500' : progress.failed > 0 ? 'bg-yellow-400' : 'bg-emerald-400'}`}
+                    style={{ width: `${progress.percent || 0}%` }}
                   />
                 </div>
                 <div className="flex items-center gap-3 text-[11px] text-gray-300">
+                  <span className="text-white font-semibold">
+                    {progress.message || 'Devam ediyor...'}
+                    {progress.lastUpdateAt && Date.now() - progress.lastUpdateAt > 10000 ? ' (Still working...)' : ''}
+                  </span>
                   <span>Başarılı: {progress.success}</span>
                   <span>Hata: {progress.failed}</span>
                   <span>Toplam: {progress.total}</span>
+                  {progress.error && <span className="text-red-400">Hata: {progress.error}</span>}
                 </div>
               </div>
             )}

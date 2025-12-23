@@ -124,7 +124,18 @@ router.get('/auto-import/:jobId/progress', async (req: Request, res: Response) =
     const progress: any = job.progress || {};
     res.status(200).json({
       state,
-      progress,
+      progress: {
+        mode: progress.mode || 'worker',
+        status: progress.status || state,
+        currentEpisode: progress.currentEpisode ?? null,
+        totalEpisodes: progress.totalEpisodes ?? progress.total ?? 0,
+        completedEpisodes: progress.completedEpisodes ?? progress.processed ?? 0,
+        percent: progress.percent ?? 0,
+        message: progress.message || '',
+        lastUpdateAt: progress.lastUpdateAt || Date.now(),
+        error: progress.error || null,
+        failed: progress.failed ?? 0
+      },
       finishedOn: job.finishedOn,
       failedReason: job.failedReason || null,
     });
@@ -176,11 +187,15 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
   const progressState = {
     state: 'active',
     progress: {
+      mode: 'fallback',
       totalEpisodes: 0,
       completedEpisodes: 0,
       currentEpisode: null as number | null,
-      status: 'running',
-      percent: 0
+      status: 'preparing',
+      percent: 0,
+      message: 'Hazırlanıyor...',
+      lastUpdateAt: Date.now(),
+      error: null as string | null
     },
     finishedOn: null as number | null,
     failedReason: null as string | null
@@ -213,6 +228,8 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
       progressState.progress.currentEpisode = episodeNumber;
       progressState.progress.status = 'downloading';
       progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
+      progressState.progress.message = `Bölüm ${episodeNumber} indiriliyor`;
+      progressState.progress.lastUpdateAt = Date.now();
       console.log('[FALLBACK] START episode', episodeNumber);
       let tmpFile: string | null = null;
       try {
@@ -222,6 +239,8 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
         if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
           progressState.progress.completedEpisodes += 1;
           progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
+          progressState.progress.message = `Bölüm ${episodeNumber} atlandı`;
+          progressState.progress.lastUpdateAt = Date.now();
           console.log('[FALLBACK] SKIP episode already ok', episodeNumber);
           continue;
         }
@@ -230,6 +249,8 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
         tmpFile = path.join('/tmp/anirias', animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
         await runYtDlp(sourceUrl, tmpFile);
         progressState.progress.status = 'uploading';
+        progressState.progress.message = `Bölüm ${episodeNumber} yükleniyor`;
+        progressState.progress.lastUpdateAt = Date.now();
         await uploadToBunny(remotePath, tmpFile);
         await upsertEpisodeByKey({
           animeId,
@@ -243,11 +264,16 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
         progressState.progress.completedEpisodes += 1;
         progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
         progressState.progress.status = 'done';
+        progressState.progress.message = `Bölüm ${episodeNumber} tamamlandı`;
+        progressState.progress.lastUpdateAt = Date.now();
         console.log('[FALLBACK] DONE episode', episodeNumber);
       } catch (err) {
         progressState.progress.completedEpisodes += 1;
         progressState.progress.percent = totalEpisodes ? Math.round((progressState.progress.completedEpisodes / totalEpisodes) * 100) : 0;
-        progressState.progress.status = 'done';
+        progressState.progress.status = 'error';
+        progressState.progress.message = `Bölüm ${episodeNumber} hata aldı`;
+        progressState.progress.error = err instanceof Error ? err.message : 'unknown';
+        progressState.progress.lastUpdateAt = Date.now();
         console.error('[FALLBACK] FAIL episode', episodeNumber, err);
         continue;
       } finally {
@@ -259,12 +285,18 @@ async function runFallbackImport(jobId: string, params: { animeId: string; seaso
     progressState.progress.currentEpisode = null;
     progressState.progress.status = 'done';
     progressState.progress.percent = 100;
+    progressState.progress.message = 'İş tamamlandı';
+    progressState.progress.lastUpdateAt = Date.now();
     fallbackProgress[jobId] = progressState;
     console.log('[FALLBACK] Job completed', jobId);
   } catch (err: any) {
     progressState.state = 'failed';
     progressState.failedReason = err?.message || 'Fallback failed';
     progressState.finishedOn = Date.now();
+    progressState.progress.status = 'error';
+    progressState.progress.message = 'İş hata aldı';
+    progressState.progress.error = err?.message || 'unknown';
+    progressState.progress.lastUpdateAt = Date.now();
     fallbackProgress[jobId] = progressState;
     console.error('[FALLBACK] Job failed', jobId, err);
   }

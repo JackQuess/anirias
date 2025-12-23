@@ -1,4 +1,8 @@
-import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
+// bullmq types may be unavailable at build time; treat as any
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { Queue, Worker } = require('bullmq');
+type Job = any;
+type ConnectionOptions = any;
 import { ensureAnimeSlug, ensureSeason, expectedCdn, getEpisodesBySeason, getSeasonByNumber, getSeasonsForAnime, getEpisodeByKey, upsertEpisodeByKey } from '../services/supabaseAdmin.js';
 import { buildAnimelyUrl } from '../services/episodeResolver.js';
 import { runYtDlp } from '../services/ytDlp.js';
@@ -28,7 +32,7 @@ export const workerReadyPromise = autoImportQueue
     workerReady = true;
     console.log('[WORKER] Queue connected to Redis');
   })
-  .catch((err) => {
+  .catch((err: unknown) => {
     console.error('[WORKER] Queue connection error', err);
     throw err;
   });
@@ -36,7 +40,7 @@ export const workerReadyPromise = autoImportQueue
 const TMP_ROOT = '/tmp/anirias';
 type JobData = { animeId: string; seasonNumber?: number | null; mode?: 'season' | 'all' };
 
-export const autoImportWorker = new Worker<JobData>('auto-import', async (job: Job<JobData>) => {
+export const autoImportWorker = new Worker('auto-import', async (job: Job) => {
   console.log('[WORKER] Job received', { jobId: job.id, data: job.data });
   try {
     const { animeId, seasonNumber, mode } = job.data;
@@ -65,12 +69,32 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
 
     const totalEpisodes = episodeQueue.length;
     let completedEpisodes = 0;
-    await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: null, status: 'downloading', percent: 0 });
+    await job.updateProgress({
+      mode: 'worker',
+      totalEpisodes,
+      completedEpisodes,
+      currentEpisode: null,
+      status: 'preparing',
+      percent: 0,
+      message: 'Hazırlanıyor...',
+      lastUpdateAt: Date.now(),
+      error: null
+    });
 
     for (const item of episodeQueue) {
       const { seasonNumber, episodeNumber, seasonId } = item;
       const pct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
-      await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'downloading', percent: pct });
+      await job.updateProgress({
+        mode: 'worker',
+        totalEpisodes,
+        completedEpisodes,
+        currentEpisode: episodeNumber,
+        status: 'downloading',
+        percent: pct,
+        message: `Bölüm ${episodeNumber} indiriliyor`,
+        lastUpdateAt: Date.now(),
+        error: null
+      });
       console.log('[WORKER] START episode', episodeNumber);
       let tmpFile: string | null = null;
       try {
@@ -80,7 +104,17 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
         if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
           completedEpisodes += 1;
           const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
-          await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'done', percent: afterPct });
+          await job.updateProgress({
+            mode: 'worker',
+            totalEpisodes,
+            completedEpisodes,
+            currentEpisode: episodeNumber,
+            status: 'done',
+            percent: afterPct,
+            message: `Bölüm ${episodeNumber} atlandı`,
+            lastUpdateAt: Date.now(),
+            error: null
+          });
           console.log('[WORKER] SKIP episode already ok', episodeNumber);
           continue;
         }
@@ -88,7 +122,17 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
         const sourceUrl = buildAnimelyUrl(slug, seasonNumber, episodeNumber);
         tmpFile = path.join(TMP_ROOT, animeId, `season-${seasonNumber}`, `episode-${episodeNumber}.mp4`);
         await runYtDlp(sourceUrl, tmpFile);
-        await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'uploading', percent: pct });
+        await job.updateProgress({
+          mode: 'worker',
+          totalEpisodes,
+          completedEpisodes,
+          currentEpisode: episodeNumber,
+          status: 'uploading',
+          percent: pct,
+          message: `Bölüm ${episodeNumber} yükleniyor`,
+          lastUpdateAt: Date.now(),
+          error: null
+        });
         await uploadToBunny(remotePath, tmpFile);
         await upsertEpisodeByKey({
           animeId,
@@ -101,12 +145,32 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
         });
         completedEpisodes += 1;
         const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
-        await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'done', percent: afterPct });
+        await job.updateProgress({
+          mode: 'worker',
+          totalEpisodes,
+          completedEpisodes,
+          currentEpisode: episodeNumber,
+          status: 'done',
+          percent: afterPct,
+          message: `Bölüm ${episodeNumber} tamamlandı`,
+          lastUpdateAt: Date.now(),
+          error: null
+        });
         console.log('[WORKER] DONE episode', episodeNumber);
       } catch (err) {
         completedEpisodes += 1;
         const afterPct = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0;
-        await job.updateProgress({ totalEpisodes, completedEpisodes, currentEpisode: episodeNumber, status: 'done', percent: afterPct });
+        await job.updateProgress({
+          mode: 'worker',
+          totalEpisodes,
+          completedEpisodes,
+          currentEpisode: episodeNumber,
+          status: 'error',
+          percent: afterPct,
+          message: `Bölüm ${episodeNumber} hata aldı`,
+          lastUpdateAt: Date.now(),
+          error: err instanceof Error ? err.message : 'unknown'
+        });
         console.error('[WORKER] FAIL episode', episodeNumber, err);
         continue;
       } finally {
@@ -117,11 +181,15 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
     }
 
     await job.updateProgress({
+      mode: 'worker',
       totalEpisodes,
       completedEpisodes,
       currentEpisode: null,
       status: 'done',
       percent: 100,
+      message: 'İş tamamlandı',
+      lastUpdateAt: Date.now(),
+      error: null
     });
     console.log('[WORKER] Job finished, returning');
     return { ok: true };
@@ -139,9 +207,9 @@ export const autoImportWorker = new Worker<JobData>('auto-import', async (job: J
 
 autoImportWorker.on('ready', () => console.log('[WORKER] Ready'));
 autoImportWorker.on('error', (err: unknown) => console.error('[WORKER] Error', err));
-autoImportWorker.on('active', (job: Job<JobData>) => console.log('[WORKER] Processing job', job.id));
-autoImportWorker.on('completed', (job: Job<JobData>) => console.log('[WORKER] Completed job', job.id));
-autoImportWorker.on('failed', (job: Job<JobData> | undefined, err: unknown) => console.error('[WORKER] Failed job', job?.id, err));
-autoImportWorker.on('progress', (job: Job<JobData>, progress) =>
+autoImportWorker.on('active', (job: Job) => console.log('[WORKER] Processing job', job.id));
+autoImportWorker.on('completed', (job: Job) => console.log('[WORKER] Completed job', job.id));
+autoImportWorker.on('failed', (job: Job | undefined, err: unknown) => console.error('[WORKER] Failed job', job?.id, err));
+autoImportWorker.on('progress', (job: Job, progress: any) =>
   console.log('[WORKER] Progress', { jobId: job.id, progress })
 );
