@@ -20,8 +20,7 @@ export type EpisodeRow = {
   anime_id: string;
   season_id: string;
   episode_number: number;
-  video_path: string | null;
-  stream_url: string | null;
+  video_url: string | null;
   status: string | null;
   hls_url?: string | null;
   duration_seconds?: number | null;
@@ -55,7 +54,7 @@ export async function ensureAnimeSlug(animeId: string): Promise<string> {
 export async function getEpisodesWithSeason(animeId: string): Promise<EpisodeRow[]> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status, seasons(season_number)')
+    .select('id, anime_id, season_id, episode_number, video_url, status, seasons(season_number)')
     .eq('anime_id', animeId)
     .order('episode_number', { ascending: true });
   if (error) throw new Error(`Episode fetch failed: ${error.message}`);
@@ -89,7 +88,7 @@ export async function getSeasonByNumber(animeId: string, seasonNumber: number): 
 export async function getEpisodesBySeason(seasonId: string): Promise<EpisodeRow[]> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status, hls_url, duration_seconds')
+    .select('id, anime_id, season_id, episode_number, video_url, status, hls_url, duration_seconds')
     .eq('season_id', seasonId)
     .order('episode_number', { ascending: true });
   if (error) throw new Error(`Episode fetch failed: ${error.message}`);
@@ -99,7 +98,7 @@ export async function getEpisodesBySeason(seasonId: string): Promise<EpisodeRow[
 export async function getEpisodeByKey(animeId: string, seasonId: string, episodeNumber: number): Promise<EpisodeRow | null> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, anime_id, season_id, episode_number, video_path, stream_url, status, hls_url, duration_seconds')
+    .select('id, anime_id, season_id, episode_number, video_url, status, hls_url, duration_seconds')
     .eq('anime_id', animeId)
     .eq('season_id', seasonId)
     .eq('episode_number', episodeNumber)
@@ -120,8 +119,7 @@ export async function upsertEpisodeByKey(params: {
   const { animeId, seasonId, episodeNumber, cdnUrl, hlsUrl, durationSeconds, title } = params;
   const existing = await getEpisodeByKey(animeId, seasonId, episodeNumber);
   const payload = {
-    video_path: cdnUrl,
-    stream_url: cdnUrl,
+    video_url: cdnUrl,
     hls_url: hlsUrl ?? existing?.hls_url ?? null,
     duration_seconds: durationSeconds ?? existing?.duration_seconds ?? 0,
     status: 'ready',
@@ -173,15 +171,15 @@ export async function ensureSeason(animeId: string, seasonNumber: number): Promi
 }
 
 export function expectedCdn(slug: string, seasonNumber: number, episodeNumber: number) {
-  return `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
+  const padded = episodeNumber.toString().padStart(2, '0');
+  return `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${padded}.mp4`;
 }
 
 export async function updateEpisodePath(episodeId: string, cdnUrl: string) {
   const { error } = await supabaseAdmin
     .from('episodes')
     .update({
-      video_path: cdnUrl,
-      stream_url: cdnUrl,
+      video_url: cdnUrl,
       status: 'ready',
       updated_at: new Date().toISOString(),
     })

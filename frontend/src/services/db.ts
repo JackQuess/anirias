@@ -135,11 +135,26 @@ export const db = {
     return data;
   },
 
+  updateSeason: async (id: string, updates: Partial<Season>) => {
+    if (!checkEnv()) throw new Error("Backend connection failed");
+    const { error } = await supabase!
+      .from('seasons')
+      .update(updates)
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  deleteSeason: async (id: string) => {
+    if (!checkEnv()) throw new Error("Backend connection failed");
+    const { error } = await supabase!.from('seasons').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   getEpisodes: async (animeId: string, seasonId?: string): Promise<Episode[]> => {
     if (!checkEnv()) return [];
     let query = supabase!
       .from('episodes')
-      .select('*, seasons:seasons(season_number, anime:animes(slug))')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, short_note, air_date, updated_at, created_at, seasons:seasons(season_number, anime:animes(slug))')
       .eq('anime_id', animeId);
     if (seasonId) query = query.eq('season_id', seasonId);
     
@@ -299,7 +314,7 @@ export const db = {
     const { data, error } = await supabase!
       .from('episodes')
       .select('id, episode_number, seasons:seasons(id, season_number, anime:animes(slug))')
-      .is('video_path', null);
+      .is('video_url', null);
 
     if (error || !data) {
       if (error) console.error('Auto patch fetch error:', error);
@@ -312,16 +327,17 @@ export const db = {
         const seasonNumber = ep?.seasons?.season_number;
         const episodeNumber = ep?.episode_number;
         if (!slug || !seasonNumber || !episodeNumber) return null;
-        const path = `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
-        return { id: ep.id, video_path: path };
+        const padded = String(episodeNumber).padStart(2, '0');
+        const path = `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${padded}.mp4`;
+        return { id: ep.id, video_url: path };
       })
-      .filter(Boolean) as { id: string; video_path: string }[];
+      .filter(Boolean) as { id: string; video_url: string }[];
 
     let patched = 0;
     for (const chunk of updates) {
       const { error: updateError } = await supabase!
         .from('episodes')
-        .update({ video_path: chunk.video_path, updated_at: new Date().toISOString() })
+        .update({ video_url: chunk.video_url, updated_at: new Date().toISOString() })
         .eq('id', chunk.id);
       if (!updateError) patched += 1;
       else console.error('Auto patch update error:', updateError);

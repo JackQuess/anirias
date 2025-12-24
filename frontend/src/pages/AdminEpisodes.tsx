@@ -276,7 +276,7 @@ const AdminEpisodes: React.FC = () => {
     setNewEp({
       episode_number: ep.episode_number,
       title: ep.title,
-      stream_id: (ep as any).stream_id || ep.stream_url,
+      stream_id: (ep as any).stream_id || ep.video_url,
       hls_url: ep.hls_url,
       duration_seconds: ep.duration_seconds,
       created_at: ep.created_at
@@ -312,6 +312,27 @@ const AdminEpisodes: React.FC = () => {
     }
   };
 
+  const handleEpisodeVideoPatch = async (ep: Episode) => {
+    if (!anime?.slug || !selectedSeasonId) {
+      alert('Slug veya sezon bilgisi eksik.');
+      return;
+    }
+    const season = seasons?.find((s) => s.id === selectedSeasonId);
+    if (!season) {
+      alert('Sezon bulunamadı.');
+      return;
+    }
+    const padded = String(ep.episode_number).padStart(2, '0');
+    const videoUrl = `https://anirias-videos.b-cdn.net/${anime.slug}/season-${season.season_number}/episode-${padded}.mp4`;
+    try {
+      await db.updateEpisode(ep.id, { video_url: videoUrl });
+      reload();
+      alert('Video patch tamamlandı.');
+    } catch {
+      alert('Video patch başarısız.');
+    }
+  };
+
   const handleCreateSeason = async () => {
     const num = prompt('Sezon Numarası:');
     if (!num) return;
@@ -342,9 +363,11 @@ const AdminEpisodes: React.FC = () => {
     }
   };
 
-  const handleBunnyPatch = async () => {
-    if (!animeId || !autoSeasonNumber) return;
-    if (!window.confirm(`Sezon ${autoSeasonNumber} için Bunny Patch çalıştırılsın mı?`)) return;
+  const handleBunnyPatch = async (seasonNumber?: number) => {
+    if (!animeId) return;
+    const targetSeason = seasonNumber ?? autoSeasonNumber;
+    if (!targetSeason) return;
+    if (!window.confirm(`Sezon ${targetSeason} için Bunny Patch çalıştırılsın mı?`)) return;
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
     if (!apiBase) {
       alert('VITE_API_BASE_URL tanımlı değil.');
@@ -365,7 +388,7 @@ const AdminEpisodes: React.FC = () => {
         },
         body: JSON.stringify({
           animeId,
-          seasonNumber: autoSeasonNumber
+          seasonNumber: targetSeason
         })
       });
       const data = await res.json();
@@ -376,6 +399,39 @@ const AdminEpisodes: React.FC = () => {
       alert(err?.message || 'Bunny Patch başarısız');
     } finally {
       setIsBunnyPatching(false);
+    }
+  };
+
+  const handleBindAnimeAnilist = async () => {
+    if (!animeId) return;
+    const id = window.prompt('AniList ID (Anime)');
+    if (!id) return;
+    try {
+      await db.updateAnime(animeId, { anilist_id: Number(id) });
+      alert('AniList bağlantısı güncellendi.');
+    } catch (err) {
+      alert('AniList bağlantısı güncellenemedi.');
+    }
+  };
+
+  const handleBindSeasonAnilist = async (seasonId: string) => {
+    const id = window.prompt('AniList ID (Sezon)');
+    if (!id) return;
+    try {
+      await db.updateSeason(seasonId, { anilist_id: Number(id) });
+      alert('Sezon AniList bağlantısı güncellendi.');
+    } catch (err) {
+      alert('Sezon AniList bağlantısı güncellenemedi.');
+    }
+  };
+
+  const handleDeleteSeason = async (seasonId: string) => {
+    if (!window.confirm('Sezonu silmek istediğine emin misin?')) return;
+    try {
+      await db.deleteSeason(seasonId);
+      window.location.reload();
+    } catch (err) {
+      alert('Sezon silinemedi.');
     }
   };
 
@@ -401,6 +457,19 @@ const AdminEpisodes: React.FC = () => {
             YENİ SEZON
           </button>
           <button 
+            onClick={handleBindAnimeAnilist}
+            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
+          >
+            ANILIST BAĞLA
+          </button>
+          <button
+            onClick={() => handleBunnyPatch()}
+            disabled={isBunnyPatching}
+            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
+          >
+            🐰 Bunny Patch (Sezon {autoSeasonNumber})
+          </button>
+          <button 
             onClick={() => setIsAddModalOpen(true)}
             className="bg-brand-red hover:bg-brand-redHover text-white px-10 py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all active:scale-95"
           >
@@ -412,13 +481,6 @@ const AdminEpisodes: React.FC = () => {
             className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all disabled:opacity-50"
           >
             🎬 Video Patch
-          </button>
-          <button
-            onClick={handleBunnyPatch}
-            disabled={isBunnyPatching}
-            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
-          >
-            🐰 Bunny Patch (Season {autoSeasonNumber})
           </button>
           <div className="flex items-center gap-2 bg-white/5 border border-brand-border rounded-2xl px-4 py-3">
             <input
@@ -461,19 +523,50 @@ const AdminEpisodes: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide border-b border-brand-border">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 border-b border-brand-border pb-6">
         {seasons?.map(s => (
-          <button
+          <div
             key={s.id}
-            onClick={() => setSelectedSeasonId(s.id)}
-            className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex-shrink-0 ${
-              selectedSeasonId === s.id 
-              ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
-              : 'bg-brand-dark text-gray-500 border border-brand-border hover:text-white'
+            className={`rounded-3xl border p-6 bg-brand-dark transition-all ${
+              selectedSeasonId === s.id ? 'border-brand-red/60 shadow-lg shadow-brand-red/10' : 'border-brand-border'
             }`}
           >
-            SEZON {s.season_number}
-          </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-black text-lg uppercase italic tracking-tight">Sezon {s.season_number}</p>
+                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">
+                  AniList ID: {s.anilist_id ?? 'Bağlı değil'}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedSeasonId(s.id)}
+                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl border border-brand-border"
+              >
+                BÖLÜMLER
+              </button>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => handleBindSeasonAnilist(s.id)}
+                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border"
+              >
+                ANILIST SEZON BAĞLA
+              </button>
+              <button
+                onClick={() => handleBunnyPatch(s.season_number)}
+                disabled={isBunnyPatching}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 disabled:opacity-50"
+              >
+                🐰 BUNNY PATCH
+              </button>
+              <button
+                onClick={() => handleDeleteSeason(s.id)}
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-red-500/30"
+              >
+                SİL
+              </button>
+            </div>
+          </div>
         ))}
       </div>
 
@@ -499,6 +592,9 @@ const AdminEpisodes: React.FC = () => {
                     <p className="text-[9px] text-gray-700 font-mono mt-1 max-w-xs truncate">
                       {formatHlsPreview(ep.hls_url)}
                     </p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${ep.video_url ? 'text-emerald-400' : 'text-gray-500'}`}>
+                      {ep.video_url ? 'Bunny bağlı' : 'Video yok'}
+                    </p>
                   </td>
                   <td className="px-10 py-6 text-xs text-gray-500 font-bold italic">{Math.floor(ep.duration_seconds / 60)} DAKİKA</td>
                   <td className="px-10 py-6 text-right">
@@ -508,6 +604,12 @@ const AdminEpisodes: React.FC = () => {
                           className="text-[10px] font-black text-gray-600 hover:text-white uppercase tracking-widest transition-all"
                         >
                           DÜZENLE
+                        </button>
+                        <button 
+                          onClick={() => handleEpisodeVideoPatch(ep)}
+                          className="text-[10px] font-black text-emerald-300 hover:text-emerald-200 uppercase tracking-widest transition-all"
+                        >
+                          VİDEO PATCH
                         </button>
                         <button 
                           onClick={() => handleDelete(ep.id)}

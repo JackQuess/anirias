@@ -37,6 +37,9 @@ export interface Season {
   id: string;
   anime_id: string;
   season_number: number;
+  anilist_id?: number | null;
+  title_override?: string | null;
+  year?: number | null;
   title: string | null;
   created_at: string;
 }
@@ -45,12 +48,13 @@ export interface Episode {
   id: string;
   anime_id: string;
   season_id: string;
+  season_number?: number | null;
   episode_number: number;
   title: string;
   duration_seconds: number;
+  duration?: number | null;
+  video_url?: string | null;
   stream_id?: string | null;
-  stream_url?: string | null;
-  video_path?: string | null;
   hls_url?: string | null;
   status?: string | null;
   short_note?: string | null;

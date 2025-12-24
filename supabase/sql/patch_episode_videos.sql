@@ -11,17 +11,11 @@ begin
   -- Build expected path pattern
   update episodes e
   set
-    video_path = format(
+    video_url = format(
       'https://anirias-videos.b-cdn.net/%s/season-%s/episode-%s.mp4',
       a.slug,
       s.season_number,
-      e.episode_number
-    ),
-    stream_url = format(
-      'https://anirias-videos.b-cdn.net/%s/season-%s/episode-%s.mp4',
-      a.slug,
-      s.season_number,
-      e.episode_number
+      lpad(e.episode_number::text, 2, '0')
     ),
     updated_at = now()
   from seasons s
@@ -30,20 +24,20 @@ begin
     and e.anime_id = p_anime_id
     and a.slug is not null
     and (
-      e.video_path is null
-      or e.video_path not like concat('https://anirias-videos.b-cdn.net/', a.slug, '/season-', s.season_number::text, '/episode-', e.episode_number::text, '.mp4')
-      or e.video_path like '%//%'
+      e.video_url is null
+      or e.video_url not like concat('https://anirias-videos.b-cdn.net/', a.slug, '/season-', s.season_number::text, '/episode-', lpad(e.episode_number::text, 2, '0'), '.mp4')
+      or e.video_url like '%//%'
     );
 
   get diagnostics v1 = row_count;
 
-  -- Patch stream_url from video_path
+  -- Patch stream_url from video_url
   update episodes
-  set stream_url = video_path,
+  set stream_url = video_url,
       updated_at = now()
   where anime_id = p_anime_id
     and stream_url is null
-    and video_path is not null;
+    and video_url is not null;
 
   get diagnostics v2 = row_count;
 

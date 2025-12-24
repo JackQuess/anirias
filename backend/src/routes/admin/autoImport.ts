@@ -145,7 +145,7 @@ async function handleAutoImport(req: Request, res: Response) {
       }
 
       const existing = await getEpisodeByKey(animeId, seasonId, eNo);
-      if (existing?.video_path === cdnUrl && existing?.stream_url === cdnUrl) {
+      if (existing?.video_url === cdnUrl) {
         skipped += 1;
         completedEpisodes += 1;
         directProgress[jobId].progress = {

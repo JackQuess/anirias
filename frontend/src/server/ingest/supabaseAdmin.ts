@@ -20,8 +20,7 @@ export type EpisodeRow = {
   id: string;
   season_id: string;
   episode_number: number;
-  video_path: string | null;
-  stream_url: string | null;
+  video_url: string | null;
   status: string | null;
   seasons?: { season_number?: number | null } | null;
 };
@@ -79,7 +78,8 @@ export async function getOrCreateSeason(animeId: string, seasonNumber: number): 
 }
 
 export function expectedCdnUrl(slug: string, seasonNumber: number, episodeNumber: number) {
-  return `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${episodeNumber}.mp4`;
+  const padded = String(episodeNumber).padStart(2, '0');
+  return `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${padded}.mp4`;
 }
 
 export async function upsertEpisodeVideo(
@@ -103,8 +103,7 @@ export async function upsertEpisodeVideo(
     season_id: seasonId,
     episode_number: episodeNumber,
     title: `Bölüm ${episodeNumber}`,
-    video_path: cdnUrl,
-    stream_url: cdnUrl,
+    video_url: cdnUrl,
     updated_at: new Date().toISOString(),
   };
 
@@ -131,8 +130,7 @@ export async function updateEpisodeVideo(
   const { error } = await supabaseAdmin
     .from('episodes')
     .update({
-      video_path: cdnUrl,
-      stream_url: cdnUrl,
+      video_url: cdnUrl,
       status: 'ready',
       updated_at: new Date().toISOString(),
     })
@@ -144,7 +142,7 @@ export async function updateEpisodeVideo(
 export async function getEpisodesForAnime(animeId: string): Promise<EpisodeRow[]> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, season_id, episode_number, video_path, stream_url, status, seasons!inner(season_number)')
+    .select('id, season_id, episode_number, video_url, status, seasons!inner(season_number)')
     .eq('anime_id', animeId)
     .order('episode_number', { ascending: true });
 
@@ -158,5 +156,5 @@ export async function getEpisodesForAnime(animeId: string): Promise<EpisodeRow[]
 export function isEpisodePathCorrect(ep: EpisodeRow, slug: string): boolean {
   const seasonNumber = ep.seasons?.season_number || 1;
   const expected = expectedCdnUrl(slug, seasonNumber, ep.episode_number);
-  return ep.video_path === expected && ep.stream_url === expected;
+  return ep.video_url === expected;
 }

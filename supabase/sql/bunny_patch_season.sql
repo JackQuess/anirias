@@ -12,13 +12,7 @@ declare
 begin
   update episodes e
   set
-    video_path = format(
-      'https://anirias-videos.b-cdn.net/%s/season-%s/episode-%s.mp4',
-      a.slug,
-      s.season_number,
-      lpad(e.episode_number::text, 2, '0')
-    ),
-    stream_url = format(
+    video_url = format(
       'https://anirias-videos.b-cdn.net/%s/season-%s/episode-%s.mp4',
       a.slug,
       s.season_number,
@@ -33,8 +27,7 @@ begin
     and a.slug is not null
     and (
       p_overwrite = true
-      or e.video_path is null
-      or e.stream_url is null
+      or e.video_url is null
     );
 
   get diagnostics updated_count = row_count;
