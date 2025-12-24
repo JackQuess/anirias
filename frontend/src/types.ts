@@ -40,6 +40,7 @@ export interface Season {
   anilist_id?: number | null;
   title_override?: string | null;
   year?: number | null;
+  episode_count?: number | null;
   title: string | null;
   created_at: string;
 }

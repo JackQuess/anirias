@@ -7,6 +7,22 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { Season, Episode } from '../types';
 import { getDisplayTitle } from '@/utils/title';
 
+const ANILIST_API = 'https://graphql.anilist.co';
+const ANILIST_SEARCH_QUERY = `
+query ($search: String) {
+  Page(perPage: 10) {
+    media(search: $search, type: ANIME, format_in: [TV, TV_SHORT]) {
+      id
+      title { romaji english }
+      format
+      episodes
+      seasonYear
+      coverImage { large }
+    }
+  }
+}
+`;
+
 const AdminEpisodes: React.FC = () => {
   const { animeId } = useParams<{ animeId: string }>();
   const navigate = useNavigate();
@@ -17,6 +33,12 @@ const AdminEpisodes: React.FC = () => {
   const [isPatching, setIsPatching] = useState(false);
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
   const [isBunnyPatching, setIsBunnyPatching] = useState(false);
+  const [isAniListModalOpen, setIsAniListModalOpen] = useState(false);
+  const [anilistSearch, setAnilistSearch] = useState('');
+  const [anilistResults, setAnilistResults] = useState<any[]>([]);
+  const [anilistLoading, setAnilistLoading] = useState(false);
+  const [anilistError, setAnilistError] = useState<string | null>(null);
+  const [bindingSeason, setBindingSeason] = useState<Season | null>(null);
   const [autoTemplate, setAutoTemplate] = useState<string>('https://animely.net/anime/{anime_slug}/izle/{episode_number}');
   const [autoSeasonNumber, setAutoSeasonNumber] = useState<number>(1);
   const [autoMode, setAutoMode] = useState<'season' | 'all'>('season');
@@ -402,26 +424,72 @@ const AdminEpisodes: React.FC = () => {
     }
   };
 
-  const handleBindAnimeAnilist = async () => {
-    if (!animeId) return;
-    const id = window.prompt('AniList ID (Anime)');
-    if (!id) return;
+  const openAniListModal = (season: Season) => {
+    if (season.anilist_id) return;
+    setBindingSeason(season);
+    setAnilistSearch('');
+    setAnilistResults([]);
+    setAnilistError(null);
+    setIsAniListModalOpen(true);
+  };
+
+  const searchAniList = async () => {
+    if (!anilistSearch.trim()) return;
+    setAnilistLoading(true);
+    setAnilistError(null);
     try {
-      await db.updateAnime(animeId, { anilist_id: Number(id) });
-      alert('AniList bağlantısı güncellendi.');
+      const res = await fetch(ANILIST_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: ANILIST_SEARCH_QUERY,
+          variables: { search: anilistSearch.trim() }
+        })
+      });
+      const json = await res.json();
+      setAnilistResults(json.data?.Page?.media || []);
     } catch (err) {
-      alert('AniList bağlantısı güncellenemedi.');
+      setAnilistError('AniList araması başarısız.');
+    } finally {
+      setAnilistLoading(false);
     }
   };
 
-  const handleBindSeasonAnilist = async (seasonId: string) => {
-    const id = window.prompt('AniList ID (Sezon)');
-    if (!id) return;
+  const handleSelectAniList = async (media: any) => {
+    if (!bindingSeason || !animeId) return;
+    const alreadyBound = seasons?.some((s) => s.anilist_id === media.id);
+    if (alreadyBound) {
+      alert('Bu AniList ID zaten başka bir sezona bağlı.');
+      return;
+    }
     try {
-      await db.updateSeason(seasonId, { anilist_id: Number(id) });
-      alert('Sezon AniList bağlantısı güncellendi.');
+      await db.updateSeason(bindingSeason.id, {
+        anilist_id: media.id,
+        episode_count: media.episodes || 0,
+        year: media.seasonYear || null
+      });
+
+      const existing = await db.getEpisodes(animeId, bindingSeason.id);
+      const existingSet = new Set(existing.map((e) => e.episode_number));
+      const total = media.episodes || 0;
+      for (let i = 1; i <= total; i += 1) {
+        if (existingSet.has(i)) continue;
+        await db.createEpisode({
+          anime_id: animeId,
+          season_id: bindingSeason.id,
+          season_number: bindingSeason.season_number,
+          episode_number: i,
+          title: `Bölüm ${i}`,
+          duration_seconds: 1440
+        });
+      }
+
+      alert(`Sezon ${bindingSeason.season_number} AniList'e bağlandı.`);
+      setIsAniListModalOpen(false);
+      setBindingSeason(null);
+      reload();
     } catch (err) {
-      alert('Sezon AniList bağlantısı güncellenemedi.');
+      alert('AniList bağlama başarısız.');
     }
   };
 
@@ -455,12 +523,6 @@ const AdminEpisodes: React.FC = () => {
             className="bg-brand-dark hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
           >
             YENİ SEZON
-          </button>
-          <button 
-            onClick={handleBindAnimeAnilist}
-            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
-          >
-            ANILIST BAĞLA
           </button>
           <button
             onClick={() => handleBunnyPatch()}
@@ -547,10 +609,11 @@ const AdminEpisodes: React.FC = () => {
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
-                onClick={() => handleBindSeasonAnilist(s.id)}
-                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border"
+                onClick={() => openAniListModal(s)}
+                disabled={!!s.anilist_id}
+                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border disabled:opacity-40"
               >
-                ANILIST SEZON BAĞLA
+                {s.anilist_id ? 'ANILIST BAĞLI' : 'ANILIST SEZON BAĞLA'}
               </button>
               <button
                 onClick={() => handleBunnyPatch(s.season_number)}
@@ -706,6 +769,60 @@ const AdminEpisodes: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isAniListModalOpen && bindingSeason && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAniListModalOpen(false)} />
+          <div className="relative w-full max-w-3xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+                AniList Sezon Bağla · Sezon {bindingSeason.season_number}
+              </h2>
+              <button onClick={() => setIsAniListModalOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <input
+                value={anilistSearch}
+                onChange={(e) => setAnilistSearch(e.target.value)}
+                placeholder="AniList'te ara"
+                className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-black uppercase tracking-widest outline-none focus:border-brand-red"
+              />
+              <button
+                onClick={searchAniList}
+                disabled={anilistLoading}
+                className="bg-brand-red hover:bg-brand-redHover text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50"
+              >
+                {anilistLoading ? 'ARANIYOR...' : 'ARA'}
+              </button>
+            </div>
+            {anilistError && (
+              <div className="text-red-400 text-xs font-black uppercase tracking-widest mb-4">{anilistError}</div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-2">
+              {anilistResults.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelectAniList(item)}
+                  disabled={seasons?.some((s) => s.anilist_id === item.id)}
+                  className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-brand-red/40 transition-all disabled:opacity-40"
+                >
+                  <img src={item.coverImage?.large} className="w-16 h-24 object-cover rounded-xl" />
+                  <div className="text-left">
+                    <p className="text-white font-black text-sm uppercase">{item.title?.romaji || 'Başlık'}</p>
+                    <p className="text-gray-500 text-xs uppercase">{item.title?.english || ''}</p>
+                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-2">
+                      {item.format} · {item.episodes || 0} Bölüm · {item.seasonYear || '-'}
+                    </p>
+                  </div>
+                </button>
+              ))}
+              {anilistResults.length === 0 && !anilistLoading && (
+                <div className="text-gray-600 text-xs font-black uppercase tracking-widest">Sonuç yok</div>
+              )}
+            </div>
           </div>
         </div>
       )}

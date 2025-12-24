@@ -8,7 +8,8 @@ create unique index if not exists animes_slug_unique on public.animes (slug);
 alter table public.seasons
   add column if not exists anilist_id integer,
   add column if not exists title_override text,
-  add column if not exists year integer;
+  add column if not exists year integer,
+  add column if not exists episode_count integer;
 
 alter table public.episodes
   add column if not exists season_number integer,
