@@ -16,6 +16,7 @@ const AdminEpisodes: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPatching, setIsPatching] = useState(false);
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
+  const [isBunnyPatching, setIsBunnyPatching] = useState(false);
   const [autoTemplate, setAutoTemplate] = useState<string>('https://animely.net/anime/{anime_slug}/izle/{episode_number}');
   const [autoSeasonNumber, setAutoSeasonNumber] = useState<number>(1);
   const [autoMode, setAutoMode] = useState<'season' | 'all'>('season');
@@ -341,6 +342,43 @@ const AdminEpisodes: React.FC = () => {
     }
   };
 
+  const handleBunnyPatch = async () => {
+    if (!animeId || !autoSeasonNumber) return;
+    if (!window.confirm(`Sezon ${autoSeasonNumber} için Bunny Patch çalıştırılsın mı?`)) return;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (!apiBase) {
+      alert('VITE_API_BASE_URL tanımlı değil.');
+      return;
+    }
+    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    if (!token) {
+      alert('Admin token gerekli.');
+      return;
+    }
+    setIsBunnyPatching(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/bunny-patch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token
+        },
+        body: JSON.stringify({
+          animeId,
+          seasonNumber: autoSeasonNumber
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      alert(`${data?.patched ?? 0} bölüm Bunny ile bağlandı`);
+      reload();
+    } catch (err: any) {
+      alert(err?.message || 'Bunny Patch başarısız');
+    } finally {
+      setIsBunnyPatching(false);
+    }
+  };
+
   return (
     <div className="space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -374,6 +412,13 @@ const AdminEpisodes: React.FC = () => {
             className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all disabled:opacity-50"
           >
             🎬 Video Patch
+          </button>
+          <button
+            onClick={handleBunnyPatch}
+            disabled={isBunnyPatching}
+            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
+          >
+            🐰 Bunny Patch (Season {autoSeasonNumber})
           </button>
           <div className="flex items-center gap-2 bg-white/5 border border-brand-border rounded-2xl px-4 py-3">
             <input
