@@ -200,9 +200,9 @@ const AnimeDetail: React.FC = () => {
                   </div>
                </div>
 
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
+               <div className="flex flex-col gap-2 md:gap-3 overflow-y-auto overflow-x-hidden">
                   {visibleEpisodes.map(ep => (
-                    <Link key={ep.id} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group bg-brand-surface rounded-xl border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-3 px-3 py-2.5 h-[78px] hover:bg-white/[0.02]">
+                    <Link key={ep.id} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-xl border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-3 px-3 py-2.5 h-[78px] hover:bg-white/[0.02]">
                        <div className="w-10 h-10 bg-black/40 rounded-lg flex items-center justify-center text-brand-red font-black text-sm italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner">
                           {ep.episode_number}
                        </div>
