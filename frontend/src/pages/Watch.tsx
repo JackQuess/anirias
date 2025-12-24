@@ -8,7 +8,6 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
-import { Episode } from '../types';
 
 const PlayIcon = ({ size = 24 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -96,53 +95,40 @@ const Watch: React.FC = () => {
 
   // Data Loading
   const { data: anime } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
-  const { data: episodes } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
+  const { data: seasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
   const { data: progressList } = useLoad(() => user ? db.getWatchProgressForAnime(user.id, animeId!) : Promise.resolve([]), [user, animeId]);
 
   const queryEpisode = searchParams.get('episode');
   const querySeason = searchParams.get('season');
   const currentEpNum = parseInt(episodeId || queryEpisode || '1');
+  const querySeasonNumber = querySeason ? parseInt(querySeason) : null;
 
-  const defaultSeasonNumber = useMemo(() => {
-    if (!episodes || episodes.length === 0) return 1;
-    const withSeason = episodes.filter((ep) => ep.seasons?.season_number);
-    if (withSeason.length > 0) {
-      return Math.min(...withSeason.map((ep) => ep.seasons?.season_number || 1));
+  const [selectedSeasonId, setSelectedSeasonId] = useState('');
+
+  useEffect(() => {
+    if (!seasons || seasons.length === 0) return;
+    const target = querySeasonNumber
+      ? seasons.find((s) => s.season_number === querySeasonNumber)
+      : seasons[0];
+    if (target && target.id !== selectedSeasonId) {
+      setSelectedSeasonId(target.id);
     }
-    return 1;
-  }, [episodes]);
+  }, [seasons, querySeasonNumber, selectedSeasonId]);
+
+  const { data: episodes } = useLoad(
+    () => selectedSeasonId ? db.getEpisodes(animeId!, selectedSeasonId) : Promise.resolve([]),
+    [animeId, selectedSeasonId]
+  );
 
   const seasonNumber = useMemo(() => {
-    const byQuery = querySeason ? parseInt(querySeason) : null;
-    if (byQuery && !isNaN(byQuery)) return byQuery;
-    const match = episodes?.find((ep) => ep.episode_number === currentEpNum);
-    return match?.season_number || match?.seasons?.season_number || defaultSeasonNumber;
-  }, [episodes, currentEpNum, defaultSeasonNumber, querySeason]);
+    if (!seasons || seasons.length === 0) return querySeasonNumber || 1;
+    const currentSeason = seasons.find((s) => s.id === selectedSeasonId);
+    return currentSeason?.season_number || querySeasonNumber || seasons[0].season_number;
+  }, [seasons, selectedSeasonId, querySeasonNumber]);
 
-  const seasonEpisodes = useMemo(() => {
-    if (!episodes) return [];
-    return episodes.filter((ep) => (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber);
-  }, [episodes, seasonNumber, defaultSeasonNumber]);
-
-  const groupedEpisodes = useMemo(() => {
-    if (!episodes) return [];
-    const map = new Map<number, Episode[]>();
-    episodes.forEach((ep) => {
-      const season = ep.season_number || ep.seasons?.season_number || defaultSeasonNumber;
-      if (!map.has(season)) map.set(season, []);
-      map.get(season)!.push(ep);
-    });
-    return Array.from(map.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([season, items]) => ({
-        season,
-        items: items.slice().sort((a, b) => a.episode_number - b.episode_number)
-      }));
-  }, [episodes, defaultSeasonNumber]);
-
-  const currentEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum);
-  const prevEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum - 1);
-  const nextEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum + 1);
+  const currentEpisode = (episodes || []).find(e => e.episode_number === currentEpNum);
+  const prevEpisode = (episodes || []).find(e => e.episode_number === currentEpNum - 1);
+  const nextEpisode = (episodes || []).find(e => e.episode_number === currentEpNum + 1);
   const progressMap = useMemo(() => {
     const map = new Map<string, { progress: number; duration: number }>();
     if (progressList) {
@@ -164,6 +150,22 @@ const Watch: React.FC = () => {
     }
     return chosen;
   }, [currentEpisode]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!currentEpisode?.video_url) return;
+    fetch(currentEpisode.video_url, { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        if (!isActive) return;
+        if (res.status === 404) {
+          setPlaybackError('Video henüz yüklenmemiş.');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, [currentEpisode?.video_url]);
 
   useEffect(() => {
     setHasStarted(false);
@@ -245,6 +247,12 @@ const Watch: React.FC = () => {
     const season = episode.season_number || seasonNumber;
     navigate(`/watch/${animeId}?season=${season}&episode=${episode.episode_number}`);
   }, [navigate, animeId, seasonNumber]);
+
+  useEffect(() => {
+    if (!episodes || episodes.length === 0) return;
+    if (currentEpisode) return;
+    goToEpisode({ episode_number: episodes[0].episode_number, season_number: seasonNumber });
+  }, [episodes, currentEpisode, goToEpisode, seasonNumber]);
 
   const toggleMute = () => {
     if (videoRef.current) {
@@ -467,7 +475,7 @@ const Watch: React.FC = () => {
                   onPlaying={() => { setIsBuffering(false); setIsPlaying(true); setHasStarted(true); syncDuration(); }}
                   onPause={() => setIsPlaying(false)}
                   onEnded={handleEnded}
-                  onError={() => setPlaybackError(`CDN dosyası bulunamadı: ${playbackUrl || 'bilinmiyor'}`)}
+                  onError={() => setPlaybackError('Video henüz yüklenmemiş.')}
                   onClick={(e) => { e.stopPropagation(); togglePlay(e as any); }}
                   controls={false}
                 />
@@ -618,53 +626,44 @@ const Watch: React.FC = () => {
                    <span className="text-[10px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-                   {groupedEpisodes.map((group) => (
-                     <div key={group.season}>
-                       <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">
-                         SEZON {group.season}
-                       </div>
-                       <div className="space-y-2">
-                         {group.items.map((ep) => {
-                           const isCurrent = ep.episode_number === currentEpNum && (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber;
-                           const heightClass = isCurrent ? 'h-[72px]' : 'h-[66px]';
-                           return (
-                             <button 
-                                key={ep.id} 
-                                onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: group.season })}
-                                className={`group flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full text-left ${heightClass} ${
-                                  isCurrent 
-                                  ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
-                                  : 'hover:bg-white/5 text-gray-400 hover:text-white'
-                                }`}
-                             >
-                               <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
-                                  {ep.episode_number}
-                               </div>
-                               <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                                  <p className={`text-[8px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
-                                  {progressMap.has(ep.id) && (
-                                    <div className="mt-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full bg-emerald-400"
-                                        style={{
-                                          width: `${(() => {
-                                            const p = progressMap.get(ep.id);
-                                            if (!p || !p.duration) return 0;
-                                            return Math.min(100, (p.progress / p.duration) * 100);
-                                          })()}%`
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                               </div>
-                             </button>
-                           );
-                         })}
-                       </div>
-                     </div>
-                   ))}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-2">
+                   {episodes?.map((ep) => {
+                     const isCurrent = ep.episode_number === currentEpNum;
+                     const heightClass = isCurrent ? 'h-[72px]' : 'h-[66px]';
+                     return (
+                       <button 
+                          key={ep.id} 
+                          onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
+                          className={`group flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full text-left ${heightClass} ${
+                            isCurrent 
+                            ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
+                            : 'hover:bg-white/5 text-gray-400 hover:text-white'
+                          }`}
+                       >
+                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
+                            {ep.episode_number}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className={`text-[8px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
+                            {progressMap.has(ep.id) && (
+                              <div className="mt-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-400"
+                                  style={{
+                                    width: `${(() => {
+                                      const p = progressMap.get(ep.id);
+                                      if (!p || !p.duration) return 0;
+                                      return Math.min(100, (p.progress / p.duration) * 100);
+                                    })()}%`
+                                  }}
+                                />
+                              </div>
+                            )}
+                         </div>
+                       </button>
+                     );
+                   })}
                 </div>
              </div>
 
@@ -705,33 +704,26 @@ const Watch: React.FC = () => {
                   <h3 className="text-[11px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
                   <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-sm">✕</button>
                 </div>
-                {groupedEpisodes.map((group) => (
-                  <div key={group.season} className="space-y-2">
-                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest pb-2 border-b border-white/10">
-                      SEZON {group.season}
-                    </div>
-                    {group.items.map((ep) => {
-                      const isCurrent = ep.episode_number === currentEpNum && (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber;
-                      return (
-                        <button
-                          key={ep.id}
-                          onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: group.season }); setShowMobileSheet(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left h-[64px] ${
-                            isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
-                            {ep.episode_number}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className="text-[9px] text-gray-400">24 DK</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
+                {episodes?.map((ep) => {
+                  const isCurrent = ep.episode_number === currentEpNum;
+                  return (
+                    <button
+                      key={ep.id}
+                      onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left h-[64px] ${
+                        isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
+                        {ep.episode_number}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                        <p className="text-[9px] text-gray-400">24 DK</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
