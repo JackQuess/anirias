@@ -159,7 +159,13 @@ export const db = {
     if (seasonId) query = query.eq('season_id', seasonId);
     
     const { data } = await query.order('episode_number', { ascending: true });
-    return data || [];
+    return (data || []).map((row: any) => ({
+      ...row,
+      seasons: row.seasons ? {
+        season_number: row.seasons.season_number ?? row.seasons[0]?.season_number,
+        anime: row.seasons.anime ?? row.seasons[0]?.anime
+      } : null
+    })) as Episode[];
   },
 
   createEpisode: async (episode: Partial<Episode>) => {
