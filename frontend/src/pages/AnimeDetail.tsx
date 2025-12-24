@@ -91,7 +91,7 @@ const AnimeDetail: React.FC = () => {
                 }}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                 <Link to={`/watch/${anime.id}/1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
+                 <Link to={`/watch/${anime.id}?season=1&episode=1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
                     <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                  </Link>
               </div>
@@ -122,7 +122,7 @@ const AnimeDetail: React.FC = () => {
                 </div>
               )}
 
-              <Link to={`/watch/${anime.id}/1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
+              <Link to={`/watch/${anime.id}?season=1&episode=1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
                 HEMEN İZLE
               </Link>
             </div>
@@ -201,7 +201,7 @@ const AnimeDetail: React.FC = () => {
 
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
                   {episodes?.map(ep => (
-                    <Link key={ep.id} to={`/watch/${anime.id}/${ep.episode_number}`} className="group bg-brand-surface p-4 lg:p-5 rounded-2xl lg:rounded-[2rem] border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-4 lg:gap-5 hover:bg-white/[0.02]">
+                    <Link key={ep.id} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group bg-brand-surface p-4 lg:p-5 rounded-2xl lg:rounded-[2rem] border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-4 lg:gap-5 hover:bg-white/[0.02]">
                        <div className="w-12 h-12 lg:w-16 lg:h-16 bg-black/40 rounded-xl lg:rounded-2xl flex items-center justify-center text-brand-red font-black text-lg lg:text-xl italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner">
                           {ep.episode_number}
                        </div>

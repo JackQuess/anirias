@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import Hls from 'hls.js';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
@@ -65,6 +65,7 @@ const SkipNextIcon = ({ size = 28 }: { size?: number }) => (
 
 const Watch: React.FC = () => {
   const { animeId, episodeId } = useParams<{ animeId: string; episodeId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   
@@ -97,7 +98,9 @@ const Watch: React.FC = () => {
   const { data: episodes } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
   const { data: progressList } = useLoad(() => user ? db.getWatchProgressForAnime(user.id, animeId!) : Promise.resolve([]), [user, animeId]);
 
-  const currentEpNum = parseInt(episodeId || '1');
+  const queryEpisode = searchParams.get('episode');
+  const querySeason = searchParams.get('season');
+  const currentEpNum = parseInt(episodeId || queryEpisode || '1');
 
   const defaultSeasonNumber = useMemo(() => {
     if (!episodes || episodes.length === 0) return 1;
@@ -109,13 +112,15 @@ const Watch: React.FC = () => {
   }, [episodes]);
 
   const seasonNumber = useMemo(() => {
+    const byQuery = querySeason ? parseInt(querySeason) : null;
+    if (byQuery && !isNaN(byQuery)) return byQuery;
     const match = episodes?.find((ep) => ep.episode_number === currentEpNum);
-    return match?.seasons?.season_number || defaultSeasonNumber;
-  }, [episodes, currentEpNum, defaultSeasonNumber]);
+    return match?.season_number || match?.seasons?.season_number || defaultSeasonNumber;
+  }, [episodes, currentEpNum, defaultSeasonNumber, querySeason]);
 
   const seasonEpisodes = useMemo(() => {
     if (!episodes) return [];
-    return episodes.filter((ep) => (ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber);
+    return episodes.filter((ep) => (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber);
   }, [episodes, seasonNumber, defaultSeasonNumber]);
 
   const currentEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum);
@@ -132,9 +137,10 @@ const Watch: React.FC = () => {
   }, [progressList]);
 
   const fallbackCdnUrl = useMemo(() => {
-    if (!anime?.slug || !currentEpisode?.seasons?.season_number) return null;
+    if (!anime?.slug || !currentEpisode?.seasons?.season_number && !currentEpisode?.season_number) return null;
     const padded = String(currentEpisode.episode_number).padStart(2, '0');
-    return `https://anirias-videos.b-cdn.net/${anime.slug}/season-${currentEpisode.seasons.season_number}/episode-${padded}.mp4`;
+    const seasonNo = currentEpisode.season_number || currentEpisode.seasons?.season_number;
+    return `https://anirias-videos.b-cdn.net/${anime.slug}/season-${seasonNo}/episode-${padded}.mp4`;
   }, [anime, currentEpisode]);
 
   const playbackUrl = useMemo(() => {
