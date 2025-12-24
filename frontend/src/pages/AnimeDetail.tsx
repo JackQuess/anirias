@@ -200,18 +200,15 @@ const AnimeDetail: React.FC = () => {
                   </div>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
                   {visibleEpisodes.map(ep => (
-                    <Link key={ep.id} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group bg-brand-surface p-4 lg:p-5 rounded-2xl lg:rounded-[2rem] border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-4 lg:gap-5 hover:bg-white/[0.02]">
-                       <div className="w-12 h-12 lg:w-16 lg:h-16 bg-black/40 rounded-xl lg:rounded-2xl flex items-center justify-center text-brand-red font-black text-lg lg:text-xl italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner">
+                    <Link key={ep.id} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group bg-brand-surface rounded-xl border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-3 px-3 py-2.5 h-[78px] hover:bg-white/[0.02]">
+                       <div className="w-10 h-10 bg-black/40 rounded-lg flex items-center justify-center text-brand-red font-black text-sm italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner">
                           {ep.episode_number}
                        </div>
                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] lg:text-[11px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                          <p className="text-[9px] font-bold text-gray-600 uppercase mt-1">24 DAKİKA</p>
-                       </div>
-                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <svg className="w-6 h-6 text-brand-red" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                          <p className="text-[10px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                          <p className="text-[8px] font-bold text-gray-600 uppercase mt-1">24 DAKİKA</p>
                        </div>
                     </Link>
                   ))}
