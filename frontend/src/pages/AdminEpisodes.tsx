@@ -95,6 +95,7 @@ const AdminEpisodes: React.FC = () => {
     [animeId, selectedSeasonId]
   );
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
+  const hasSeasons = (seasons?.length ?? 0) > 0;
 
   useEffect(() => {
     if (seasons && seasons.length > 0 && !selectedSeasonId) {
@@ -557,26 +558,34 @@ const AdminEpisodes: React.FC = () => {
           </button>
           <button
             onClick={() => handleBunnyPatch()}
-            disabled={isBunnyPatching}
+            disabled={!hasSeasons || isBunnyPatching}
             className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
           >
             🐰 Bunny Patch (Sezon {autoSeasonNumber})
           </button>
           <button
             onClick={handleMissingScan}
-            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
+            disabled={!hasSeasons}
+            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all disabled:opacity-50"
           >
             EKSİKLERİ TARA
           </button>
           <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-brand-red hover:bg-brand-redHover text-white px-10 py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all active:scale-95"
+            onClick={() => {
+              if (!hasSeasons) {
+                alert('Önce sezon oluşturmalısın.');
+                return;
+              }
+              setIsAddModalOpen(true);
+            }}
+            className="bg-brand-red hover:bg-brand-redHover text-white px-10 py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all active:scale-95 disabled:opacity-50"
+            disabled={!hasSeasons}
           >
             YENİ BÖLÜM EKLE
           </button>
           <button
             onClick={handlePatchVideos}
-            disabled={isPatching}
+            disabled={!hasSeasons || isPatching}
             className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all disabled:opacity-50"
           >
             🎬 Video Patch
@@ -598,7 +607,7 @@ const AdminEpisodes: React.FC = () => {
             />
             <button
               onClick={handleCdnTest}
-              disabled={cdnTesting}
+              disabled={!hasSeasons || cdnTesting}
               className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl disabled:opacity-60"
             >
               CDN'de Test Et
@@ -615,123 +624,133 @@ const AdminEpisodes: React.FC = () => {
           </div>
           <button
             onClick={() => setIsAutoModalOpen(true)}
-            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/40 transition-all"
+            disabled={!hasSeasons}
+            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/40 transition-all disabled:opacity-50"
           >
             ⚡ Auto Import
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 border-b border-brand-border pb-6">
-        {seasons?.map(s => (
-          <div
-            key={s.id}
-            className={`rounded-3xl border p-6 bg-brand-dark transition-all ${
-              selectedSeasonId === s.id ? 'border-brand-red/60 shadow-lg shadow-brand-red/10' : 'border-brand-border'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-black text-lg uppercase italic tracking-tight">Sezon {s.season_number}</p>
-                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">
-                  AniList ID: {s.anilist_id ?? 'Bağlı değil'}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedSeasonId(s.id)}
-                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl border border-brand-border"
-              >
-                BÖLÜMLER
-              </button>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={() => openAniListModal(s)}
-                disabled={!!s.anilist_id}
-                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border disabled:opacity-40"
-              >
-                {s.anilist_id ? 'ANILIST BAĞLI' : 'ANILIST SEZON BAĞLA'}
-              </button>
-              <button
-                onClick={() => handleBunnyPatch(s.season_number)}
-                disabled={isBunnyPatching}
-                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 disabled:opacity-50"
-              >
-                🐰 BUNNY PATCH
-              </button>
-              <button
-                onClick={() => handleDeleteSeason(s.id)}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-red-500/30"
-              >
-                SİL
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {episodesLoading ? <LoadingSkeleton type="list" count={5} /> : (
-        <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-brand-border bg-white/5">
-                <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Sıra</th>
-                <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Bölüm Detayı</th>
-                <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Süre</th>
-                <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-border">
-              {episodes?.map(ep => (
-                <tr key={ep.id} className="hover:bg-white/[0.03] transition-colors group">
-                  <td className="px-10 py-6 font-black text-brand-red italic text-xl">
-                    {ep.episode_number < 10 ? `0${ep.episode_number}` : ep.episode_number}
-                  </td>
-                  <td className="px-10 py-6">
-                    <p className="text-white font-black text-base uppercase tracking-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                    <p className="text-[9px] text-gray-700 font-mono mt-1 max-w-xs truncate">
-                      {formatHlsPreview(ep.hls_url)}
-                    </p>
-                    <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${ep.video_url ? 'text-emerald-400' : 'text-gray-500'}`}>
-                      {ep.video_url ? 'Bunny bağlı' : 'Video yok'}
-                    </p>
-                  </td>
-                  <td className="px-10 py-6 text-xs text-gray-500 font-bold italic">{Math.floor(ep.duration_seconds / 60)} DAKİKA</td>
-                  <td className="px-10 py-6 text-right">
-                     <div className="flex items-center justify-end gap-4">
-                        <button 
-                          onClick={() => handleEditClick(ep)}
-                          className="text-[10px] font-black text-gray-600 hover:text-white uppercase tracking-widest transition-all"
-                        >
-                          DÜZENLE
-                        </button>
-                        <button 
-                          onClick={() => handleEpisodeVideoPatch(ep)}
-                          className="text-[10px] font-black text-emerald-300 hover:text-emerald-200 uppercase tracking-widest transition-all"
-                        >
-                          VİDEO PATCH
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(ep.id)}
-                          disabled={isAction === ep.id}
-                          className="text-[10px] font-black text-brand-red/40 hover:text-brand-red uppercase tracking-widest transition-all disabled:opacity-20"
-                        >
-                          SİL
-                        </button>
-                     </div>
-                  </td>
-                </tr>
-              ))}
-              {(!episodes || episodes.length === 0) && !episodesLoading && (
-                <tr>
-                  <td colSpan={4} className="px-10 py-20 text-center text-gray-600 font-black uppercase text-xs tracking-[0.4em] opacity-40 italic">
-                    Bu sezona henüz bölüm eklenmemiş. Yeni bir bölüm ekleyerek başlayın.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {!hasSeasons && !seasonsLoading ? (
+        <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] p-10 text-center">
+          <p className="text-white font-black uppercase tracking-widest text-sm">Bu anime için henüz sezon eklenmedi.</p>
+          <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-2">Önce sezon ekleyin, sonra bölümleri yönetin.</p>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 border-b border-brand-border pb-6">
+            {seasons?.map(s => (
+              <div
+                key={s.id}
+                className={`rounded-3xl border p-6 bg-brand-dark transition-all ${
+                  selectedSeasonId === s.id ? 'border-brand-red/60 shadow-lg shadow-brand-red/10' : 'border-brand-border'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-black text-lg uppercase italic tracking-tight">Sezon {s.season_number}</p>
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">
+                      AniList ID: {s.anilist_id ?? 'Bağlı değil'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedSeasonId(s.id)}
+                    className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl border border-brand-border"
+                  >
+                    BÖLÜMLER
+                  </button>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => openAniListModal(s)}
+                    disabled={!!s.anilist_id}
+                    className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border disabled:opacity-40"
+                  >
+                    {s.anilist_id ? 'ANILIST BAĞLI' : 'ANILIST SEZON BAĞLA'}
+                  </button>
+                  <button
+                    onClick={() => handleBunnyPatch(s.season_number)}
+                    disabled={isBunnyPatching}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 disabled:opacity-50"
+                  >
+                    🐰 BUNNY PATCH
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSeason(s.id)}
+                    className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-red-500/30"
+                  >
+                    SİL
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {episodesLoading ? <LoadingSkeleton type="list" count={5} /> : (
+            <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-brand-border bg-white/5">
+                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Sıra</th>
+                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Bölüm Detayı</th>
+                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Süre</th>
+                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-border">
+                  {episodes?.map(ep => (
+                    <tr key={ep.id} className="hover:bg-white/[0.03] transition-colors group">
+                      <td className="px-10 py-6 font-black text-brand-red italic text-xl">
+                        {ep.episode_number < 10 ? `0${ep.episode_number}` : ep.episode_number}
+                      </td>
+                      <td className="px-10 py-6">
+                        <p className="text-white font-black text-base uppercase tracking-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                        <p className="text-[9px] text-gray-700 font-mono mt-1 max-w-xs truncate">
+                          {formatHlsPreview(ep.hls_url)}
+                        </p>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${ep.video_url ? 'text-emerald-400' : 'text-gray-500'}`}>
+                          {ep.video_url ? 'Bunny bağlı' : 'Video yok'}
+                        </p>
+                      </td>
+                      <td className="px-10 py-6 text-xs text-gray-500 font-bold italic">{Math.floor(ep.duration_seconds / 60)} DAKİKA</td>
+                      <td className="px-10 py-6 text-right">
+                         <div className="flex items-center justify-end gap-4">
+                            <button 
+                              onClick={() => handleEditClick(ep)}
+                              className="text-[10px] font-black text-gray-600 hover:text-white uppercase tracking-widest transition-all"
+                            >
+                              DÜZENLE
+                            </button>
+                            <button 
+                              onClick={() => handleEpisodeVideoPatch(ep)}
+                              className="text-[10px] font-black text-emerald-300 hover:text-emerald-200 uppercase tracking-widest transition-all"
+                            >
+                              VİDEO PATCH
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(ep.id)}
+                              disabled={isAction === ep.id}
+                              className="text-[10px] font-black text-brand-red/40 hover:text-brand-red uppercase tracking-widest transition-all disabled:opacity-20"
+                            >
+                              SİL
+                            </button>
+                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!episodes || episodes.length === 0) && !episodesLoading && (
+                    <tr>
+                      <td colSpan={4} className="px-10 py-20 text-center text-gray-600 font-black uppercase text-xs tracking-[0.4em] opacity-40 italic">
+                        Bu sezona henüz bölüm eklenmemiş. Yeni bir bölüm ekleyerek başlayın.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       {/* New Episode Modal */}

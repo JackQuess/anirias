@@ -170,6 +170,7 @@ export const db = {
 
   createEpisode: async (episode: Partial<Episode>) => {
     if (!checkEnv()) throw new Error("Backend connection failed");
+    if (!episode.season_id) throw new Error("season_id required");
     const { data, error } = await supabase!.from('episodes').insert([episode]).select().single();
     if (error) throw error;
     return data;
