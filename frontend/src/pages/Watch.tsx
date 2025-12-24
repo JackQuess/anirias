@@ -8,6 +8,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { Episode } from '../types';
 
 const PlayIcon = ({ size = 24 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -123,6 +124,22 @@ const Watch: React.FC = () => {
     return episodes.filter((ep) => (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber);
   }, [episodes, seasonNumber, defaultSeasonNumber]);
 
+  const groupedEpisodes = useMemo(() => {
+    if (!episodes) return [];
+    const map = new Map<number, Episode[]>();
+    episodes.forEach((ep) => {
+      const season = ep.season_number || ep.seasons?.season_number || defaultSeasonNumber;
+      if (!map.has(season)) map.set(season, []);
+      map.get(season)!.push(ep);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([season, items]) => ({
+        season,
+        items: items.slice().sort((a, b) => a.episode_number - b.episode_number)
+      }));
+  }, [episodes, defaultSeasonNumber]);
+
   const currentEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum);
   const prevEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum - 1);
   const nextEpisode = seasonEpisodes.find(e => e.episode_number === currentEpNum + 1);
@@ -223,10 +240,11 @@ const Watch: React.FC = () => {
     videoRef.current.currentTime += amount;
   }, []);
 
-  const goToEpisode = useCallback((episode?: { episode_number: number } | null) => {
+  const goToEpisode = useCallback((episode?: { episode_number: number; season_number?: number } | null) => {
     if (!episode) return;
-    navigate(`/watch/${animeId}/${episode.episode_number}`);
-  }, [navigate, animeId]);
+    const season = episode.season_number || seasonNumber;
+    navigate(`/watch/${animeId}?season=${season}&episode=${episode.episode_number}`);
+  }, [navigate, animeId, seasonNumber]);
 
   const toggleMute = () => {
     if (videoRef.current) {
@@ -600,43 +618,53 @@ const Watch: React.FC = () => {
                    <span className="text-[10px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-2">
-                   {episodes?.map(ep => {
-                     const isCurrent = ep.episode_number === currentEpNum;
-                     return (
-                       <button 
-                          key={ep.id} 
-                          onClick={() => navigate(`/watch/${animeId}/${ep.episode_number}`)}
-                          className={`group flex items-center gap-4 p-4 rounded-2xl transition-all w-full text-left ${
-                            isCurrent 
-                            ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
-                            : 'hover:bg-white/5 text-gray-400 hover:text-white'
-                          }`}
-                       >
-                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
-                            {ep.episode_number}
-                         </div>
-                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className={`text-[9px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
-                            {progressMap.has(ep.id) && (
-                              <div className="mt-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-emerald-400"
-                                  style={{
-                                    width: `${(() => {
-                                      const p = progressMap.get(ep.id);
-                                      if (!p || !p.duration) return 0;
-                                      return Math.min(100, (p.progress / p.duration) * 100);
-                                    })()}%`
-                                  }}
-                                />
-                              </div>
-                            )}
-                         </div>
-                       </button>
-                     );
-                   })}
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                   {groupedEpisodes.map((group) => (
+                     <div key={group.season}>
+                       <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">
+                         SEZON {group.season}
+                       </div>
+                       <div className="space-y-2">
+                         {group.items.map((ep) => {
+                           const isCurrent = ep.episode_number === currentEpNum && (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber;
+                           const heightClass = isCurrent ? 'h-[72px]' : 'h-[66px]';
+                           return (
+                             <button 
+                                key={ep.id} 
+                                onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: group.season })}
+                                className={`group flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full text-left ${heightClass} ${
+                                  isCurrent 
+                                  ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
+                                  : 'hover:bg-white/5 text-gray-400 hover:text-white'
+                                }`}
+                             >
+                               <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
+                                  {ep.episode_number}
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                                  <p className={`text-[8px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
+                                  {progressMap.has(ep.id) && (
+                                    <div className="mt-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-emerald-400"
+                                        style={{
+                                          width: `${(() => {
+                                            const p = progressMap.get(ep.id);
+                                            if (!p || !p.duration) return 0;
+                                            return Math.min(100, (p.progress / p.duration) * 100);
+                                          })()}%`
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                               </div>
+                             </button>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   ))}
                 </div>
              </div>
 
@@ -677,26 +705,33 @@ const Watch: React.FC = () => {
                   <h3 className="text-[11px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
                   <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-sm">✕</button>
                 </div>
-                {episodes?.map((ep) => {
-                  const isCurrent = ep.episode_number === currentEpNum;
-                  return (
-                    <button
-                      key={ep.id}
-                      onClick={() => { navigate(`/watch/${animeId}/${ep.episode_number}`); setShowMobileSheet(false); }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left ${
-                        isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
-                      }`}
-                    >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
-                        {ep.episode_number}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                        <p className="text-[10px] text-gray-400">24 DK</p>
-                      </div>
-                    </button>
-                  );
-                })}
+                {groupedEpisodes.map((group) => (
+                  <div key={group.season} className="space-y-2">
+                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest pb-2 border-b border-white/10">
+                      SEZON {group.season}
+                    </div>
+                    {group.items.map((ep) => {
+                      const isCurrent = ep.episode_number === currentEpNum && (ep.season_number || ep.seasons?.season_number || defaultSeasonNumber) === seasonNumber;
+                      return (
+                        <button
+                          key={ep.id}
+                          onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: group.season }); setShowMobileSheet(false); }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left h-[64px] ${
+                            isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
+                            {ep.episode_number}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className="text-[9px] text-gray-400">24 DK</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
