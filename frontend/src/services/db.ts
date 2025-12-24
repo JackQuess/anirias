@@ -154,7 +154,7 @@ export const db = {
     if (!checkEnv()) return [];
     let query = supabase!
       .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, short_note, air_date, updated_at, created_at, seasons:seasons(season_number, anime:animes(slug))')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons:seasons(season_number, anime:animes(slug))')
       .eq('anime_id', animeId);
     if (seasonId) query = query.eq('season_id', seasonId);
     

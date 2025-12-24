@@ -43,6 +43,7 @@ const AnimeDetail: React.FC = () => {
   };
 
   const titleString = anime ? getDisplayTitle(anime.title) : '';
+  const visibleEpisodes = (episodes || []).filter((ep) => !!ep.video_url);
 
   if (animeLoading) return <div className="min-h-screen bg-brand-black pt-20"><LoadingSkeleton type="banner" /></div>;
   if (!anime) return <div className="min-h-screen bg-brand-black flex items-center justify-center text-white font-black italic">ANİME BULUNAMADI</div>;
@@ -200,7 +201,7 @@ const AnimeDetail: React.FC = () => {
                </div>
 
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
-                  {episodes?.map(ep => (
+                  {visibleEpisodes.map(ep => (
                     <Link key={ep.id} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group bg-brand-surface p-4 lg:p-5 rounded-2xl lg:rounded-[2rem] border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-4 lg:gap-5 hover:bg-white/[0.02]">
                        <div className="w-12 h-12 lg:w-16 lg:h-16 bg-black/40 rounded-xl lg:rounded-2xl flex items-center justify-center text-brand-red font-black text-lg lg:text-xl italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner">
                           {ep.episode_number}
@@ -214,6 +215,11 @@ const AnimeDetail: React.FC = () => {
                        </div>
                     </Link>
                   ))}
+                  {visibleEpisodes.length === 0 && (
+                    <div className="col-span-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
+                      Yakında
+                    </div>
+                  )}
                </div>
             </section>
 

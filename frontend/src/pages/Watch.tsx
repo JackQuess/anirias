@@ -136,25 +136,17 @@ const Watch: React.FC = () => {
     return map;
   }, [progressList]);
 
-  const fallbackCdnUrl = useMemo(() => {
-    if (!anime?.slug || !currentEpisode?.seasons?.season_number && !currentEpisode?.season_number) return null;
-    const padded = String(currentEpisode.episode_number).padStart(2, '0');
-    const seasonNo = currentEpisode.season_number || currentEpisode.seasons?.season_number;
-    return `https://anirias-videos.b-cdn.net/${anime.slug}/season-${seasonNo}/episode-${padded}.mp4`;
-  }, [anime, currentEpisode]);
-
   const playbackUrl = useMemo(() => {
     const chosen =
       currentEpisode?.video_url ||
       currentEpisode?.hls_url ||
-      fallbackCdnUrl ||
       null;
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
-      console.debug('Playback URL', { chosen, fallbackCdnUrl, episode: currentEpisode });
+      console.debug('Playback URL', { chosen, episode: currentEpisode });
     }
     return chosen;
-  }, [currentEpisode, fallbackCdnUrl]);
+  }, [currentEpisode]);
 
   useEffect(() => {
     setHasStarted(false);
@@ -420,7 +412,7 @@ const Watch: React.FC = () => {
     return <div className="pt-40 text-center text-white font-black uppercase">Bölümler yüklenemedi</div>;
   }
   if (!playbackUrl) {
-    return <div className="pt-40 text-center text-white font-black uppercase">CDN yolu eksik: slug veya video_url ayarlanmadı.</div>;
+    return <div className="pt-40 text-center text-white font-black uppercase">Video henüz hazır değil.</div>;
   }
 
   const titleString = getDisplayTitle(anime.title);

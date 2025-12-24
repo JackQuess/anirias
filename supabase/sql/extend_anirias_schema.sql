@@ -9,12 +9,15 @@ alter table public.seasons
   add column if not exists anilist_id integer,
   add column if not exists title_override text,
   add column if not exists year integer,
-  add column if not exists episode_count integer;
+  add column if not exists episode_count integer,
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
 alter table public.episodes
   add column if not exists season_number integer,
   add column if not exists video_url text,
-  add column if not exists duration integer;
+  add column if not exists duration integer,
+  add column if not exists status text,
+  add column if not exists error_message text;
 
 update public.episodes e
 set season_number = s.season_number

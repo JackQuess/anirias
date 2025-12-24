@@ -17,6 +17,8 @@ begin
       s.season_number,
       lpad(e.episode_number::text, 2, '0')
     ),
+    status = 'patched',
+    error_message = null,
     updated_at = now()
   from seasons s
   join animes a on a.id = s.anime_id
@@ -34,6 +36,8 @@ begin
   -- Patch stream_url from video_url
   update episodes
   set stream_url = video_url,
+      status = 'patched',
+      error_message = null,
       updated_at = now()
   where anime_id = p_anime_id
     and stream_url is null

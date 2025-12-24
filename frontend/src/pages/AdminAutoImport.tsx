@@ -177,7 +177,8 @@ const AdminAutoImport: React.FC = () => {
           season_number: seasonNumber,
           episode_number: ep.number,
           title: ep.title,
-          duration_seconds: 1440
+          duration_seconds: 1440,
+          status: 'missing'
         });
       }
 

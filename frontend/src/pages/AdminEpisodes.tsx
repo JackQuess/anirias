@@ -74,6 +74,8 @@ const AdminEpisodes: React.FC = () => {
     error: null
   });
   const [progressTimer, setProgressTimer] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [missingSummary, setMissingSummary] = useState<{ missing: number[]; noVideo: number[]; error: number[] } | null>(null);
+  const [isMissingModalOpen, setIsMissingModalOpen] = useState(false);
 
   // Form State for new Episode
   const [newEp, setNewEp] = useState<Partial<Episode>>({
@@ -355,6 +357,35 @@ const AdminEpisodes: React.FC = () => {
     }
   };
 
+  const handleMissingScan = () => {
+    const season = seasons?.find((s) => s.id === selectedSeasonId);
+    if (!season) {
+      alert('Sezon bulunamadı.');
+      return;
+    }
+    const total = season.episode_count || 0;
+    const existingNums = new Set((episodes || []).map((e) => e.episode_number));
+    const missing: number[] = [];
+    for (let i = 1; i <= total; i += 1) {
+      if (!existingNums.has(i)) missing.push(i);
+    }
+    const noVideo = (episodes || [])
+      .filter((e) => !e.video_url)
+      .map((e) => e.episode_number);
+    const error = (episodes || [])
+      .filter((e) => e.status === 'error')
+      .map((e) => e.episode_number);
+    setMissingSummary({ missing, noVideo, error });
+    setIsMissingModalOpen(true);
+  };
+
+  const handlePatchMissingOnly = async () => {
+    const season = seasons?.find((s) => s.id === selectedSeasonId);
+    if (!season) return;
+    await handleBunnyPatch(season.season_number);
+    setIsMissingModalOpen(false);
+  };
+
   const handleCreateSeason = async () => {
     const num = prompt('Sezon Numarası:');
     if (!num) return;
@@ -530,6 +561,12 @@ const AdminEpisodes: React.FC = () => {
             className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
           >
             🐰 Bunny Patch (Sezon {autoSeasonNumber})
+          </button>
+          <button
+            onClick={handleMissingScan}
+            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
+          >
+            EKSİKLERİ TARA
           </button>
           <button 
             onClick={() => setIsAddModalOpen(true)}
@@ -823,6 +860,42 @@ const AdminEpisodes: React.FC = () => {
                 <div className="text-gray-600 text-xs font-black uppercase tracking-widest">Sonuç yok</div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isMissingModalOpen && missingSummary && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsMissingModalOpen(false)} />
+          <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-8 rounded-[2.5rem]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black text-white uppercase">Eksik Tarama</h2>
+              <button onClick={() => setIsMissingModalOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-3 text-sm text-gray-300">
+              <div>Eksik Bölüm: <span className="text-white font-black">{missingSummary.missing.length}</span></div>
+              <div>Video Yok: <span className="text-white font-black">{missingSummary.noVideo.length}</span></div>
+              <div>Hatalı: <span className="text-white font-black">{missingSummary.error.length}</span></div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handlePatchMissingOnly}
+                className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest"
+              >
+                Sadece Patch Dene
+              </button>
+              <button
+                onClick={() => alert('Eksikleri indirme için Desktop Importer kullanın.')}
+                className="flex-1 bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest"
+              >
+                Eksikleri İndir
+              </button>
+            </div>
+            {missingSummary.missing.length > 0 && (
+              <div className="mt-4 text-[10px] text-gray-500 uppercase tracking-widest">
+                Eksik Bölümler: {missingSummary.missing.join(', ')}
+              </div>
+            )}
           </div>
         </div>
       )}

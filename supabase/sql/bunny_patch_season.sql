@@ -18,6 +18,8 @@ begin
       s.season_number,
       lpad(e.episode_number::text, 2, '0')
     ),
+    status = 'patched',
+    error_message = null,
     updated_at = now()
   from seasons s
   join animes a on a.id = s.anime_id
@@ -28,6 +30,7 @@ begin
     and (
       p_overwrite = true
       or e.video_url is null
+      or e.status in ('uploaded', 'error')
     );
 
   get diagnostics updated_count = row_count;

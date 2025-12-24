@@ -167,7 +167,8 @@ async function handleAutoImport(req: Request, res: Response) {
         cdnUrl,
         hlsUrl: existing?.hls_url ?? null,
         durationSeconds: existing?.duration_seconds ?? 0,
-        title: existing?.title || `Bölüm ${eNo}`
+        title: existing?.title || `Bölüm ${eNo}`,
+        status: 'patched'
       });
 
       updated += 1;

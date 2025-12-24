@@ -58,6 +58,7 @@ export interface Episode {
   stream_id?: string | null;
   hls_url?: string | null;
   status?: string | null;
+  error_message?: string | null;
   short_note?: string | null;
   air_date?: string | null;
   updated_at: string;

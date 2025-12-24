@@ -22,6 +22,7 @@ export type EpisodeRow = {
   episode_number: number;
   video_url: string | null;
   status: string | null;
+  error_message?: string | null;
   hls_url?: string | null;
   duration_seconds?: number | null;
   title?: string | null;
@@ -88,7 +89,7 @@ export async function getSeasonByNumber(animeId: string, seasonNumber: number): 
 export async function getEpisodesBySeason(seasonId: string): Promise<EpisodeRow[]> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, anime_id, season_id, episode_number, video_url, status, hls_url, duration_seconds')
+    .select('id, anime_id, season_id, episode_number, video_url, status, error_message, hls_url, duration_seconds')
     .eq('season_id', seasonId)
     .order('episode_number', { ascending: true });
   if (error) throw new Error(`Episode fetch failed: ${error.message}`);
@@ -98,7 +99,7 @@ export async function getEpisodesBySeason(seasonId: string): Promise<EpisodeRow[
 export async function getEpisodeByKey(animeId: string, seasonId: string, episodeNumber: number): Promise<EpisodeRow | null> {
   const { data, error } = await supabaseAdmin
     .from('episodes')
-    .select('id, anime_id, season_id, episode_number, video_url, status, hls_url, duration_seconds')
+    .select('id, anime_id, season_id, episode_number, video_url, status, error_message, hls_url, duration_seconds')
     .eq('anime_id', animeId)
     .eq('season_id', seasonId)
     .eq('episode_number', episodeNumber)
@@ -115,14 +116,16 @@ export async function upsertEpisodeByKey(params: {
   hlsUrl?: string | null;
   durationSeconds?: number | null;
   title?: string | null;
+  status?: string | null;
 }) {
-  const { animeId, seasonId, episodeNumber, cdnUrl, hlsUrl, durationSeconds, title } = params;
+  const { animeId, seasonId, episodeNumber, cdnUrl, hlsUrl, durationSeconds, title, status } = params;
   const existing = await getEpisodeByKey(animeId, seasonId, episodeNumber);
   const payload = {
     video_url: cdnUrl,
     hls_url: hlsUrl ?? existing?.hls_url ?? null,
     duration_seconds: durationSeconds ?? existing?.duration_seconds ?? 0,
-    status: 'ready',
+    status: status || 'patched',
+    error_message: null,
     updated_at: new Date().toISOString(),
     title: title || existing?.title || `Bölüm ${episodeNumber}`,
   };
