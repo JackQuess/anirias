@@ -613,35 +613,34 @@ const Watch: React.FC = () => {
             </div>
           </div>
 
-          <aside className="hidden xl:block w-[360px] 2xl:w-[400px] flex-shrink-0 max-w-full space-y-8">
-             <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-8 h-[600px] flex flex-col shadow-xl">
-                <div className="flex items-center justify-between mb-6 pb-6 border-b border-white/5">
-                   <h3 className="text-sm font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">BÖLÜM LİSTESİ</h3>
-                   <span className="text-[10px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
+          <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
+             <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
+                   <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">BÖLÜM LİSTESİ</h3>
+                   <span className="text-[9px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-2">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0">
                    {episodes?.map((ep) => {
                      const isCurrent = ep.episode_number === currentEpNum;
-                     const heightClass = isCurrent ? 'h-[72px]' : 'h-[66px]';
                      return (
                        <button 
                           key={`${ep.season_id}-${ep.episode_number}`} 
                           onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
-                          className={`group flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full text-left ${heightClass} ${
+                          className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full text-left h-[56px] ${
                             isCurrent 
-                            ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' 
+                            ? 'bg-brand-red text-white shadow-md shadow-brand-red/20' 
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                           }`}
                        >
-                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
+                         <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
                             {ep.episode_number}
                          </div>
-                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className={`text-[8px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
+                         <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-[9px] font-black uppercase truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className={`text-[7px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
                             {progressMap.has(ep.id) && (
-                              <div className="mt-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-emerald-400"
                                   style={{
@@ -687,16 +686,16 @@ const Watch: React.FC = () => {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowMobileSheet((p) => !p)}
-                className="bg-brand-red text-white font-black uppercase tracking-widest text-[11px] px-4 py-3 rounded-2xl shadow-lg shadow-brand-red/30"
+                className="bg-brand-red text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-brand-red/30"
               >
                 Bölüm Listesi
               </button>
             </div>
             {showMobileSheet && (
-              <div className="mt-3 bg-brand-surface border border-brand-border rounded-3xl p-4 max-h-[50vh] overflow-y-auto space-y-2 shadow-2xl">
-                <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                  <h3 className="text-[11px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
-                  <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-sm">✕</button>
+              <div className="mt-3 bg-brand-surface border border-brand-border rounded-3xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden space-y-1.5 shadow-2xl">
+                <div className="flex items-center justify-between pb-2.5 border-b border-white/10 flex-shrink-0">
+                  <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
+                  <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-xs">✕</button>
                 </div>
                 {episodes?.map((ep) => {
                   const isCurrent = ep.episode_number === currentEpNum;
@@ -704,16 +703,16 @@ const Watch: React.FC = () => {
                     <button
                       key={`${ep.season_id}-${ep.episode_number}`}
                       onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left h-[64px] ${
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left h-[56px] ${
                         isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
                       }`}
                     >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
                         {ep.episode_number}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black uppercase truncate">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                        <p className="text-[9px] text-gray-400">24 DK</p>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <p className="text-[9px] font-black uppercase truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                        <p className="text-[7px] text-gray-400 mt-0.5">24 DK</p>
                       </div>
                     </button>
                   );

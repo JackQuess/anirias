@@ -212,15 +212,15 @@ const AnimeDetail: React.FC = () => {
                   </div>
                </div>
 
-               <div className="flex flex-col gap-2 md:gap-3 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1">
+               <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0">
                   {visibleEpisodes.map(ep => (
-                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-xl border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-3 px-[14px] py-3 min-h-[56px] hover:bg-white/[0.02]">
-                       <div className="w-9 h-9 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-xs italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner">
+                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02]">
+                       <div className="w-7 h-7 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[10px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
                           {ep.episode_number}
                        </div>
-                       <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                          <p className="text-[8px] font-bold text-gray-600 uppercase mt-1">24 DK</p>
+                       <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-[9px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                          <p className="text-[7px] font-bold text-gray-600 uppercase mt-0.5">24 DK</p>
                        </div>
                     </Link>
                   ))}

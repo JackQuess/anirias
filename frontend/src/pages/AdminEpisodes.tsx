@@ -422,7 +422,14 @@ const AdminEpisodes: React.FC = () => {
     if (!animeId) return;
     const targetSeason = seasonNumber ?? autoSeasonNumber;
     if (!targetSeason) return;
-    if (!window.confirm(`Sezon ${targetSeason} için Bunny Patch çalıştırılsın mı?`)) return;
+    
+    if (!episodes || episodes.length === 0) {
+      alert('Bu sezonda patch edilecek bölüm yok. Önce bölümleri oluşturun.');
+      return;
+    }
+    
+    if (!window.confirm(`Sezon ${targetSeason} için mevcut ${episodes.length} bölümün Bunny Patch'i çalıştırılsın mı? (Sadece DB'deki bölümler patch edilir)`)) return;
+    
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
     if (!apiBase) {
       alert('VITE_API_BASE_URL tanımlı değil.');
@@ -443,12 +450,22 @@ const AdminEpisodes: React.FC = () => {
         },
         body: JSON.stringify({
           animeId,
-          seasonNumber: targetSeason
+          seasonNumber: targetSeason,
+          checkCdn: true
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      alert(`${data?.patched ?? 0} bölüm Bunny ile bağlandı`);
+      
+      const patched = data?.patched ?? 0;
+      const errors = data?.errors ?? [];
+      
+      if (errors.length > 0) {
+        const errorMsg = errors.slice(0, 5).map((e: any) => `Ep ${e.episode_number}: ${e.error}`).join('\n');
+        alert(`${patched} bölüm patch edildi.\n\nHatalar (CDN 404):\n${errorMsg}${errors.length > 5 ? `\n...ve ${errors.length - 5} bölüm daha` : ''}`);
+      } else {
+        alert(`${patched} bölüm Bunny ile başarıyla bağlandı`);
+      }
       reload();
     } catch (err: any) {
       alert(err?.message || 'Bunny Patch başarısız');
@@ -540,33 +557,22 @@ const AdminEpisodes: React.FC = () => {
             )}
           </div>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-wrap">
           <button 
             onClick={handleCreateSeason}
             className="bg-brand-dark hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
           >
             YENİ SEZON
           </button>
-          {seasons && seasons.length > 0 && (
-            <select
-              value={selectedSeasonId}
-              onChange={(e) => setSelectedSeasonId(e.target.value)}
-              className="bg-brand-dark border border-brand-border text-white text-[10px] font-black uppercase tracking-widest px-6 py-5 rounded-2xl outline-none"
+          {selectedSeason && (
+            <button
+              onClick={() => handleBunnyPatch(selectedSeason.season_number)}
+              disabled={!hasSeasons || isBunnyPatching}
+              className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
             >
-              {seasons.map((s) => (
-                <option key={s.id} value={s.id}>
-                  Sezon {s.season_number}
-                </option>
-              ))}
-            </select>
+              🐰 Bunny Patch (Sezon {selectedSeason.season_number})
+            </button>
           )}
-          <button
-            onClick={() => handleBunnyPatch()}
-            disabled={!hasSeasons || isBunnyPatching}
-            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
-          >
-            🐰 Bunny Patch (Sezon {autoSeasonNumber})
-          </button>
           <button
             onClick={handleMissingScan}
             disabled={!hasSeasons}
@@ -643,53 +649,43 @@ const AdminEpisodes: React.FC = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 border-b border-brand-border pb-6">
-            {seasons?.map(s => (
-              <div
-                key={s.id}
-                className={`rounded-3xl border p-6 bg-brand-dark transition-all ${
-                  selectedSeasonId === s.id ? 'border-brand-red/60 shadow-lg shadow-brand-red/10' : 'border-brand-border'
-                }`}
+          {/* Season Tabs */}
+          {seasons && seasons.length > 0 && (
+            <div className="flex bg-brand-dark/50 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full mb-6">
+              {seasons.map(s => (
+                <button 
+                  key={s.id} 
+                  onClick={() => setSelectedSeasonId(s.id)}
+                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    selectedSeasonId === s.id 
+                      ? 'bg-brand-red text-white shadow-lg' 
+                      : 'text-gray-500 hover:text-white'
+                  }`}
+                >
+                  SEZON {s.season_number}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Season Actions */}
+          {selectedSeason && (
+            <div className="flex flex-wrap gap-3 mb-6">
+              <button
+                onClick={() => openAniListModal(selectedSeason)}
+                disabled={!!selectedSeason.anilist_id}
+                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl border border-brand-border disabled:opacity-40"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-black text-lg uppercase italic tracking-tight">Sezon {s.season_number}</p>
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">
-                      AniList ID: {s.anilist_id ?? 'Bağlı değil'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedSeasonId(s.id)}
-                    className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl border border-brand-border"
-                  >
-                    BÖLÜMLER
-                  </button>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => openAniListModal(s)}
-                    disabled={!!s.anilist_id}
-                    className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border disabled:opacity-40"
-                  >
-                    {s.anilist_id ? 'ANILIST BAĞLI' : 'ANILIST SEZON BAĞLA'}
-                  </button>
-                  <button
-                    onClick={() => handleBunnyPatch(s.season_number)}
-                    disabled={isBunnyPatching}
-                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 disabled:opacity-50"
-                  >
-                    🐰 BUNNY PATCH
-                  </button>
-                  <button
-                    onClick={() => handleDeleteSeason(s.id)}
-                    className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-red-500/30"
-                  >
-                    SİL
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                {selectedSeason.anilist_id ? 'ANILIST BAĞLI' : 'ANILIST SEZON BAĞLA'}
+              </button>
+              <button
+                onClick={() => handleDeleteSeason(selectedSeason.id)}
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl border border-red-500/30"
+              >
+                SEZONU SİL
+              </button>
+            </div>
+          )}
 
           {episodesLoading ? <LoadingSkeleton type="list" count={5} /> : (
             <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
