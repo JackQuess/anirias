@@ -128,6 +128,7 @@ export interface CalendarEntry {
   anime_id: string;
   episode_id?: string;
   episode_number: number;
+  season_number?: number | null;
   air_date: string;
   animes?: Anime;
   status?: string | null;

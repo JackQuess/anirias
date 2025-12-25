@@ -274,7 +274,7 @@ const Profile: React.FC = () => {
                              <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest py-1">{new Date(h.completed_at).toLocaleDateString('tr-TR')}</span>
                            </div>
                         </div>
-                        <Link to={`/watch/${h.anime_id}/${h.episode?.episode_number}`} className="w-16 h-16 bg-white/5 hover:bg-brand-red text-white rounded-2xl flex items-center justify-center transition-all">
+                        <Link to={`/watch/${h.anime_id}?season=${h.episode?.season_number || 1}&episode=${h.episode?.episode_number}`} className="w-16 h-16 bg-white/5 hover:bg-brand-red text-white rounded-2xl flex items-center justify-center transition-all">
                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </Link>
                      </div>

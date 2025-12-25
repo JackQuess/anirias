@@ -115,7 +115,7 @@ const Watch: React.FC = () => {
     }
   }, [seasons, querySeasonNumber, selectedSeasonId]);
 
-  const { data: episodes } = useLoad(
+  const { data: episodes, reload: reloadEpisodes } = useLoad(
     () => selectedSeasonId ? db.getEpisodes(animeId!, selectedSeasonId) : Promise.resolve([]),
     [animeId, selectedSeasonId]
   );
@@ -150,22 +150,6 @@ const Watch: React.FC = () => {
     }
     return chosen;
   }, [currentEpisode]);
-
-  useEffect(() => {
-    let isActive = true;
-    if (!currentEpisode?.video_url) return;
-    fetch(currentEpisode.video_url, { method: 'HEAD', cache: 'no-store' })
-      .then((res) => {
-        if (!isActive) return;
-        if (res.status === 404) {
-          setPlaybackError('Video henüz yüklenmemiş.');
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isActive = false;
-    };
-  }, [currentEpisode?.video_url]);
 
   useEffect(() => {
     setHasStarted(false);
@@ -438,7 +422,17 @@ const Watch: React.FC = () => {
     return <div className="pt-40 text-center text-white font-black uppercase">Bölümler yüklenemedi</div>;
   }
   if (!playbackUrl) {
-    return <div className="pt-40 text-center text-white font-black uppercase">Video henüz hazır değil.</div>;
+    return (
+      <div className="pt-40 text-center text-white font-black uppercase space-y-4">
+        <div>Video henüz eklenmemiş.</div>
+        <button
+          onClick={() => reloadEpisodes()}
+          className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest px-5 py-3 rounded-2xl border border-white/10 transition-all"
+        >
+          Yenile
+        </button>
+      </div>
+    );
   }
 
   const titleString = getDisplayTitle(anime.title);
@@ -475,7 +469,7 @@ const Watch: React.FC = () => {
                   onPlaying={() => { setIsBuffering(false); setIsPlaying(true); setHasStarted(true); syncDuration(); }}
                   onPause={() => setIsPlaying(false)}
                   onEnded={handleEnded}
-                  onError={() => setPlaybackError('Video henüz yüklenmemiş.')}
+                  onError={() => setPlaybackError('Video oynatılamadı.')}
                   onClick={(e) => { e.stopPropagation(); togglePlay(e as any); }}
                   controls={false}
                 />
@@ -632,7 +626,7 @@ const Watch: React.FC = () => {
                      const heightClass = isCurrent ? 'h-[72px]' : 'h-[66px]';
                      return (
                        <button 
-                          key={ep.id} 
+                          key={`${ep.season_id}-${ep.episode_number}`} 
                           onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
                           className={`group flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full text-left ${heightClass} ${
                             isCurrent 
@@ -708,7 +702,7 @@ const Watch: React.FC = () => {
                   const isCurrent = ep.episode_number === currentEpNum;
                   return (
                     <button
-                      key={ep.id}
+                      key={`${ep.season_id}-${ep.episode_number}`}
                       onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left h-[64px] ${
                         isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'

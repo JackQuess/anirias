@@ -109,7 +109,7 @@ const Home: React.FC = () => {
                 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
-                  <Link to={`/watch/${heroAnime.id}/1`} className="bg-brand-red hover:bg-brand-redHover text-white px-8 md:px-12 py-4 md:py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-105 transition-all uppercase text-xs tracking-[0.2em] shadow-2xl shadow-brand-red/40 group/btn">
+                  <Link to={`/watch/${heroAnime.id}?season=1&episode=1`} className="bg-brand-red hover:bg-brand-redHover text-white px-8 md:px-12 py-4 md:py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-105 transition-all uppercase text-xs tracking-[0.2em] shadow-2xl shadow-brand-red/40 group/btn">
                     <div className="w-8 h-8 bg-white text-brand-red rounded-full flex items-center justify-center group-hover/btn:scale-110 transition-transform">
                        <svg className="w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     </div>
@@ -182,7 +182,7 @@ const Home: React.FC = () => {
                 const remaining = Math.max(0, Math.floor((item.duration_seconds - item.progress_seconds) / 60));
                 
                 return (
-                  <Link key={item.episode_id} to={`/watch/${item.anime_id}/${item.episode?.episode_number || 1}`} className="group relative flex-shrink-0 w-64 md:w-80 snap-start">
+                  <Link key={item.episode_id} to={`/watch/${item.anime_id}?season=${item.episode?.season_number || 1}&episode=${item.episode?.episode_number || 1}`} className="group relative flex-shrink-0 w-64 md:w-80 snap-start">
                     <div className="aspect-video rounded-2xl md:rounded-[2rem] overflow-hidden bg-brand-surface border border-white/5 group-hover:border-brand-red/50 transition-all shadow-xl relative">
                       <img
                         src={proxyImage(item.anime?.cover_image || '')}

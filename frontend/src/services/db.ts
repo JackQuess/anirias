@@ -429,7 +429,7 @@ export const db = {
     if (!checkEnv()) return [];
     const { data, error } = await supabase!
       .from('episodes')
-      .select('id, anime_id, episode_number, air_date, status, short_note, animes:animes(*)')
+      .select('id, anime_id, season_number, episode_number, air_date, status, short_note, animes:animes(*)')
       .not('air_date', 'is', null)
       .order('air_date', { ascending: true });
     if (error) {
@@ -441,6 +441,7 @@ export const db = {
       anime_id: ep.anime_id,
       episode_id: ep.id,
       episode_number: ep.episode_number,
+      season_number: (ep as any).season_number ?? null,
       air_date: ep.air_date,
       status: (ep as any).status,
       short_note: (ep as any).short_note,

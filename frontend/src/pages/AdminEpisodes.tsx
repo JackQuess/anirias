@@ -94,6 +94,7 @@ const AdminEpisodes: React.FC = () => {
     selectedSeasonId ? db.getEpisodes(animeId!, selectedSeasonId) : Promise.resolve([]), 
     [animeId, selectedSeasonId]
   );
+  const selectedSeason = seasons?.find((s) => s.id === selectedSeasonId);
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = (seasons?.length ?? 0) > 0;
 
@@ -501,21 +502,6 @@ const AdminEpisodes: React.FC = () => {
         year: media.seasonYear || null
       });
 
-      const existing = await db.getEpisodes(animeId, bindingSeason.id);
-      const existingSet = new Set(existing.map((e) => e.episode_number));
-      const total = media.episodes || 0;
-      for (let i = 1; i <= total; i += 1) {
-        if (existingSet.has(i)) continue;
-        await db.createEpisode({
-          anime_id: animeId,
-          season_id: bindingSeason.id,
-          season_number: bindingSeason.season_number,
-          episode_number: i,
-          title: `Bölüm ${i}`,
-          duration_seconds: 1440
-        });
-      }
-
       alert(`Sezon ${bindingSeason.season_number} AniList'e bağlandı.`);
       setIsAniListModalOpen(false);
       setBindingSeason(null);
@@ -547,6 +533,11 @@ const AdminEpisodes: React.FC = () => {
               {anime ? getDisplayTitle(anime.title) : 'Bölüm'} <span className="text-brand-red">Yönetimi</span>
             </h1>
             <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1">Sezon ve Bölüm Arşivi</p>
+            {selectedSeason && (
+              <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-2">
+                AniList: {selectedSeason.episode_count || 0} Bölüm | Mevcut: {episodes?.length || 0} Bölüm
+              </p>
+            )}
           </div>
         </div>
         <div className="flex gap-4">
@@ -556,6 +547,19 @@ const AdminEpisodes: React.FC = () => {
           >
             YENİ SEZON
           </button>
+          {seasons && seasons.length > 0 && (
+            <select
+              value={selectedSeasonId}
+              onChange={(e) => setSelectedSeasonId(e.target.value)}
+              className="bg-brand-dark border border-brand-border text-white text-[10px] font-black uppercase tracking-widest px-6 py-5 rounded-2xl outline-none"
+            >
+              {seasons.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Sezon {s.season_number}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={() => handleBunnyPatch()}
             disabled={!hasSeasons || isBunnyPatching}
