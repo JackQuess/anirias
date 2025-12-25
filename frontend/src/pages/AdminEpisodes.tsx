@@ -76,6 +76,21 @@ const AdminEpisodes: React.FC = () => {
   const [progressTimer, setProgressTimer] = useState<ReturnType<typeof setInterval> | null>(null);
   const [missingSummary, setMissingSummary] = useState<{ missing: number[]; noVideo: number[]; error: number[] } | null>(null);
   const [isMissingModalOpen, setIsMissingModalOpen] = useState(false);
+  const [isSeasonModalOpen, setIsSeasonModalOpen] = useState(false);
+  const [isCreatingSeason, setIsCreatingSeason] = useState(false);
+  const [seasonForm, setSeasonForm] = useState<{
+    season_number: number;
+    title: string;
+    year: number | null;
+    episode_count: number | null;
+    anilist_id: number | null;
+  }>({
+    season_number: 1,
+    title: '',
+    year: null,
+    episode_count: null,
+    anilist_id: null
+  });
 
   // Form State for new Episode
   const [newEp, setNewEp] = useState<Partial<Episode>>({
@@ -88,8 +103,8 @@ const AdminEpisodes: React.FC = () => {
   const [hlsInput, setHlsInput] = useState<string>('');
   const [airDateInput, setAirDateInput] = useState<string>(new Date().toISOString().slice(0,16));
 
-  const { data: anime } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
-  const { data: seasons, loading: seasonsLoading } = useLoad(() => db.getSeasons(animeId!), [animeId]);
+  const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
+  const { data: seasons, loading: seasonsLoading, reload: reloadSeasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
   const { data: episodes, loading: episodesLoading, reload } = useLoad(() => 
     selectedSeasonId ? db.getEpisodes(animeId!, selectedSeasonId) : Promise.resolve([]), 
     [animeId, selectedSeasonId]
@@ -388,18 +403,75 @@ const AdminEpisodes: React.FC = () => {
     setIsMissingModalOpen(false);
   };
 
-  const handleCreateSeason = async () => {
-    const num = prompt('Sezon Numarası:');
-    if (!num) return;
+  const handleOpenSeasonModal = () => {
+    setSeasonForm({
+      season_number: (seasons?.length || 0) > 0 ? Math.max(...(seasons?.map(s => s.season_number) || [])) + 1 : 1,
+      title: '',
+      year: null,
+      episode_count: null,
+      anilist_id: null
+    });
+    setIsSeasonModalOpen(true);
+  };
+
+  const handleCreateSeason = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!animeId) return;
+
+    const seasonNum = seasonForm.season_number;
+    if (!seasonNum || seasonNum < 1) {
+      alert('Sezon numarası 1 veya daha büyük olmalıdır.');
+      return;
+    }
+
+    // Check for duplicate season
+    const existingSeason = seasons?.find(s => s.season_number === seasonNum);
+    if (existingSeason) {
+      alert('Bu sezon zaten mevcut');
+      return;
+    }
+
+    setIsCreatingSeason(true);
     try {
-      await db.createSeason({
+      const newSeason = await db.createSeason({
         anime_id: animeId,
-        season_number: parseInt(num),
-        title: `Sezon ${num}`
+        season_number: seasonNum,
+        title: seasonForm.title || `Sezon ${seasonNum}`,
+        year: seasonForm.year || null,
+        episode_count: seasonForm.episode_count || null,
+        anilist_id: seasonForm.anilist_id || null
+      } as Partial<Season>);
+
+      // Reload seasons list
+      await reloadSeasons();
+
+      // Automatically select the newly created season
+      if (newSeason?.id) {
+        setSelectedSeasonId(newSeason.id);
+      }
+
+      // Close modal and reset form
+      setIsSeasonModalOpen(false);
+      setSeasonForm({
+        season_number: 1,
+        title: '',
+        year: null,
+        episode_count: null,
+        anilist_id: null
       });
-      window.location.reload();
-    } catch (e) {
-      alert('Sezon oluşturulamadı.');
+
+      alert('Sezon başarıyla eklendi');
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Sezon oluşturulamadı';
+      
+      // Check if it's a duplicate error
+      if (errorMsg.includes('duplicate') || errorMsg.includes('unique') || errorMsg.includes('already exists')) {
+        alert('Bu sezon zaten mevcut');
+      } else {
+        alert(`Hata: ${errorMsg}`);
+      }
+    } finally {
+      setIsCreatingSeason(false);
     }
   };
 
@@ -559,7 +631,7 @@ const AdminEpisodes: React.FC = () => {
         </div>
         <div className="flex gap-4 flex-wrap">
           <button 
-            onClick={handleCreateSeason}
+            onClick={handleOpenSeasonModal}
             className="bg-brand-dark hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
           >
             YENİ SEZON
@@ -1087,6 +1159,115 @@ const AdminEpisodes: React.FC = () => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Season Creation Modal */}
+      {isSeasonModalOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => !isCreatingSeason && setIsSeasonModalOpen(false)} />
+          <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
+            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-2">
+              Yeni <span className="text-brand-red">Sezon Ekle</span>
+            </h2>
+            <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-8">
+              AniList bağlamadan manuel sezon oluşturur.
+            </p>
+            <form onSubmit={handleCreateSeason} className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                    SEZON NUMARASI <span className="text-brand-red">*</span>
+                  </label>
+                  <input 
+                    type="number"
+                    min="1"
+                    required
+                    value={seasonForm.season_number}
+                    onChange={e => setSeasonForm({...seasonForm, season_number: parseInt(e.target.value) || 1})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
+                    disabled={isCreatingSeason}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                    YIL
+                  </label>
+                  <input 
+                    type="number"
+                    min="1900"
+                    max="2100"
+                    value={seasonForm.year || ''}
+                    onChange={e => setSeasonForm({...seasonForm, year: e.target.value ? parseInt(e.target.value) : null})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
+                    disabled={isCreatingSeason}
+                    placeholder="2024"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                    SEZON BAŞLIĞI
+                  </label>
+                  <input 
+                    type="text"
+                    value={seasonForm.title}
+                    onChange={e => setSeasonForm({...seasonForm, title: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
+                    disabled={isCreatingSeason}
+                    placeholder={`Sezon ${seasonForm.season_number}`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                    BÖLÜM SAYISI
+                  </label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={seasonForm.episode_count || ''}
+                    onChange={e => setSeasonForm({...seasonForm, episode_count: e.target.value ? parseInt(e.target.value) : null})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
+                    disabled={isCreatingSeason}
+                    placeholder="Opsiyonel"
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                    ANILIST MEDIA ID
+                  </label>
+                  <input 
+                    type="number"
+                    min="1"
+                    value={seasonForm.anilist_id || ''}
+                    onChange={e => setSeasonForm({...seasonForm, anilist_id: e.target.value ? parseInt(e.target.value) : null})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
+                    disabled={isCreatingSeason}
+                    placeholder="Opsiyonel - Daha sonra AniList'ten bağlanabilir"
+                  />
+                  <p className="text-[9px] text-gray-500 font-mono mt-1">
+                    AniList Media ID'sini burada girebilir veya daha sonra "AniList Sezon Bağla" butonunu kullanabilirsin.
+                  </p>
+                </div>
+              </div>
+              <div className="pt-4 flex gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsSeasonModalOpen(false)} 
+                  disabled={isCreatingSeason}
+                  className="flex-grow bg-white/5 text-gray-500 font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] disabled:opacity-50"
+                >
+                  İPTAL
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isCreatingSeason}
+                  className="flex-grow bg-brand-red text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-brand-red/20 disabled:opacity-50"
+                >
+                  {isCreatingSeason ? 'OLUŞTURULUYOR...' : 'OLUŞTUR'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
