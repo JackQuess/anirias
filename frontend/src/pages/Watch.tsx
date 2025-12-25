@@ -107,9 +107,11 @@ const Watch: React.FC = () => {
 
   useEffect(() => {
     if (!seasons || seasons.length === 0) return;
-    const target = querySeasonNumber
-      ? seasons.find((s) => s.season_number === querySeasonNumber)
-      : seasons[0];
+    if (!querySeasonNumber) {
+      // Strict: require season param, no fallback
+      return;
+    }
+    const target = seasons.find((s) => s.season_number === querySeasonNumber);
     if (target && target.id !== selectedSeasonId) {
       setSelectedSeasonId(target.id);
     }
@@ -121,9 +123,9 @@ const Watch: React.FC = () => {
   );
 
   const seasonNumber = useMemo(() => {
-    if (!seasons || seasons.length === 0) return querySeasonNumber || 1;
-    const currentSeason = seasons.find((s) => s.id === selectedSeasonId);
-    return currentSeason?.season_number || querySeasonNumber || seasons[0].season_number;
+    if (!querySeasonNumber) return null; // Strict: require season param
+    const currentSeason = seasons?.find((s) => s.id === selectedSeasonId);
+    return currentSeason?.season_number || querySeasonNumber;
   }, [seasons, selectedSeasonId, querySeasonNumber]);
 
   const currentEpisode = (episodes || []).find(e => e.episode_number === currentEpNum);
@@ -227,16 +229,12 @@ const Watch: React.FC = () => {
   }, []);
 
   const goToEpisode = useCallback((episode?: { episode_number: number; season_number?: number } | null) => {
-    if (!episode) return;
-    const season = episode.season_number || seasonNumber;
-    navigate(`/watch/${animeId}?season=${season}&episode=${episode.episode_number}`);
+    if (!episode || !seasonNumber) return;
+    navigate(`/watch/${animeId}?season=${seasonNumber}&episode=${episode.episode_number}`);
   }, [navigate, animeId, seasonNumber]);
 
-  useEffect(() => {
-    if (!episodes || episodes.length === 0) return;
-    if (currentEpisode) return;
-    goToEpisode({ episode_number: episodes[0].episode_number, season_number: seasonNumber });
-  }, [episodes, currentEpisode, goToEpisode, seasonNumber]);
+  // Strict: Do NOT auto-redirect to first episode if currentEpisode not found
+  // User must explicitly select an episode from the active season
 
   const toggleMute = () => {
     if (videoRef.current) {
@@ -415,22 +413,23 @@ const Watch: React.FC = () => {
   };
 
   if (!anime) return <div className="pt-40 text-center"><LoadingSkeleton type="banner" /></div>;
+  if (!querySeasonNumber) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon parametresi gerekli. URL: /watch/{animeId}?season=1&episode=1</div>;
+  }
+  if (!selectedSeasonId || !episodes) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} yükleniyor...</div>;
+  }
+  if (episodes.length === 0) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} için henüz bölüm bulunmuyor.</div>;
+  }
   if (!currentEpisode) {
-    if (episodes && episodes.length > 0) {
-      return <div className="pt-40 text-center text-white font-black uppercase">Bölüm bulunamadı (ID: {episodeId}). Sezon numarası veya bölüm numarasını kontrol et.</div>;
-    }
-    return <div className="pt-40 text-center text-white font-black uppercase">Bölümler yüklenemedi</div>;
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} - Bölüm {currentEpNum} bulunamadı. Lütfen geçerli bir bölüm numarası seçin.</div>;
   }
   if (!playbackUrl) {
     return (
       <div className="pt-40 text-center text-white font-black uppercase space-y-4">
         <div>Video henüz eklenmemiş.</div>
-        <button
-          onClick={() => reloadEpisodes()}
-          className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest px-5 py-3 rounded-2xl border border-white/10 transition-all"
-        >
-          Yenile
-        </button>
+        <div className="text-gray-400 text-sm mt-2">Bölüm {currentEpNum} - Sezon {seasonNumber}</div>
       </div>
     );
   }

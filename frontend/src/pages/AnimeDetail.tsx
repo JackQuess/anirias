@@ -101,7 +101,7 @@ const AnimeDetail: React.FC = () => {
                 }}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                 <Link to={`/watch/${anime.id}?season=1&episode=1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
+                 <Link to={seasons && seasons.length > 0 ? `/watch/${anime.id}?season=${seasons[0].season_number}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
                     <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                  </Link>
               </div>
@@ -132,7 +132,7 @@ const AnimeDetail: React.FC = () => {
                 </div>
               )}
 
-              <Link to={`/watch/${anime.id}?season=1&episode=1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
+              <Link to={seasons && seasons.length > 0 ? `/watch/${anime.id}?season=${seasons[0].season_number}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
                 HEMEN İZLE
               </Link>
             </div>
@@ -213,8 +213,11 @@ const AnimeDetail: React.FC = () => {
                </div>
 
                <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0">
-                  {visibleEpisodes.map(ep => (
-                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${ep.season_number || ep.seasons?.season_number || 1}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02]">
+                  {visibleEpisodes.map(ep => {
+                    const currentSeason = seasons?.find(s => s.id === selectedSeasonId);
+                    const seasonNum = currentSeason?.season_number || 1;
+                    return (
+                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${seasonNum}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02]">
                        <div className="w-7 h-7 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[10px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
                           {ep.episode_number}
                        </div>
@@ -223,7 +226,8 @@ const AnimeDetail: React.FC = () => {
                           <p className="text-[7px] font-bold text-gray-600 uppercase mt-0.5">24 DK</p>
                        </div>
                     </Link>
-                  ))}
+                    );
+                  })}
                   {visibleEpisodes.length === 0 && (
                     <div className="col-span-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
                       Yakında

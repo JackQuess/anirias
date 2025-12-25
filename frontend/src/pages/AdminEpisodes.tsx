@@ -649,95 +649,77 @@ const AdminEpisodes: React.FC = () => {
         <div className="flex gap-4 flex-wrap">
           <button 
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleToggleInlineSeasonForm();
-            }}
-            className="bg-brand-dark hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all cursor-pointer"
+            disabled
+            title="Bu işlem artık Desktop App üzerinden yapılır."
+            className="bg-brand-dark text-gray-600 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border opacity-50 cursor-not-allowed"
           >
             ➕ YENİ SEZON
           </button>
           {selectedSeason && (
             <button
-              onClick={() => handleBunnyPatch(selectedSeason.season_number)}
-              disabled={!hasSeasons || isBunnyPatching}
-              className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
+              disabled
+              title="Bu işlem artık Desktop App üzerinden yapılır."
+              className="bg-emerald-500/10 text-gray-600 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 opacity-50 cursor-not-allowed"
             >
               ⚡ Video Patch (Bu Sezon)
             </button>
           )}
           <button
-            onClick={handleMissingScan}
-            disabled={!hasSeasons}
-            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all disabled:opacity-50"
+            disabled
+            title="Bu işlem artık Desktop App üzerinden yapılır."
+            className="bg-white/5 text-gray-600 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border opacity-50 cursor-not-allowed"
           >
             EKSİKLERİ TARA
           </button>
           <button 
-            onClick={() => {
-              if (!hasSeasons) {
-                alert('Önce sezon oluşturmalısın.');
-                return;
-              }
-              setIsAddModalOpen(true);
-            }}
-            className="bg-brand-red hover:bg-brand-redHover text-white px-10 py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all active:scale-95 disabled:opacity-50"
-            disabled={!hasSeasons}
+            disabled
+            title="Bu işlem artık Desktop App üzerinden yapılır."
+            className="bg-brand-red/50 text-gray-600 px-10 py-5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl opacity-50 cursor-not-allowed"
           >
             YENİ BÖLÜM EKLE
           </button>
           <button
-            onClick={handlePatchVideos}
-            disabled={!hasSeasons || isPatching}
-            className="bg-white/5 hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all disabled:opacity-50"
+            disabled
+            title="Bu işlem artık Desktop App üzerinden yapılır."
+            className="bg-white/5 text-gray-600 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border opacity-50 cursor-not-allowed"
           >
             🎬 Video Patch
           </button>
-          <div className="flex items-center gap-2 bg-white/5 border border-brand-border rounded-2xl px-4 py-3">
+          <div className="flex items-center gap-2 bg-white/5 border border-brand-border rounded-2xl px-4 py-3 opacity-50">
             <input
               type="text"
-              value={cdnTestUrl}
-              onChange={(e) => setCdnTestUrl(e.target.value)}
+              disabled
+              value=""
               placeholder="https://anirias-videos.b-cdn.net/..."
-              className="bg-transparent text-white text-xs outline-none flex-1"
+              className="bg-transparent text-gray-600 text-xs outline-none flex-1 cursor-not-allowed"
             />
             <input
               type="password"
-              value={cdnToken}
-              onChange={(e) => setCdnToken(e.target.value)}
+              disabled
+              value=""
               placeholder="Admin Token"
-              className="bg-transparent text-white text-xs outline-none w-32"
+              className="bg-transparent text-gray-600 text-xs outline-none w-32 cursor-not-allowed"
             />
             <button
-              onClick={handleCdnTest}
-              disabled={!hasSeasons || cdnTesting}
-              className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl disabled:opacity-60"
+              disabled
+              title="Bu işlem artık Desktop App üzerinden yapılır."
+              className="bg-emerald-500/50 text-gray-600 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl cursor-not-allowed"
             >
               CDN'de Test Et
             </button>
-            {cdnTestResult && (
-              <span
-                className={`text-[10px] font-black uppercase px-3 py-1 rounded-xl ${
-                  cdnTestResult.exists ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                }`}
-              >
-                {cdnTestResult.exists ? `OK (${cdnTestResult.status})` : `YOK (${cdnTestResult.status})`}
-              </span>
-            )}
           </div>
           <button
-            onClick={() => setIsAutoModalOpen(true)}
-            disabled={!hasSeasons}
-            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/40 transition-all disabled:opacity-50"
+            disabled
+            title="Bu işlem artık Desktop App üzerinden yapılır."
+            className="bg-emerald-500/20 text-gray-600 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/40 opacity-50 cursor-not-allowed"
           >
             ⚡ Auto Import
           </button>
         </div>
       </div>
 
-      {/* Inline Season Creation Form - Always visible when toggled */}
-      {isInlineSeasonFormOpen && (
+      {/* Inline Season Creation Form - DISABLED (Read-only mode) */}
+      {false && isInlineSeasonFormOpen && (
         <div className="bg-brand-dark border border-brand-border rounded-2xl p-6 mb-6">
           <form onSubmit={handleCreateSeason} className="space-y-4">
             <div className="grid grid-cols-4 gap-4">
@@ -872,22 +854,23 @@ const AdminEpisodes: React.FC = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() => openAniListModal(s)}
-                        disabled={!!s.anilist_id}
-                        className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border disabled:opacity-40 flex-1"
+                        disabled
+                        title="Bu işlem artık Desktop App üzerinden yapılır."
+                        className="bg-white/5 text-gray-600 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border opacity-50 cursor-not-allowed flex-1"
                       >
                         {s.anilist_id ? '✓ BAĞLI' : '🔗 ANILIST BAĞLA'}
                       </button>
                       <button
-                        onClick={() => handleBunnyPatch(s.season_number)}
-                        disabled={isBunnyPatching}
-                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 disabled:opacity-50 flex-1"
+                        disabled
+                        title="Bu işlem artık Desktop App üzerinden yapılır."
+                        className="bg-emerald-500/10 text-gray-600 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 opacity-50 cursor-not-allowed flex-1"
                       >
                         ⚡ BUNNY PATCH
                       </button>
                       <button
-                        onClick={() => handleDeleteSeason(s.id)}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-2 py-2 rounded-xl border border-red-500/30"
+                        disabled
+                        title="Bu işlem artık Desktop App üzerinden yapılır."
+                        className="bg-red-500/10 text-gray-600 text-[10px] font-black uppercase tracking-widest px-2 py-2 rounded-xl border border-red-500/30 opacity-50 cursor-not-allowed"
                       >
                         🗑️
                       </button>
@@ -941,21 +924,23 @@ const AdminEpisodes: React.FC = () => {
                       <td className="px-10 py-6 text-right">
                          <div className="flex items-center justify-end gap-4">
                             <button 
-                              onClick={() => handleEditClick(ep)}
-                              className="text-[10px] font-black text-gray-600 hover:text-white uppercase tracking-widest transition-all"
+                              disabled
+                              title="Bu işlem artık Desktop App üzerinden yapılır."
+                              className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
                             >
                               DÜZENLE
                             </button>
                             <button 
-                              onClick={() => handleEpisodeVideoPatch(ep)}
-                              className="text-[10px] font-black text-emerald-300 hover:text-emerald-200 uppercase tracking-widest transition-all"
+                              disabled
+                              title="Bu işlem artık Desktop App üzerinden yapılır."
+                              className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
                             >
                               VİDEO PATCH
                             </button>
                             <button 
-                              onClick={() => handleDelete(ep.id)}
-                              disabled={isAction === ep.id}
-                              className="text-[10px] font-black text-brand-red/40 hover:text-brand-red uppercase tracking-widest transition-all disabled:opacity-20"
+                              disabled
+                              title="Bu işlem artık Desktop App üzerinden yapılır."
+                              className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
                             >
                               SİL
                             </button>
@@ -977,8 +962,8 @@ const AdminEpisodes: React.FC = () => {
         </>
       )}
 
-      {/* New Episode Modal */}
-      {isAddModalOpen && (
+      {/* New Episode Modal - DISABLED (Read-only mode) */}
+      {false && isAddModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAddModalOpen(false)} />
           <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
@@ -1053,7 +1038,7 @@ const AdminEpisodes: React.FC = () => {
         </div>
       )}
 
-      {isAniListModalOpen && bindingSeason && (
+      {false && isAniListModalOpen && bindingSeason && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAniListModalOpen(false)} />
           <div className="relative w-full max-w-3xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
@@ -1107,7 +1092,7 @@ const AdminEpisodes: React.FC = () => {
         </div>
       )}
 
-      {isMissingModalOpen && missingSummary && (
+      {false && isMissingModalOpen && missingSummary && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsMissingModalOpen(false)} />
           <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-8 rounded-[2.5rem]">
@@ -1143,7 +1128,7 @@ const AdminEpisodes: React.FC = () => {
         </div>
       )}
 
-      {isAutoModalOpen && (
+      {false && isAutoModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAutoModalOpen(false)} />
           <div className="relative w-full max-w-5xl bg-brand-dark border border-brand-border p-8 rounded-[2.5rem] shadow-[0_0_100px_rgba(16,185,129,0.2)] space-y-8 max-h-[88vh] overflow-y-auto">
