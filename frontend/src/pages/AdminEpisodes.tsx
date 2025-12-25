@@ -411,8 +411,11 @@ const AdminEpisodes: React.FC = () => {
         episode_count: null
       });
     } else {
+      const nextSeasonNumber = (seasons?.length || 0) > 0 
+        ? Math.max(...(seasons?.map(s => s.season_number) || [])) + 1 
+        : 1;
       setSeasonForm({
-        season_number: (seasons?.length || 0) > 0 ? Math.max(...(seasons?.map(s => s.season_number) || [])) + 1 : 1,
+        season_number: nextSeasonNumber,
         title_override: '',
         year: null,
         episode_count: null
@@ -645,8 +648,13 @@ const AdminEpisodes: React.FC = () => {
         </div>
         <div className="flex gap-4 flex-wrap">
           <button 
-            onClick={handleToggleInlineSeasonForm}
-            className="bg-brand-dark hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleToggleInlineSeasonForm();
+            }}
+            className="bg-brand-dark hover:bg-white/10 text-white px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-brand-border transition-all cursor-pointer"
           >
             ➕ YENİ SEZON
           </button>
