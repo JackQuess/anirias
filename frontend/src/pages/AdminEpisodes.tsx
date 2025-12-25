@@ -406,7 +406,7 @@ const AdminEpisodes: React.FC = () => {
   const handleOpenSeasonModal = () => {
     setSeasonForm({
       season_number: (seasons?.length || 0) > 0 ? Math.max(...(seasons?.map(s => s.season_number) || [])) + 1 : 1,
-      title: '',
+      title_override: '',
       year: null,
       episode_count: null,
       anilist_id: null
