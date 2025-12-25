@@ -736,6 +736,89 @@ const AdminEpisodes: React.FC = () => {
         </div>
       </div>
 
+      {/* Inline Season Creation Form - Always visible when toggled */}
+      {isInlineSeasonFormOpen && (
+        <div className="bg-brand-dark border border-brand-border rounded-2xl p-6 mb-6">
+          <form onSubmit={handleCreateSeason} className="space-y-4">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                  SEZON NO <span className="text-brand-red">*</span>
+                </label>
+                <input 
+                  type="number"
+                  min="1"
+                  required
+                  value={seasonForm.season_number}
+                  onChange={e => setSeasonForm({...seasonForm, season_number: parseInt(e.target.value) || 1})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
+                  disabled={isCreatingSeason}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                  YIL
+                </label>
+                <input 
+                  type="number"
+                  min="1900"
+                  max="2100"
+                  value={seasonForm.year || ''}
+                  onChange={e => setSeasonForm({...seasonForm, year: e.target.value ? parseInt(e.target.value) : null})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
+                  disabled={isCreatingSeason}
+                  placeholder="2024"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                  BÖLÜM SAYISI
+                </label>
+                <input 
+                  type="number"
+                  min="0"
+                  value={seasonForm.episode_count || ''}
+                  onChange={e => setSeasonForm({...seasonForm, episode_count: e.target.value ? parseInt(e.target.value) : null})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
+                  disabled={isCreatingSeason}
+                  placeholder="Opsiyonel"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                  BAŞLIK (OVERRIDE)
+                </label>
+                <input 
+                  type="text"
+                  value={seasonForm.title_override}
+                  onChange={e => setSeasonForm({...seasonForm, title_override: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
+                  disabled={isCreatingSeason}
+                  placeholder="Opsiyonel"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                type="submit" 
+                disabled={isCreatingSeason}
+                className="bg-brand-red text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-[10px] shadow-lg shadow-brand-red/20 disabled:opacity-50"
+              >
+                {isCreatingSeason ? 'KAYDEDİLİYOR...' : 'KAYDET'}
+              </button>
+              <button 
+                type="button" 
+                onClick={handleToggleInlineSeasonForm}
+                disabled={isCreatingSeason}
+                className="bg-white/5 text-gray-400 font-black py-3 px-6 rounded-xl uppercase tracking-widest text-[10px] disabled:opacity-50"
+              >
+                İPTAL
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {!hasSeasons && !seasonsLoading ? (
         <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] p-10 text-center">
           <p className="text-white font-black uppercase tracking-widest text-sm">Bu anime için henüz sezon eklenmedi.</p>
@@ -743,89 +826,6 @@ const AdminEpisodes: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Inline Season Creation Form */}
-          {isInlineSeasonFormOpen && (
-            <div className="bg-brand-dark border border-brand-border rounded-2xl p-6 mb-6">
-              <form onSubmit={handleCreateSeason} className="space-y-4">
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                      SEZON NO <span className="text-brand-red">*</span>
-                    </label>
-                    <input 
-                      type="number"
-                      min="1"
-                      required
-                      value={seasonForm.season_number}
-                      onChange={e => setSeasonForm({...seasonForm, season_number: parseInt(e.target.value) || 1})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
-                      disabled={isCreatingSeason}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                      YIL
-                    </label>
-                    <input 
-                      type="number"
-                      min="1900"
-                      max="2100"
-                      value={seasonForm.year || ''}
-                      onChange={e => setSeasonForm({...seasonForm, year: e.target.value ? parseInt(e.target.value) : null})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
-                      disabled={isCreatingSeason}
-                      placeholder="2024"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                      BÖLÜM SAYISI
-                    </label>
-                    <input 
-                      type="number"
-                      min="0"
-                      value={seasonForm.episode_count || ''}
-                      onChange={e => setSeasonForm({...seasonForm, episode_count: e.target.value ? parseInt(e.target.value) : null})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
-                      disabled={isCreatingSeason}
-                      placeholder="Opsiyonel"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                      BAŞLIK (OVERRIDE)
-                    </label>
-                    <input 
-                      type="text"
-                      value={seasonForm.title_override}
-                      onChange={e => setSeasonForm({...seasonForm, title_override: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black outline-none focus:border-brand-red"
-                      disabled={isCreatingSeason}
-                      placeholder="Opsiyonel"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button 
-                    type="submit" 
-                    disabled={isCreatingSeason}
-                    className="bg-brand-red text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-[10px] shadow-lg shadow-brand-red/20 disabled:opacity-50"
-                  >
-                    {isCreatingSeason ? 'KAYDEDİLİYOR...' : 'KAYDET'}
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={handleToggleInlineSeasonForm}
-                    disabled={isCreatingSeason}
-                    className="bg-white/5 text-gray-400 font-black py-3 px-6 rounded-xl uppercase tracking-widest text-[10px] disabled:opacity-50"
-                  >
-                    İPTAL
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
           {/* Season Cards */}
           {seasons && seasons.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
