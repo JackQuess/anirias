@@ -80,13 +80,13 @@ const AdminEpisodes: React.FC = () => {
   const [isCreatingSeason, setIsCreatingSeason] = useState(false);
   const [seasonForm, setSeasonForm] = useState<{
     season_number: number;
-    title: string;
+    title_override: string;
     year: number | null;
     episode_count: number | null;
     anilist_id: number | null;
   }>({
     season_number: 1,
-    title: '',
+    title_override: '',
     year: null,
     episode_count: null,
     anilist_id: null
@@ -436,7 +436,8 @@ const AdminEpisodes: React.FC = () => {
       const newSeason = await db.createSeason({
         anime_id: animeId,
         season_number: seasonNum,
-        title: seasonForm.title || `Sezon ${seasonNum}`,
+        title: `Sezon ${seasonNum}`,
+        title_override: seasonForm.title_override || null,
         year: seasonForm.year || null,
         episode_count: seasonForm.episode_count || null,
         anilist_id: seasonForm.anilist_id || null
@@ -453,8 +454,8 @@ const AdminEpisodes: React.FC = () => {
       // Close modal and reset form
       setIsSeasonModalOpen(false);
       setSeasonForm({
-        season_number: 1,
-        title: '',
+        season_number: (seasons?.length || 0) > 0 ? Math.max(...(seasons?.map(s => s.season_number) || [])) + 1 : 1,
+        title_override: '',
         year: null,
         episode_count: null,
         anilist_id: null
@@ -531,12 +532,20 @@ const AdminEpisodes: React.FC = () => {
       
       const patched = data?.patched ?? 0;
       const errors = data?.errors ?? [];
+      const missing = errors.length;
+      const total = episodes?.length || 0;
+      
+      const summary = [
+        `Toplam: ${total} bölüm`,
+        `✅ Patch edildi: ${patched}`,
+        `❌ CDN 404 (eksik): ${missing}`,
+        ...(errors.length > 0 ? errors.slice(0, 3).map((e: any) => `   Ep ${e.episode_number}: ${e.error?.replace('CDN 404: ', '') || '404'}`) : [])
+      ].join('\n');
       
       if (errors.length > 0) {
-        const errorMsg = errors.slice(0, 5).map((e: any) => `Ep ${e.episode_number}: ${e.error}`).join('\n');
-        alert(`${patched} bölüm patch edildi.\n\nHatalar (CDN 404):\n${errorMsg}${errors.length > 5 ? `\n...ve ${errors.length - 5} bölüm daha` : ''}`);
+        alert(`Bunny Patch Sonuçları:\n\n${summary}${errors.length > 3 ? `\n...ve ${errors.length - 3} bölüm daha eksik` : ''}`);
       } else {
-        alert(`${patched} bölüm Bunny ile başarıyla bağlandı`);
+        alert(`✅ Bunny Patch Başarılı!\n\n${summary}`);
       }
       reload();
     } catch (err: any) {
@@ -594,7 +603,7 @@ const AdminEpisodes: React.FC = () => {
       alert(`Sezon ${bindingSeason.season_number} AniList'e bağlandı.`);
       setIsAniListModalOpen(false);
       setBindingSeason(null);
-      reload();
+      reloadSeasons();
     } catch (err) {
       alert('AniList bağlama başarısız.');
     }
@@ -642,7 +651,7 @@ const AdminEpisodes: React.FC = () => {
               disabled={!hasSeasons || isBunnyPatching}
               className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
             >
-              🐰 Bunny Patch (Sezon {selectedSeason.season_number})
+              ⚡ Video Patch (Bu Sezon)
             </button>
           )}
           <button
@@ -740,22 +749,42 @@ const AdminEpisodes: React.FC = () => {
             </div>
           )}
 
-          {/* Season Actions */}
+          {/* Season Info & Actions */}
           {selectedSeason && (
-            <div className="flex flex-wrap gap-3 mb-6">
-              <button
-                onClick={() => openAniListModal(selectedSeason)}
-                disabled={!!selectedSeason.anilist_id}
-                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl border border-brand-border disabled:opacity-40"
-              >
-                {selectedSeason.anilist_id ? 'ANILIST BAĞLI' : 'ANILIST SEZON BAĞLA'}
-              </button>
-              <button
-                onClick={() => handleDeleteSeason(selectedSeason.id)}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl border border-red-500/30"
-              >
-                SEZONU SİL
-              </button>
+            <div className="bg-brand-dark border border-brand-border rounded-2xl p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase italic tracking-tight mb-2">
+                    Sezon {selectedSeason.season_number}
+                  </h3>
+                  <div className="flex flex-wrap gap-4 text-[10px] text-gray-400 font-black uppercase tracking-widest">
+                    {selectedSeason.anilist_id && (
+                      <span>AniList ID: <span className="text-white">{selectedSeason.anilist_id}</span></span>
+                    )}
+                    {selectedSeason.episode_count !== null && (
+                      <span>Bölüm Sayısı: <span className="text-white">{selectedSeason.episode_count}</span></span>
+                    )}
+                    {selectedSeason.year && (
+                      <span>Yıl: <span className="text-white">{selectedSeason.year}</span></span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => openAniListModal(selectedSeason)}
+                  disabled={!!selectedSeason.anilist_id}
+                  className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl border border-brand-border disabled:opacity-40"
+                >
+                  {selectedSeason.anilist_id ? '✓ ANILIST BAĞLI' : '🔗 ANILIST SEZON BAĞLA'}
+                </button>
+                <button
+                  onClick={() => handleDeleteSeason(selectedSeason.id)}
+                  className="bg-red-500/10 hover:bg-red-500/20 text-red-200 text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl border border-red-500/30"
+                >
+                  SEZONU SİL
+                </button>
+              </div>
             </div>
           )}
 
@@ -1207,15 +1236,15 @@ const AdminEpisodes: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                    SEZON BAŞLIĞI
+                    SEZON BAŞLIĞI (OVERRIDE)
                   </label>
                   <input 
                     type="text"
-                    value={seasonForm.title}
-                    onChange={e => setSeasonForm({...seasonForm, title: e.target.value})}
+                    value={seasonForm.title_override}
+                    onChange={e => setSeasonForm({...seasonForm, title_override: e.target.value})}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
                     disabled={isCreatingSeason}
-                    placeholder={`Sezon ${seasonForm.season_number}`}
+                    placeholder="Opsiyonel - Boş bırakılırsa 'Sezon X' kullanılır"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1234,7 +1263,7 @@ const AdminEpisodes: React.FC = () => {
                 </div>
                 <div className="col-span-2 space-y-2">
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                    ANILIST MEDIA ID
+                    ANILIST MEDIA ID (BIGINT)
                   </label>
                   <input 
                     type="number"
@@ -1243,10 +1272,10 @@ const AdminEpisodes: React.FC = () => {
                     onChange={e => setSeasonForm({...seasonForm, anilist_id: e.target.value ? parseInt(e.target.value) : null})}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-black outline-none focus:border-brand-red"
                     disabled={isCreatingSeason}
-                    placeholder="Opsiyonel - Daha sonra AniList'ten bağlanabilir"
+                    placeholder="Opsiyonel - Daha sonra 'AniList Sezon Bağla' butonunu kullanabilirsin"
                   />
                   <p className="text-[9px] text-gray-500 font-mono mt-1">
-                    AniList Media ID'sini burada girebilir veya daha sonra "AniList Sezon Bağla" butonunu kullanabilirsin.
+                    AniList Media ID burada girilebilir veya daha sonra "🔗 AniList Sezon Bağla" butonunu kullanabilirsin.
                   </p>
                 </div>
               </div>
