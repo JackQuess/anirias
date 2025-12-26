@@ -11,6 +11,9 @@ export function useLoad<T>(
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  // SAFE: Ensure dependencies is always an array
+  const safeDependencies = Array.isArray(dependencies) ? dependencies : [];
+
   const reload = useCallback(() => {
     setRetryCount((prev) => prev + 1);
   }, []);
@@ -52,7 +55,7 @@ export function useLoad<T>(
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [retryCount, ...dependencies]);
+  }, [retryCount, ...safeDependencies]);
 
   return { data, loading, error, reload };
 }
