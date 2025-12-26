@@ -6,6 +6,7 @@ import { db } from '../services/db';
 import { useAuth } from '../services/auth';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
+import PlayerOverlay from '../components/PlayerOverlay';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { WatchProgress } from '../types';
@@ -344,6 +345,17 @@ const Watch: React.FC = () => {
       showControlsTemporary();
     }
   };
+
+  const cyclePlaybackRate = useCallback(() => {
+    if (!videoRef.current) return;
+    const speeds = [0.75, 1, 1.25, 1.5, 2];
+    const currentIndex = speeds.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    const nextSpeed = speeds[nextIndex];
+    videoRef.current.playbackRate = nextSpeed;
+    setPlaybackSpeed(nextSpeed);
+    showControlsTemporary();
+  }, [playbackSpeed, showControlsTemporary]);
 
   const handleQualityChange = (q: string) => {
     setQuality(q);
@@ -688,14 +700,12 @@ const Watch: React.FC = () => {
             <div 
               ref={playerContainerRef}
               className="w-full aspect-video bg-black lg:rounded-[1.5rem] overflow-hidden lg:border border-white/5 shadow-2xl select-none sticky top-0 lg:static z-50 ring-1 ring-white/5 max-h-[80vh]"
-              onMouseMove={showControlsTemporary}
-              onTouchStart={showControlsTemporary}
               onDoubleClick={toggleFullscreen}
             >
               <div className="relative w-full h-full">
                 <video 
                   ref={videoRef}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain z-10"
                   playsInline
                   crossOrigin="anonymous"
                   poster={poster}
@@ -709,6 +719,32 @@ const Watch: React.FC = () => {
                   onError={() => setPlaybackError('Video oynatılamadı.')}
                   onClick={(e) => { e.stopPropagation(); togglePlay(e as any); }}
                   controls={false}
+                />
+
+                {/* Premium Player Overlay */}
+                <PlayerOverlay
+                  title={titleString}
+                  episodeLabel={`${currentEpisode.episode_number}. Bölüm`}
+                  duration={duration}
+                  currentTime={currentTime}
+                  paused={!isPlaying}
+                  muted={isMuted}
+                  playbackRate={playbackSpeed}
+                  onTogglePlay={() => togglePlay()}
+                  onSeek={skipTime}
+                  onSeekTo={(percent) => {
+                    if (videoRef.current && duration) {
+                      const newTime = percent * duration;
+                      videoRef.current.currentTime = newTime;
+                      setCurrentTime(newTime);
+                    }
+                  }}
+                  onNextEpisode={handleNextEpisodeNow}
+                  onToggleMute={toggleMute}
+                  onToggleFullscreen={toggleFullscreen}
+                  onCyclePlaybackRate={cyclePlaybackRate}
+                  hasNextEpisode={showNextEpisodeButton && !!nextEpisode}
+                  onMouseMove={showControlsTemporary}
                 />
 
                 {/* Skip Intro Button - Netflix-style */}
@@ -819,194 +855,7 @@ const Watch: React.FC = () => {
                   </div>
                 )}
 
-                {/* Top-Center Episode Badge - Netflix-style */}
-                {shouldShowControls && (
-                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto transition-opacity duration-300">
-                    <Link
-                      to={`/anime/${animeId}`}
-                      className="bg-black/60 backdrop-blur-xl border border-white/20 rounded-lg px-4 py-2 shadow-2xl"
-                    >
-                      <div className="text-white text-xs md:text-sm font-bold uppercase tracking-wide text-center">
-                        {titleString}
-                      </div>
-                      <div className="text-white/80 text-[10px] md:text-xs mt-0.5 font-semibold tracking-wide text-center">
-                        Bölüm {currentEpisode.episode_number}
-                      </div>
-                    </Link>
-                  </div>
-                )}
-
-                {/* Minimal Bottom Controls Bar - Netflix-style */}
-                {shouldShowControls && (
-                  <div className="absolute bottom-0 left-0 right-0 z-40 pointer-events-none transition-opacity duration-300">
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent h-32" />
-                    
-                    {/* Controls container */}
-                    <div className="relative px-4 md:px-6 pb-4 md:pb-6 pointer-events-auto">
-                      {/* Timeline - Thin with hover glow */}
-                      <div 
-                        className="relative h-1 bg-white/20 rounded-full mb-3 group cursor-pointer transition-all duration-200 hover:h-1.5"
-                        onMouseEnter={() => setShowControls(true)}
-                      >
-                        {/* Buffered progress */}
-                        <div 
-                          className="absolute top-0 left-0 h-full bg-white/30 rounded-full transition-all duration-200" 
-                          style={{ width: `${duration ? (buffered / duration) * 100 : 0}%` }} 
-                        />
-                        {/* Current progress */}
-                        <div 
-                          className="absolute top-0 left-0 h-full bg-brand-red rounded-full transition-all duration-200 group-hover:shadow-[0_0_8px_rgba(229,9,20,0.8)]" 
-                          style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} 
-                        />
-                        {/* Seek input */}
-                        <input
-                          type="range"
-                          min={0}
-                          max={duration || 100}
-                          step="0.1"
-                          value={currentTime}
-                          onMouseDown={handleSeekStart}
-                          onChange={handleSeekChange}
-                          onMouseUp={handleSeekEnd}
-                          onTouchStart={handleSeekStart}
-                          onTouchEnd={handleSeekEnd}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer touch-pan-x"
-                        />
-                      </div>
-
-                      {/* Control buttons row */}
-                      <div className="flex items-center justify-between gap-2 md:gap-4">
-                        {/* Left side: Play/Pause, Time, Volume */}
-                        <div className="flex items-center gap-2 md:gap-3">
-                          <button
-                            onClick={(e) => togglePlay(e as any)}
-                            className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-white hover:scale-110 transition-transform"
-                          >
-                            {isPlaying ? <PauseIcon size={24} /> : <PlayIcon size={24} />}
-                          </button>
-                          
-                          <div className="text-white text-xs md:text-sm font-medium tabular-nums">
-                            {formatTime(currentTime)} / {formatTime(duration)}
-                          </div>
-
-                          {/* Volume control */}
-                          <div 
-                            className="relative flex items-center"
-                            onMouseEnter={() => setShowVolumeSlider(true)}
-                            onMouseLeave={() => setShowVolumeSlider(false)}
-                          >
-                            <button
-                              onClick={toggleMute}
-                              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-white hover:scale-110 transition-transform"
-                            >
-                              {isMuted ? <VolumeMuteIcon size={20} /> : <VolumeIcon size={20} />}
-                            </button>
-                            {showVolumeSlider && (
-                              <div className="absolute left-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg p-3 border border-white/20 shadow-2xl">
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="1"
-                                  step="0.01"
-                                  value={volume}
-                                  onChange={handleVolumeChange}
-                                  className="w-20 h-1 bg-white/20 rounded-full appearance-none cursor-pointer volume-slider"
-                                  style={{
-                                    background: `linear-gradient(to right, #e50914 0%, #e50914 ${volume * 100}%, rgba(255,255,255,0.2) ${volume * 100}%, rgba(255,255,255,0.2) 100%)`
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right side: Speed, Quality, Fullscreen */}
-                        <div className="flex items-center gap-2 md:gap-3">
-                          {/* Playback Speed */}
-                          <div className="relative">
-                            <button
-                              onClick={() => {
-                                setShowSpeedMenu(!showSpeedMenu);
-                                setShowQualityMenu(false);
-                              }}
-                              className="px-2 md:px-3 py-1.5 text-white text-xs md:text-sm font-medium hover:bg-white/10 rounded transition-colors"
-                            >
-                              {playbackSpeed}x
-                            </button>
-                            {showSpeedMenu && (
-                              <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl min-w-[100px] overflow-hidden">
-                                {[0.75, 1, 1.25, 1.5, 2].map((speed) => (
-                                  <button
-                                    key={speed}
-                                    onClick={() => handlePlaybackSpeedChange(speed)}
-                                    className={`w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors ${
-                                      playbackSpeed === speed ? 'bg-brand-red/30' : ''
-                                    }`}
-                                  >
-                                    {speed}x
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Quality Selector */}
-                          <div className="relative">
-                            <button
-                              onClick={() => {
-                                setShowQualityMenu(!showQualityMenu);
-                                setShowSpeedMenu(false);
-                              }}
-                              className="px-2 md:px-3 py-1.5 text-white text-xs md:text-sm font-medium hover:bg-white/10 rounded transition-colors flex items-center gap-1"
-                            >
-                              {quality === 'auto' ? 'Otomatik' : quality}
-                              <ChevronDownIcon size={12} />
-                            </button>
-                            {showQualityMenu && (
-                              <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl min-w-[120px] overflow-hidden">
-                                {['auto', '1080p', '4K'].map((q) => (
-                                  <button
-                                    key={q}
-                                    onClick={() => handleQualityChange(q)}
-                                    className={`w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors ${
-                                      quality === q ? 'bg-brand-red/30' : ''
-                                    }`}
-                                  >
-                                    {q === 'auto' ? 'Otomatik' : q}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Fullscreen */}
-                          <button
-                            onClick={toggleFullscreen}
-                            className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-white hover:scale-110 transition-transform"
-                          >
-                            {isFullscreen ? <MinimizeIcon size={20} /> : <MaximizeIcon size={20} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Next Episode Button - Bottom-right (last 90 seconds) */}
-                {showNextEpisodeButton && nextEpisode && !showAutoPlayOverlay && (
-                  <div className="absolute bottom-6 right-6 z-50 pointer-events-auto transition-opacity duration-300">
-                    <button
-                      onClick={handleNextEpisodeNow}
-                      className="bg-black/75 hover:bg-black/90 backdrop-blur-md text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold uppercase tracking-wide text-xs md:text-sm border border-white/20 hover:border-white/40 transition-all duration-300 shadow-2xl flex items-center gap-2 group"
-                    >
-                      <span>Sonraki Bölüm</span>
-                      <span className="group-hover:translate-x-1 transition-transform">
-                        <ChevronRightIcon size={16} />
-                      </span>
-                    </button>
-                  </div>
-                )}
+                {/* Old controls removed - replaced by PlayerOverlay */}
 
               </div>
             </div>
