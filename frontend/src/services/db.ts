@@ -154,19 +154,17 @@ export const db = {
     if (!checkEnv()) return [];
     
     try {
-      // Build base query - fetch episodes by anime_id and optionally season_id
-      // Do NOT filter by video_url or status - show all episodes
-      // Use simple select first, then optionally join season data
-      let query = supabase!
+      // CRITICAL: Fetch ALL episodes by anime_id only
+      // DO NOT filter by season_id - episodes will be grouped by season_number in frontend
+      // Order by season_number first, then episode_number
+      const query = supabase!
         .from('episodes')
         .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, intro_start, intro_end, updated_at, created_at')
-        .eq('anime_id', animeId);
+        .eq('anime_id', animeId)
+        .order('season_number', { ascending: true, nullsFirst: false })
+        .order('episode_number', { ascending: true });
       
-      if (seasonId) {
-        query = query.eq('season_id', seasonId);
-      }
-      
-      const { data, error } = await query.order('episode_number', { ascending: true });
+      const { data, error } = await query;
       
       if (error) {
         console.error('[db.getEpisodes] Query error:', error);
@@ -175,15 +173,20 @@ export const db = {
       }
       
       if (!data || data.length === 0) {
-        console.warn('[db.getEpisodes] No episodes found for animeId:', animeId, 'seasonId:', seasonId);
+        console.warn('[db.getEpisodes] No episodes found for animeId:', animeId);
         return [];
       }
       
-      console.log('[db.getEpisodes] Found', data.length, 'episodes for animeId:', animeId, 'seasonId:', seasonId);
+      console.log('[db.getEpisodes] Found', data.length, 'episodes for animeId:', animeId);
       
-      // Return episodes - no join needed for basic display
-      // Episodes are fetched by anime_id and optionally season_id
-      // All episodes are returned regardless of video_url or status
+      // If seasonId is provided (for backward compatibility), filter in-memory
+      // But this should NOT be used for new code - use season_number grouping instead
+      if (seasonId) {
+        const filtered = data.filter(ep => ep.season_id === seasonId);
+        return filtered as Episode[];
+      }
+      
+      // Return all episodes - no status or video_url filtering
       return data as Episode[];
     } catch (err) {
       console.error('[db.getEpisodes] Unexpected error:', err);

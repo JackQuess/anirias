@@ -135,30 +135,19 @@ const Watch: React.FC = () => {
   const currentEpNum = parseInt(episodeId || queryEpisode || '1');
   const querySeasonNumber = querySeason ? parseInt(querySeason) : null;
 
-  const [selectedSeasonId, setSelectedSeasonId] = useState('');
-
-  useEffect(() => {
-    if (!seasons || seasons.length === 0) return;
-    if (!querySeasonNumber) {
-      // Strict: require season param, no fallback
-      return;
-    }
-    const target = seasons.find((s) => s.season_number === querySeasonNumber);
-    if (target && target.id !== selectedSeasonId) {
-      setSelectedSeasonId(target.id);
-    }
-  }, [seasons, querySeasonNumber, selectedSeasonId]);
-
-  const { data: episodes, reload: reloadEpisodes } = useLoad(
-    () => selectedSeasonId ? db.getEpisodes(animeId!, selectedSeasonId) : Promise.resolve([]),
-    [animeId, selectedSeasonId]
+  // Fetch ALL episodes - no season_id filter
+  const { data: allEpisodes, reload: reloadEpisodes } = useLoad(
+    () => db.getEpisodes(animeId!),
+    [animeId]
   );
 
-  const seasonNumber = useMemo(() => {
-    if (!querySeasonNumber) return null; // Strict: require season param
-    const currentSeason = seasons?.find((s) => s.id === selectedSeasonId);
-    return currentSeason?.season_number || querySeasonNumber;
-  }, [seasons, selectedSeasonId, querySeasonNumber]);
+  // Filter episodes by season_number from URL
+  const episodes = useMemo(() => {
+    if (!allEpisodes || !querySeasonNumber) return [];
+    return allEpisodes.filter(ep => ep.season_number === querySeasonNumber);
+  }, [allEpisodes, querySeasonNumber]);
+
+  const seasonNumber = querySeasonNumber;
 
   const currentEpisode = (episodes || []).find(e => e.episode_number === currentEpNum);
   const prevEpisode = (episodes || []).find(e => e.episode_number === currentEpNum - 1);
@@ -626,7 +615,7 @@ const Watch: React.FC = () => {
   if (!querySeasonNumber) {
     return <div className="pt-40 text-center text-white font-black uppercase">Sezon parametresi gerekli. URL: /watch/{animeId}?season=1&episode=1</div>;
   }
-  if (!selectedSeasonId || !episodes) {
+  if (!episodes) {
     return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} yükleniyor...</div>;
   }
   if (episodes.length === 0) {

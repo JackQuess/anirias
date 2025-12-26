@@ -101,13 +101,17 @@ const AdminEpisodes: React.FC = () => {
 
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
   const { data: seasons, loading: seasonsLoading, reload: reloadSeasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
-  const { data: episodes, loading: episodesLoading, reload } = useLoad(() => 
-    selectedSeasonId ? db.getEpisodes(animeId!, selectedSeasonId) : Promise.resolve([]), 
-    [animeId, selectedSeasonId]
-  );
+  // Fetch ALL episodes by anime_id - no season_id filter
+  const { data: allEpisodes, loading: episodesLoading, reload } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
   const selectedSeason = seasons?.find((s) => s.id === selectedSeasonId);
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = (seasons?.length ?? 0) > 0;
+
+  // Filter episodes by selected season's season_number
+  const episodes = React.useMemo(() => {
+    if (!allEpisodes || !selectedSeason) return [];
+    return allEpisodes.filter(ep => ep.season_number === selectedSeason.season_number);
+  }, [allEpisodes, selectedSeason]);
 
   useEffect(() => {
     if (seasons && seasons.length > 0 && !selectedSeasonId) {
@@ -677,13 +681,13 @@ const AdminEpisodes: React.FC = () => {
             ➕ YENİ SEZON EKLE
           </button>
           {selectedSeason && (
-            <button
-              onClick={() => handleBunnyPatch()}
+          <button
+            onClick={() => handleBunnyPatch()}
               disabled={isBunnyPatching || !episodes || episodes.length === 0}
-              className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
-            >
+            className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
+          >
               🔧 Bunny Patch
-            </button>
+          </button>
           )}
         </div>
       </div>
@@ -701,7 +705,7 @@ const AdminEpisodes: React.FC = () => {
                 <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
                   SEZON NUMARASI <span className="text-brand-red">*</span>
                 </label>
-                <input 
+            <input
                   type="number"
                   min="1"
                   required
@@ -715,7 +719,7 @@ const AdminEpisodes: React.FC = () => {
                 <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
                   ANILIST MEDIA ID
                 </label>
-                <input 
+            <input
                   type="number"
                   min="1"
                   value={seasonForm.anilist_media_id || ''}
@@ -744,24 +748,24 @@ const AdminEpisodes: React.FC = () => {
                 </p>
               </div>
               <div className="pt-4 flex gap-4">
-                <button 
+            <button
                   type="button" 
                   onClick={() => { setIsSeasonModalOpen(false); setSeasonForm({ season_number: 1, anilist_media_id: null, expected_episode_count: null }); }} 
                   disabled={isCreatingSeason}
                   className="flex-grow bg-white/5 text-gray-500 font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] disabled:opacity-50"
                 >
                   İPTAL
-                </button>
-                <button 
+            </button>
+          <button
                   type="submit" 
                   disabled={isCreatingSeason}
                   className="flex-grow bg-brand-red text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-brand-red/20 disabled:opacity-50"
                 >
                   {isCreatingSeason ? 'OLUŞTURULUYOR...' : 'OLUŞTUR'}
-                </button>
-              </div>
+          </button>
+        </div>
             </form>
-          </div>
+      </div>
         </div>
       )}
 
@@ -778,8 +782,8 @@ const AdminEpisodes: React.FC = () => {
               {seasons.map(s => {
                 const isSelected = selectedSeasonId === s.id;
                 return (
-                  <div
-                    key={s.id}
+              <div
+                key={s.id}
                     className={`rounded-2xl border p-6 bg-brand-dark transition-all ${
                       isSelected ? 'border-brand-red/60 shadow-lg shadow-brand-red/10' : 'border-brand-border'
                     }`}
@@ -804,9 +808,9 @@ const AdminEpisodes: React.FC = () => {
                             </div>
                           )}
                         </div>
-                      </div>
-                      <button
-                        onClick={() => setSelectedSeasonId(s.id)}
+                  </div>
+                  <button
+                    onClick={() => setSelectedSeasonId(s.id)}
                         className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border transition-all ${
                           isSelected
                             ? 'bg-brand-red text-white border-brand-red'
@@ -814,35 +818,35 @@ const AdminEpisodes: React.FC = () => {
                         }`}
                       >
                         {isSelected ? 'SEÇİLİ' : 'SEÇ'}
-                      </button>
-                    </div>
+                  </button>
+                </div>
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => openAniListModal(s)}
-                        disabled={!!s.anilist_id}
+                  <button
+                    onClick={() => openAniListModal(s)}
+                    disabled={!!s.anilist_id}
                         className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-brand-border transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-1"
-                      >
+                  >
                         {s.anilist_id ? '✓ BAĞLI' : '🔗 ANILIST BAĞLA'}
-                      </button>
-                      <button
+                  </button>
+                  <button
                         disabled
                         title="Bu işlem artık Desktop App üzerinden yapılır."
                         className="bg-emerald-500/10 text-gray-600 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 opacity-50 cursor-not-allowed flex-1"
                       >
                         ⚡ BUNNY PATCH
-                      </button>
-                      <button
+                  </button>
+                  <button
                         disabled
                         title="Bu işlem artık Desktop App üzerinden yapılır."
                         className="bg-red-500/10 text-gray-600 text-[10px] font-black uppercase tracking-widest px-2 py-2 rounded-xl border border-red-500/30 opacity-50 cursor-not-allowed"
-                      >
+                  >
                         🗑️
-                      </button>
-                    </div>
-                  </div>
+                  </button>
+                </div>
+              </div>
                 );
               })}
-            </div>
+          </div>
           )}
 
           {/* Season Info & Actions for Selected Season */}

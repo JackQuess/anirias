@@ -13,29 +13,72 @@ import { proxyImage } from '@/utils/proxyImage';
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
+  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
   const [userRating, setUserRating] = useState<number>(0);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(id!), [id]);
-  const { data: seasons, reload: reloadSeasons } = useLoad(() => db.getSeasons(id!), [id]);
-  const { data: episodes, reload: reloadEpisodes } = useLoad(() => selectedSeasonId ? db.getEpisodes(id!, selectedSeasonId) : Promise.resolve([]), [id, selectedSeasonId]);
+  // Fetch ALL episodes - no season_id filter
+  const { data: allEpisodes, reload: reloadEpisodes } = useLoad(() => db.getEpisodes(id!), [id]);
   const { data: similarAnimes } = useLoad(() => db.getSimilarAnimes(id!), [id]);
   const { data: watchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
 
+  // Group episodes by season_number
+  const episodesBySeason = React.useMemo(() => {
+    if (!allEpisodes || allEpisodes.length === 0) return {};
+    const grouped: Record<number, typeof allEpisodes> = {};
+    allEpisodes.forEach(ep => {
+      const seasonNum = ep.season_number || 1;
+      if (!grouped[seasonNum]) {
+        grouped[seasonNum] = [];
+      }
+      grouped[seasonNum].push(ep);
+    });
+    // Sort episodes within each season by episode_number
+    Object.keys(grouped).forEach(seasonNum => {
+      grouped[Number(seasonNum)].sort((a, b) => a.episode_number - b.episode_number);
+    });
+    return grouped;
+  }, [allEpisodes]);
+
+  // Get unique season numbers from episodes, sorted
+  const seasonNumbers = React.useMemo(() => {
+    const nums = Object.keys(episodesBySeason).map(Number).sort((a, b) => a - b);
+    return nums;
+  }, [episodesBySeason]);
+
+  // Initialize selected season from URL or first available season
   useEffect(() => {
-    if (!seasons || seasons.length === 0) return;
     const querySeason = searchParams.get('season');
     const querySeasonNum = querySeason ? parseInt(querySeason) : null;
-    const fromQuery = querySeasonNum
-      ? seasons.find((s) => s.season_number === querySeasonNum)
-      : null;
-    if (!selectedSeasonId) {
-      setSelectedSeasonId(fromQuery?.id || seasons[0].id);
+    
+    if (seasonNumbers.length === 0) {
+      setSelectedSeasonNumber(null);
+      return;
     }
-  }, [seasons, selectedSeasonId, searchParams]);
+
+    if (!selectedSeasonNumber) {
+      // Use season from URL if valid, otherwise first season
+      const validSeason = querySeasonNum && seasonNumbers.includes(querySeasonNum) 
+        ? querySeasonNum 
+        : seasonNumbers[0];
+      setSelectedSeasonNumber(validSeason);
+      if (validSeason && !querySeason) {
+        setSearchParams({ season: String(validSeason) });
+      }
+    } else if (querySeasonNum && querySeasonNum !== selectedSeasonNumber && seasonNumbers.includes(querySeasonNum)) {
+      // Update from URL if valid
+      setSelectedSeasonNumber(querySeasonNum);
+    }
+  }, [seasonNumbers, selectedSeasonNumber, searchParams, setSearchParams]);
+
+  // Get episodes for selected season
+  const visibleEpisodes = React.useMemo(() => {
+    if (!selectedSeasonNumber) return [];
+    return episodesBySeason[selectedSeasonNumber] || [];
+  }, [selectedSeasonNumber, episodesBySeason]);
 
   useEffect(() => {
     if (watchlist && id) {
@@ -52,7 +95,6 @@ const AnimeDetail: React.FC = () => {
   };
 
   const titleString = anime ? getDisplayTitle(anime.title) : '';
-  const visibleEpisodes = episodes || [];
 
   if (animeLoading) return <div className="min-h-screen bg-brand-black pt-20"><LoadingSkeleton type="banner" /></div>;
   if (!anime) return <div className="min-h-screen bg-brand-black flex items-center justify-center text-white font-black italic">ANİME BULUNAMADI</div>;
@@ -101,7 +143,7 @@ const AnimeDetail: React.FC = () => {
                 }}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                 <Link to={seasons && seasons.length > 0 ? `/watch/${anime.id}?season=${seasons[0].season_number}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
+                 <Link to={seasonNumbers.length > 0 ? `/watch/${anime.id}?season=${seasonNumbers[0]}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
                     <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                  </Link>
               </div>
@@ -132,7 +174,7 @@ const AnimeDetail: React.FC = () => {
                 </div>
               )}
 
-              <Link to={seasons && seasons.length > 0 ? `/watch/${anime.id}?season=${seasons[0].season_number}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
+              <Link to={seasonNumbers.length > 0 ? `/watch/${anime.id}?season=${seasonNumbers[0]}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
                 HEMEN İZLE
               </Link>
             </div>
@@ -195,43 +237,51 @@ const AnimeDetail: React.FC = () => {
                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <h3 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter">BÖLÜM <span className="text-brand-red">LİSTESİ</span></h3>
                   
-                  {/* Season Selector */}
-               <div className="flex bg-brand-dark/50 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full">
-                    {seasons?.map(s => (
-                      <button 
-                        key={s.id} 
-                        onClick={() => {
-                          setSelectedSeasonId(s.id);
-                          setSearchParams({ season: String(s.season_number) });
-                        }} 
-                        className={`px-4 lg:px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedSeasonId === s.id ? 'bg-brand-red text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
-                      >
-                        SEZON {s.season_number}
-                      </button>
-                    ))}
-                  </div>
+                  {/* Season Selector - Only show if multiple seasons */}
+                  {seasonNumbers.length > 1 && (
+                    <div className="flex bg-brand-dark/50 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full">
+                      {seasonNumbers.map(seasonNum => (
+                        <button 
+                          key={seasonNum} 
+                          onClick={() => {
+                            setSelectedSeasonNumber(seasonNum);
+                            setSearchParams({ season: String(seasonNum) });
+                          }} 
+                          className={`px-4 lg:px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedSeasonNumber === seasonNum ? 'bg-brand-red text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+                        >
+                          SEZON {seasonNum}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                </div>
 
                <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0 w-full max-w-full">
-                  {visibleEpisodes.map(ep => {
-                    const currentSeason = seasons?.find(s => s.id === selectedSeasonId);
-                    const seasonNum = currentSeason?.season_number || 1;
-                    return (
-                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${seasonNum}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02] flex-shrink-0">
-                       <div className="w-7 h-7 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[10px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
-                          {ep.episode_number}
-                       </div>
-                       <div className="flex-1 min-w-0 overflow-hidden">
-                          <p className="text-[9px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                          <p className="text-[7px] font-bold text-gray-600 uppercase mt-0.5">24 DK</p>
-                       </div>
-                    </Link>
-                    );
-                  })}
-                  {visibleEpisodes.length === 0 && (
-                    <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
-                      Yakında
-                    </div>
+                  {visibleEpisodes.length > 0 ? (
+                    visibleEpisodes.map(ep => {
+                      const seasonNum = ep.season_number || selectedSeasonNumber || 1;
+                      return (
+                        <Link 
+                          key={`${ep.id}-${ep.episode_number}`} 
+                          to={`/watch/${anime.id}?season=${seasonNum}&episode=${ep.episode_number}`} 
+                          className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02] flex-shrink-0"
+                        >
+                          <div className="w-7 h-7 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[10px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
+                            {ep.episode_number}
+                          </div>
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-[9px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className="text-[7px] font-bold text-gray-600 uppercase mt-0.5">24 DK</p>
+                          </div>
+                        </Link>
+                      );
+                    })
+                  ) : (
+                    allEpisodes && allEpisodes.length === 0 && (
+                      <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
+                        Yakında
+                      </div>
+                    )
                   )}
                </div>
             </section>
