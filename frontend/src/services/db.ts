@@ -152,20 +152,43 @@ export const db = {
 
   getEpisodes: async (animeId: string, seasonId?: string): Promise<Episode[]> => {
     if (!checkEnv()) return [];
-    let query = supabase!
-      .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons:seasons(season_number, anime:animes(slug))')
-      .eq('anime_id', animeId);
-    if (seasonId) query = query.eq('season_id', seasonId);
     
-    const { data } = await query.order('episode_number', { ascending: true });
-    return (data || []).map((row: any) => ({
-      ...row,
-      seasons: row.seasons ? {
-        season_number: row.seasons.season_number ?? row.seasons[0]?.season_number,
-        anime: row.seasons.anime ?? row.seasons[0]?.anime
-      } : null
-    })) as Episode[];
+    try {
+      // Build base query - fetch episodes by anime_id and optionally season_id
+      // Do NOT filter by video_url or status - show all episodes
+      // Use simple select first, then optionally join season data
+      let query = supabase!
+        .from('episodes')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+        .eq('anime_id', animeId);
+      
+      if (seasonId) {
+        query = query.eq('season_id', seasonId);
+      }
+      
+      const { data, error } = await query.order('episode_number', { ascending: true });
+      
+      if (error) {
+        console.error('[db.getEpisodes] Query error:', error);
+        // Return empty array on error rather than crashing
+        return [];
+      }
+      
+      if (!data || data.length === 0) {
+        console.warn('[db.getEpisodes] No episodes found for animeId:', animeId, 'seasonId:', seasonId);
+        return [];
+      }
+      
+      console.log('[db.getEpisodes] Found', data.length, 'episodes for animeId:', animeId, 'seasonId:', seasonId);
+      
+      // Return episodes - no join needed for basic display
+      // Episodes are fetched by anime_id and optionally season_id
+      // All episodes are returned regardless of video_url or status
+      return data as Episode[];
+    } catch (err) {
+      console.error('[db.getEpisodes] Unexpected error:', err);
+      return [];
+    }
   },
 
   createEpisode: async (episode: Partial<Episode>) => {
