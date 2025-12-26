@@ -160,7 +160,7 @@ export const db = {
       // Note: nullsFirst: false is not supported by Supabase PostgREST, so we'll filter nulls in frontend if needed
       const query = supabase!
         .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, intro_start, intro_end, updated_at, created_at')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
         .eq('anime_id', animeId)
         .order('season_number', { ascending: true })
         .order('episode_number', { ascending: true });
