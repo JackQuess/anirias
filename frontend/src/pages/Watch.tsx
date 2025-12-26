@@ -606,47 +606,11 @@ const Watch: React.FC = () => {
     }
   }, [user, currentEpisode, animeId, duration]);
 
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setShowControls(true);
-  };
+  // Extract intro values safely (use optional chaining since currentEpisode may be null)
+  const introStart = currentEpisode?.intro_start ?? null;
+  const introEnd = currentEpisode?.intro_end ?? null;
 
-  if (!anime) return <div className="pt-40 text-center"><LoadingSkeleton type="banner" /></div>;
-  if (!querySeasonNumber) {
-    return <div className="pt-40 text-center text-white font-black uppercase">Sezon parametresi gerekli. URL: /watch/{animeId}?season=1&episode=1</div>;
-  }
-  if (!episodes) {
-    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} yükleniyor...</div>;
-  }
-  if (episodes.length === 0) {
-    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} için henüz bölüm bulunmuyor.</div>;
-  }
-  if (!currentEpisode) {
-    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} - Bölüm {currentEpNum} bulunamadı. Lütfen geçerli bir bölüm numarası seçin.</div>;
-  }
-  if (!playbackUrl) {
-    return (
-      <div className="pt-40 text-center text-white font-black uppercase space-y-4">
-        <div>Video henüz eklenmemiş.</div>
-        <div className="text-gray-400 text-sm mt-2">Bölüm {currentEpNum} - Sezon {seasonNumber}</div>
-      </div>
-    );
-  }
-
-  const titleString = getDisplayTitle(anime.title);
-  const episodeTitle = currentEpisode.title || `Bölüm ${currentEpisode.episode_number}`;
-  const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
-  const rawPoster = anime.banner_image || anime.cover_image || null;
-  const poster = proxyImage(rawPoster || fallbackPoster);
-  // Show controls when: not started, paused, buffering, error, or user interaction
-  const shouldShowControls = !hasStarted || !isPlaying || showControls || isBuffering || !!playbackError;
-  
-  // Skip Intro logic - Netflix-style
-  const introStart = currentEpisode.intro_start ?? null;
-  const introEnd = currentEpisode.intro_end ?? null;
-  const hasIntro = introStart !== null && introEnd !== null && introStart < introEnd;
-  const isInIntro = hasIntro && !introSkipped && currentTime >= introStart && currentTime < introEnd;
-  
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   const handleSkipIntro = useCallback(() => {
     if (!videoRef.current || !introEnd) return;
     videoRef.current.currentTime = introEnd;
@@ -673,6 +637,47 @@ const Watch: React.FC = () => {
     setShowContinueWatching(false);
     setSavedProgress(null);
   }, [savedProgress, user, currentEpisode, animeId]);
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setShowControls(true);
+  };
+
+  // EARLY RETURNS - All hooks must be called before this point
+  if (!anime) return <div className="pt-40 text-center"><LoadingSkeleton type="banner" /></div>;
+  if (!querySeasonNumber) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon parametresi gerekli. URL: /watch/{animeId}?season=1&episode=1</div>;
+  }
+  if (!episodes) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} yükleniyor...</div>;
+  }
+  if (episodes.length === 0) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} için henüz bölüm bulunmuyor.</div>;
+  }
+  if (!currentEpisode) {
+    return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} - Bölüm {currentEpNum} bulunamadı. Lütfen geçerli bir bölüm numarası seçin.</div>;
+  }
+  if (!playbackUrl) {
+    return (
+      <div className="pt-40 text-center text-white font-black uppercase space-y-4">
+        <div>Video henüz eklenmemiş.</div>
+        <div className="text-gray-400 text-sm mt-2">Bölüm {currentEpNum} - Sezon {seasonNumber}</div>
+      </div>
+    );
+  }
+
+  // Computed values after early returns (safe - no hooks)
+  const titleString = getDisplayTitle(anime.title);
+  const episodeTitle = currentEpisode.title || `Bölüm ${currentEpisode.episode_number}`;
+  const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
+  const rawPoster = anime.banner_image || anime.cover_image || null;
+  const poster = proxyImage(rawPoster || fallbackPoster);
+  // Show controls when: not started, paused, buffering, error, or user interaction
+  const shouldShowControls = !hasStarted || !isPlaying || showControls || isBuffering || !!playbackError;
+  
+  // Skip Intro logic - Netflix-style (using values computed before early returns)
+  const hasIntro = introStart !== null && introEnd !== null && introStart < introEnd;
+  const isInIntro = hasIntro && !introSkipped && currentTime >= introStart && currentTime < introEnd;
 
   return (
     <div className="min-h-screen bg-brand-black">
