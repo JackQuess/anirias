@@ -157,11 +157,12 @@ export const db = {
       // CRITICAL: Fetch ALL episodes by anime_id only
       // DO NOT filter by season_id - episodes will be grouped by season_number in frontend
       // Order by season_number first, then episode_number
+      // Note: nullsFirst: false is not supported by Supabase PostgREST, so we'll filter nulls in frontend if needed
       const query = supabase!
         .from('episodes')
         .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, intro_start, intro_end, updated_at, created_at')
         .eq('anime_id', animeId)
-        .order('season_number', { ascending: true, nullsFirst: false })
+        .order('season_number', { ascending: true })
         .order('episode_number', { ascending: true });
       
       const { data, error } = await query;
@@ -187,7 +188,16 @@ export const db = {
       }
       
       // Return all episodes - no status or video_url filtering
-      return data as Episode[];
+      // Filter out episodes with NULL season_number (they should be fixed by SQL migration)
+      // Sort to ensure episodes with season_number come first, then nulls
+      const sorted = (data as Episode[]).sort((a, b) => {
+        if (a.season_number === null && b.season_number === null) return 0;
+        if (a.season_number === null) return 1; // nulls last
+        if (b.season_number === null) return -1;
+        if (a.season_number !== b.season_number) return a.season_number - b.season_number;
+        return a.episode_number - b.episode_number;
+      });
+      return sorted;
     } catch (err) {
       console.error('[db.getEpisodes] Unexpected error:', err);
       return [];
