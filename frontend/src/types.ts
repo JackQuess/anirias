@@ -61,6 +61,8 @@ export interface Episode {
   error_message?: string | null;
   short_note?: string | null;
   air_date?: string | null;
+  intro_start?: number | null;
+  intro_end?: number | null;
   updated_at: string;
   created_at: string;
   seasons?: {

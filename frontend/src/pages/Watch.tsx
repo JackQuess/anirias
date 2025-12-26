@@ -91,6 +91,13 @@ const Watch: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [showMobileSheet, setShowMobileSheet] = useState(false);
+  const [introSkipped, setIntroSkipped] = useState(false);
+  const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
+  const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showContinueWatching, setShowContinueWatching] = useState(false);
+  const [savedProgress, setSavedProgress] = useState<WatchProgress | null>(null);
+  const progressSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -163,6 +170,19 @@ const Watch: React.FC = () => {
     setCurrentTime(0);
     setDuration(0);
     setIsUserSeeking(false); // Reset seeking flag on episode change
+    setIntroSkipped(false); // Reset intro skipped flag on episode change
+    setAutoPlayCountdown(null); // Reset auto-play countdown
+    setShowAutoPlayOverlay(false); // Reset auto-play overlay
+    setShowContinueWatching(false); // Reset continue watching modal
+    setSavedProgress(null); // Reset saved progress
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    if (progressSaveIntervalRef.current) {
+      clearInterval(progressSaveIntervalRef.current);
+      progressSaveIntervalRef.current = null;
+    }
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -252,8 +272,30 @@ const Watch: React.FC = () => {
 
   const goToEpisode = useCallback((episode?: { episode_number: number; season_number?: number } | null) => {
     if (!episode || !seasonNumber) return;
+    // Clear auto-play countdown when navigating
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setAutoPlayCountdown(null);
+    setShowAutoPlayOverlay(false);
     navigate(`/watch/${animeId}?season=${seasonNumber}&episode=${episode.episode_number}`);
   }, [navigate, animeId, seasonNumber]);
+  
+  const handleCancelAutoPlay = useCallback(() => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setAutoPlayCountdown(null);
+    setShowAutoPlayOverlay(false);
+  }, []);
+  
+  const handleNextEpisodeNow = useCallback(() => {
+    if (nextEpisode) {
+      goToEpisode({ episode_number: nextEpisode.episode_number, season_number: seasonNumber });
+    }
+  }, [nextEpisode, seasonNumber, goToEpisode]);
 
   // Strict: Do NOT auto-redirect to first episode if currentEpisode not found
   // User must explicitly select an episode from the active season
@@ -293,7 +335,17 @@ const Watch: React.FC = () => {
   const onTimeUpdate = () => {
     // Update time silently - do NOT trigger controls during seeking
     if (videoRef.current && !isDragging) {
-      setCurrentTime(videoRef.current.currentTime);
+      const newTime = videoRef.current.currentTime;
+      setCurrentTime(newTime);
+      
+      // Check for auto-play next episode (Netflix-style)
+      if (duration > 0 && nextEpisode && !autoPlayCountdown && !showAutoPlayOverlay) {
+        const progressPercent = (newTime / duration) * 100;
+        if (progressPercent >= 95) {
+          setShowAutoPlayOverlay(true);
+          setAutoPlayCountdown(10);
+        }
+      }
     }
   };
 
@@ -318,7 +370,16 @@ const Watch: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      // Disable shortcuts when typing in inputs, textareas, or contenteditable elements
+      const target = e.target as HTMLElement;
+      if (
+        ['INPUT', 'TEXTAREA'].includes(target.tagName) ||
+        target.isContentEditable ||
+        target.closest('input, textarea, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
       switch (e.code) {
         case 'Space':
         case 'KeyK':
@@ -328,6 +389,7 @@ const Watch: React.FC = () => {
         case 'ArrowRight':
         case 'ArrowLeft':
           e.preventDefault();
+          // Keyboard seeking - skipTime already sets isUserSeeking to prevent controls from showing
           skipTime(e.code === 'ArrowRight' ? 10 : -10);
           break;
         case 'KeyF':
@@ -337,6 +399,17 @@ const Watch: React.FC = () => {
         case 'KeyM':
           e.preventDefault();
           toggleMute();
+          break;
+        case 'Escape':
+          // Exit fullscreen
+          if (document.fullscreenElement) {
+            e.preventDefault();
+            if (document.exitFullscreen) {
+              document.exitFullscreen();
+            } else if ((document as any).webkitExitFullscreen) {
+              (document as any).webkitExitFullscreen();
+            }
+          }
           break;
       }
     };
@@ -405,32 +478,83 @@ const Watch: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFull);
   }, []);
 
+  // Save watch progress every 10 seconds
   useEffect(() => {
     if (user && videoRef.current && currentEpisode) {
-      const interval = setInterval(() => {
-        if (!videoRef.current?.paused) {
-          db.saveWatchProgress({
-            user_id: user.id,
-            anime_id: animeId!,
-            episode_id: currentEpisode.id,
-            progress_seconds: Math.floor(videoRef.current.currentTime),
-            duration_seconds: Math.floor(videoRef.current.duration || 0)
-          });
+      progressSaveIntervalRef.current = setInterval(() => {
+        if (!videoRef.current?.paused && videoRef.current.duration > 0) {
+          const currentProgress = Math.floor(videoRef.current.currentTime);
+          const totalDuration = Math.floor(videoRef.current.duration);
+          const progressPercent = (currentProgress / totalDuration) * 100;
+          
+          // Auto-reset progress if >= 90%
+          if (progressPercent >= 90) {
+            // Delete progress by setting it to 0
+            db.saveWatchProgress({
+              user_id: user.id,
+              anime_id: animeId!,
+              episode_id: currentEpisode.id,
+              progress_seconds: 0,
+              duration_seconds: totalDuration
+            });
+          } else {
+            // Save progress normally
+            db.saveWatchProgress({
+              user_id: user.id,
+              anime_id: animeId!,
+              episode_id: currentEpisode.id,
+              progress_seconds: currentProgress,
+              duration_seconds: totalDuration
+            });
+          }
         }
       }, 10000);
-      return () => clearInterval(interval);
+      return () => {
+        if (progressSaveIntervalRef.current) {
+          clearInterval(progressSaveIntervalRef.current);
+          progressSaveIntervalRef.current = null;
+        }
+      };
     }
   }, [user, currentEpisode, animeId]);
 
+  // Check for saved progress on episode load
   useEffect(() => {
-    if (user && currentEpisode && videoRef.current) {
+    if (user && currentEpisode && videoRef.current && duration > 0) {
       db.getWatchProgress(user.id, animeId!, currentEpisode.id).then(prog => {
-        if (prog && videoRef.current && prog.progress_seconds < (prog.duration_seconds * 0.95)) {
-          videoRef.current.currentTime = prog.progress_seconds;
+        if (prog && prog.duration_seconds > 0) {
+          const progressPercent = (prog.progress_seconds / prog.duration_seconds) * 100;
+          
+          // If progress >= 90%, reset it automatically
+          if (progressPercent >= 90) {
+            db.saveWatchProgress({
+              user_id: user.id,
+              anime_id: animeId!,
+              episode_id: currentEpisode.id,
+              progress_seconds: 0,
+              duration_seconds: prog.duration_seconds
+            });
+            setSavedProgress(null);
+            setShowContinueWatching(false);
+          } 
+          // If progress exists and < 90%, show continue watching prompt
+          else if (prog.progress_seconds > 0 && progressPercent < 90) {
+            setSavedProgress(prog);
+            setShowContinueWatching(true);
+          } else {
+            setSavedProgress(null);
+            setShowContinueWatching(false);
+          }
+        } else {
+          setSavedProgress(null);
+          setShowContinueWatching(false);
         }
       });
+    } else {
+      setSavedProgress(null);
+      setShowContinueWatching(false);
     }
-  }, [user, currentEpisode, animeId]);
+  }, [user, currentEpisode, animeId, duration]);
 
   const handleEnded = () => {
     setIsPlaying(false);
@@ -465,6 +589,39 @@ const Watch: React.FC = () => {
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
   const controlsVisible = (!hasStarted || !isPlaying || showControls || isBuffering || !!playbackError);
+  
+  // Skip Intro logic - Netflix-style
+  const introStart = currentEpisode.intro_start ?? null;
+  const introEnd = currentEpisode.intro_end ?? null;
+  const hasIntro = introStart !== null && introEnd !== null && introStart < introEnd;
+  const isInIntro = hasIntro && !introSkipped && currentTime >= introStart && currentTime < introEnd;
+  
+  const handleSkipIntro = useCallback(() => {
+    if (!videoRef.current || !introEnd) return;
+    videoRef.current.currentTime = introEnd;
+    setIntroSkipped(true);
+  }, [introEnd]);
+  
+  const handleContinueWatching = useCallback(() => {
+    if (!videoRef.current || !savedProgress) return;
+    videoRef.current.currentTime = savedProgress.progress_seconds;
+    setShowContinueWatching(false);
+  }, [savedProgress]);
+  
+  const handleStartFromBeginning = useCallback(() => {
+    if (!videoRef.current || !savedProgress || !user || !currentEpisode) return;
+    // Reset progress to 0
+    db.saveWatchProgress({
+      user_id: user.id,
+      anime_id: animeId!,
+      episode_id: currentEpisode.id,
+      progress_seconds: 0,
+      duration_seconds: savedProgress.duration_seconds
+    });
+    videoRef.current.currentTime = 0;
+    setShowContinueWatching(false);
+    setSavedProgress(null);
+  }, [savedProgress, user, currentEpisode, animeId]);
 
   return (
     <div className="min-h-screen bg-brand-black">
@@ -497,6 +654,102 @@ const Watch: React.FC = () => {
                   onClick={(e) => { e.stopPropagation(); togglePlay(e as any); }}
                   controls={false}
                 />
+
+                {/* Skip Intro Button - Netflix-style */}
+                <div 
+                  className={`absolute bottom-6 right-6 z-50 pointer-events-auto transition-opacity duration-300 ${
+                    isInIntro ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <button
+                    onClick={handleSkipIntro}
+                    className="bg-black/75 hover:bg-black/90 backdrop-blur-md text-white px-6 py-3 rounded-lg font-black uppercase tracking-widest text-xs border border-white/20 hover:border-white/40 transition-all duration-300 shadow-2xl flex items-center gap-2 group"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-1 transition-transform">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                      <line x1="19" y1="12" x2="5" y2="12" />
+                    </svg>
+                    <span>Girişi Atla</span>
+                  </button>
+                </div>
+
+                {/* Continue Watching Modal - Netflix-style */}
+                {showContinueWatching && savedProgress && (
+                  <div className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-auto">
+                    <div className="bg-black/90 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl max-w-md w-full mx-4 transition-opacity duration-300 opacity-100">
+                      <div className="text-center space-y-6">
+                        <div>
+                          <h3 className="text-white font-black text-xl uppercase tracking-tight mb-2">
+                            Kaldığın Yerden Devam Et
+                          </h3>
+                          <p className="text-gray-300 text-sm font-bold">
+                            {formatTime(savedProgress.progress_seconds)} / {formatTime(savedProgress.duration_seconds)}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-center gap-4">
+                          <button
+                            onClick={handleStartFromBeginning}
+                            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-xs rounded-lg border border-white/20 transition-all"
+                          >
+                            Baştan İzle
+                          </button>
+                          <button
+                            onClick={handleContinueWatching}
+                            className="px-8 py-3 bg-brand-red hover:bg-brand-redHover text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-brand-red/20 transition-all"
+                          >
+                            Devam Et
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto Next Episode Overlay - Netflix-style */}
+                {showAutoPlayOverlay && nextEpisode && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-auto">
+                    <div className="bg-black/80 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl max-w-md w-full mx-4 transition-opacity duration-300 opacity-100">
+                      <div className="text-center space-y-6">
+                        <div>
+                          <h3 className="text-white font-black text-xl uppercase tracking-tight mb-2">
+                            Sonraki Bölüm
+                          </h3>
+                          <p className="text-gray-300 text-sm font-bold">
+                            Bölüm {nextEpisode.episode_number}
+                            {nextEpisode.title && `: ${nextEpisode.title}`}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-center gap-4">
+                          <button
+                            onClick={handleCancelAutoPlay}
+                            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-xs rounded-lg border border-white/20 transition-all"
+                          >
+                            İptal
+                          </button>
+                          <button
+                            onClick={handleNextEpisodeNow}
+                            className="px-8 py-3 bg-brand-red hover:bg-brand-redHover text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-brand-red/20 transition-all flex items-center gap-2"
+                          >
+                            <span>Şimdi İzle</span>
+                            {autoPlayCountdown !== null && autoPlayCountdown > 0 && (
+                              <span className="text-xs font-black">
+                                ({autoPlayCountdown}s)
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                        
+                        {autoPlayCountdown !== null && autoPlayCountdown > 0 && (
+                          <p className="text-gray-400 text-xs font-bold">
+                            {autoPlayCountdown} saniye sonra otomatik oynatılacak
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {isBuffering && !playbackError && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-none">
