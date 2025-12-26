@@ -322,7 +322,7 @@ const AdminEpisodes: React.FC = () => {
 
   const handleCreateEpisode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSeasonId) return;
+    if (!selectedSeasonId || !selectedSeason) return;
     try {
       const value = hlsInput.trim();
       if (!value.includes('.m3u8')) throw new Error('Geçerli bir HLS URL girin');
@@ -330,6 +330,7 @@ const AdminEpisodes: React.FC = () => {
         ...newEp,
         anime_id: animeId,
         season_id: selectedSeasonId,
+        season_number: selectedSeason.season_number, // 🔥 CRITICAL: season_number must be set
         stream_id: null,
         hls_url: value,
         created_at: airDateInput ? new Date(airDateInput).toISOString() : new Date().toISOString()
@@ -490,6 +491,7 @@ const AdminEpisodes: React.FC = () => {
           db.createEpisode({
             anime_id: animeId,
             season_id: newSeason.id,
+            season_number: newSeason.season_number, // 🔥 CRITICAL: season_number must be set
             episode_number: epNum,
             title: `Bölüm ${epNum}`,
             duration_seconds: 1440,

@@ -98,9 +98,19 @@ export async function upsertEpisodeVideo(
 
   if (fetchError) throw new Error(`Episode fetch failed: ${fetchError.message}`);
 
+  // Fetch season_number from season_id (CRITICAL for new episodes)
+  const { data: season } = await supabaseAdmin
+    .from('seasons')
+    .select('season_number')
+    .eq('id', seasonId)
+    .maybeSingle();
+
+  if (!season) throw new Error(`Season not found: ${seasonId}`);
+
   const payload = {
     anime_id: animeId,
     season_id: seasonId,
+    season_number: season.season_number, // 🔥 CRITICAL: season_number must be set
     episode_number: episodeNumber,
     title: `Bölüm ${episodeNumber}`,
     video_url: cdnUrl,

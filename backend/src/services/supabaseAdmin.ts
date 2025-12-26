@@ -120,6 +120,20 @@ export async function upsertEpisodeByKey(params: {
 }) {
   const { animeId, seasonId, episodeNumber, cdnUrl, hlsUrl, durationSeconds, title, status } = params;
   const existing = await getEpisodeByKey(animeId, seasonId, episodeNumber);
+  
+  // Fetch season_number from season_id (CRITICAL: always fetch to ensure season_number is set)
+  const { data: season } = await supabaseAdmin
+    .from('seasons')
+    .select('season_number')
+    .eq('id', seasonId)
+    .maybeSingle();
+  
+  if (!season) {
+    throw new Error(`Season not found: ${seasonId}`);
+  }
+  
+  const seasonNumber = season.season_number;
+
   const payload = {
     video_url: cdnUrl,
     hls_url: hlsUrl ?? existing?.hls_url ?? null,
@@ -128,6 +142,7 @@ export async function upsertEpisodeByKey(params: {
     error_message: null,
     updated_at: new Date().toISOString(),
     title: title || existing?.title || `Bölüm ${episodeNumber}`,
+    season_number: seasonNumber, // 🔥 CRITICAL: Always set season_number (fixes existing episodes with NULL)
   };
 
   if (existing?.id) {
@@ -144,6 +159,7 @@ export async function upsertEpisodeByKey(params: {
     anime_id: animeId,
     season_id: seasonId,
     episode_number: episodeNumber,
+    season_number: seasonNumber, // 🔥 CRITICAL: season_number must be set for new episodes
     created_at: new Date().toISOString(),
   };
   const { data, error } = await supabaseAdmin
