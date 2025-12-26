@@ -132,8 +132,8 @@ const AdminEpisodes: React.FC = () => {
   // Initialize selected season by season_number (primary source of truth)
   useEffect(() => {
     if (seasons && seasons.length > 0 && selectedSeasonNumber === null) {
-      // Select first season by season_number
-      const firstSeason = seasons.sort((a, b) => a.season_number - b.season_number)[0];
+      // Select first season by season_number (use slice to avoid mutating original array)
+      const firstSeason = [...seasons].sort((a, b) => a.season_number - b.season_number)[0];
       if (firstSeason) {
         setSelectedSeasonNumber(firstSeason.season_number);
         setSelectedSeasonId(firstSeason.id); // Keep for backward compatibility
