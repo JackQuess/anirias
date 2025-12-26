@@ -202,6 +202,11 @@ const AdminEpisodes: React.FC = () => {
             clearInterval(timer);
             setProgressTimer(null);
             setAutoRunning(false);
+            // Reload episodes after import completes
+            if (data?.state === 'completed') {
+              reload();
+              reloadSeasons();
+            }
           }
         } catch {
           // ignore polling errors
@@ -470,6 +475,9 @@ const AdminEpisodes: React.FC = () => {
 
       // Automatically select the newly created season
       setSelectedSeasonId(newSeason.id);
+      
+      // Reload episodes to show newly created episodes
+      reload();
 
       // Close modal and reset
       setIsSeasonModalOpen(false);
@@ -671,7 +679,7 @@ const AdminEpisodes: React.FC = () => {
           {selectedSeason && (
             <button
               onClick={() => handleBunnyPatch()}
-              disabled={isBunnyPatching}
+              disabled={isBunnyPatching || !episodes || episodes.length === 0}
               className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
             >
               🔧 Bunny Patch

@@ -20,8 +20,8 @@ const AnimeDetail: React.FC = () => {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(id!), [id]);
-  const { data: seasons } = useLoad(() => db.getSeasons(id!), [id]);
-  const { data: episodes } = useLoad(() => selectedSeasonId ? db.getEpisodes(id!, selectedSeasonId) : Promise.resolve([]), [id, selectedSeasonId]);
+  const { data: seasons, reload: reloadSeasons } = useLoad(() => db.getSeasons(id!), [id]);
+  const { data: episodes, reload: reloadEpisodes } = useLoad(() => selectedSeasonId ? db.getEpisodes(id!, selectedSeasonId) : Promise.resolve([]), [id, selectedSeasonId]);
   const { data: similarAnimes } = useLoad(() => db.getSimilarAnimes(id!), [id]);
   const { data: watchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
 
@@ -212,7 +212,7 @@ const AnimeDetail: React.FC = () => {
                   </div>
                </div>
 
-               <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0 w-full">
+               <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0 w-full max-w-full">
                   {visibleEpisodes.map(ep => {
                     const currentSeason = seasons?.find(s => s.id === selectedSeasonId);
                     const seasonNum = currentSeason?.season_number || 1;
