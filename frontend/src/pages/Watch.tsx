@@ -8,6 +8,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { WatchProgress } from '../types';
 
 const PlayIcon = ({ size = 24 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -1006,7 +1007,9 @@ const Watch: React.FC = () => {
                       className="bg-black/75 hover:bg-black/90 backdrop-blur-md text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold uppercase tracking-wide text-xs md:text-sm border border-white/20 hover:border-white/40 transition-all duration-300 shadow-2xl flex items-center gap-2 group"
                     >
                       <span>Sonraki Bölüm</span>
-                      <ChevronRightIcon size={16} className="group-hover:translate-x-1 transition-transform" />
+                      <span className="group-hover:translate-x-1 transition-transform">
+                        <ChevronRightIcon size={16} />
+                      </span>
                     </button>
                   </div>
                 )}
