@@ -73,7 +73,7 @@ router.post('/bunny-patch', async (req: Request, res: Response) => {
             .from('episodes')
             .update({
               video_url: expectedUrl,
-              status: 'patched',
+              status: 'ready',
               error_message: null,
               updated_at: new Date().toISOString()
             })
@@ -83,6 +83,19 @@ router.post('/bunny-patch', async (req: Request, res: Response) => {
             patched++;
           }
         } else {
+          // CDN 404 - mark as pending_download instead of error
+          const { error: updateError } = await supabaseAdmin
+            .from('episodes')
+            .update({
+              status: 'pending_download',
+              error_message: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', ep.id);
+          
+          if (!updateError) {
+            // Episode queued for download
+          }
           errors.push({
             episode_number: ep.episode_number,
             error: `CDN 404: ${expectedUrl}`

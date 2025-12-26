@@ -8,6 +8,7 @@ import {
   getEpisodeByKey,
   upsertEpisodeByKey
 } from '../../services/supabaseAdmin.js';
+import { processDownloadQueue } from '../../services/downloadQueue.js';
 
 const router = Router();
 const directProgress: Record<string, any> = {};
@@ -53,6 +54,32 @@ router.get('/bunny/check-file', async (req: Request, res: Response) => {
     return res.json({ exists: head.ok, status: head.status });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Check failed' });
+  }
+});
+
+router.post('/download-queue', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { animeId, seasonId, urlTemplate } = req.body || {};
+    if (!animeId) {
+      return res.status(400).json({ success: false, error: 'animeId required' });
+    }
+
+    const result = await processDownloadQueue(animeId, seasonId, urlTemplate);
+
+    return res.json({
+      success: true,
+      total: result.total,
+      ready: result.ready,
+      failed: result.failed,
+      errors: result.errors
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Download queue failed' });
   }
 });
 
@@ -130,16 +157,45 @@ async function handleAutoImport(req: Request, res: Response) {
       const cdnUrl = expectedCdn(slug, sNo, eNo);
       const head = await fetch(cdnUrl, { method: 'HEAD' });
       if (!head.ok) {
+        // CDN returns 404 - mark episode as pending_download instead of error
+        // This will queue it for automatic download
+        const existing = await getEpisodeByKey(animeId, seasonId, eNo);
+        if (existing) {
+          // Update existing episode to pending_download status
+          await upsertEpisodeByKey({
+            animeId,
+            seasonId,
+            episodeNumber: eNo,
+            cdnUrl: null, // No CDN URL yet
+            hlsUrl: existing.hls_url ?? null,
+            durationSeconds: existing.duration_seconds ?? 0,
+            title: existing.title || `Bölüm ${eNo}`,
+            status: 'pending_download'
+          });
+        } else {
+          // Create new episode with pending_download status
+          await upsertEpisodeByKey({
+            animeId,
+            seasonId,
+            episodeNumber: eNo,
+            cdnUrl: null,
+            hlsUrl: null,
+            durationSeconds: 0,
+            title: `Bölüm ${eNo}`,
+            status: 'pending_download'
+          });
+        }
+        
         missing += 1;
         completedEpisodes += 1;
         directProgress[jobId].progress = {
           ...directProgress[jobId].progress,
           completedEpisodes,
-          status: 'error',
+          status: 'checking',
           percent: totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : 0,
-          message: `Bölüm ${eNo} CDN bulunamadı`,
+          message: `Bölüm ${eNo} indirme kuyruğuna eklendi`,
           lastUpdateAt: Date.now(),
-          error: `HTTP ${head.status}`
+          error: null
         };
         continue;
       }
@@ -168,7 +224,7 @@ async function handleAutoImport(req: Request, res: Response) {
         hlsUrl: existing?.hls_url ?? null,
         durationSeconds: existing?.duration_seconds ?? 0,
         title: existing?.title || `Bölüm ${eNo}`,
-        status: 'patched'
+        status: 'ready' // CDN exists, episode is ready
       });
 
       updated += 1;
@@ -182,6 +238,38 @@ async function handleAutoImport(req: Request, res: Response) {
         lastUpdateAt: Date.now(),
         error: null
       };
+    }
+
+    // After CDN check completes, process download queue for pending_download episodes
+    let downloadReady = 0;
+    let downloadFailed = 0;
+    if (missing > 0) {
+      directProgress[jobId].progress = {
+        ...directProgress[jobId].progress,
+        status: 'downloading',
+        message: 'Eksik bölümler indiriliyor...',
+        lastUpdateAt: Date.now()
+      };
+
+      try {
+        const downloadResult = await processDownloadQueue(
+          animeId,
+          undefined, // All seasons
+          undefined, // Use default URL template
+          (progress) => {
+            directProgress[jobId].progress = {
+              ...directProgress[jobId].progress,
+              status: 'downloading',
+              message: progress.message || 'İndiriliyor...',
+              lastUpdateAt: Date.now()
+            };
+          }
+        );
+        downloadReady = downloadResult.ready;
+        downloadFailed = downloadResult.failed;
+      } catch (err: any) {
+        console.error('[AutoImport] Download queue failed:', err);
+      }
     }
 
     directProgress[jobId].state = 'completed';
@@ -203,7 +291,9 @@ async function handleAutoImport(req: Request, res: Response) {
       total: totalEpisodes,
       updated,
       skipped,
-      missing
+      missing,
+      downloadReady,
+      downloadFailed
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Auto import failed' });

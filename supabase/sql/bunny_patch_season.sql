@@ -18,7 +18,7 @@ begin
       s.season_number,
       lpad(e.episode_number::text, 2, '0')
     ),
-    status = 'patched',
+    status = 'ready',
     error_message = null,
     updated_at = now()
   from seasons s

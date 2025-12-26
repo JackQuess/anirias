@@ -104,6 +104,8 @@ export async function upsertEpisodeVideo(
     episode_number: episodeNumber,
     title: `Bölüm ${episodeNumber}`,
     video_url: cdnUrl,
+    status: 'ready',
+    error_message: null,
     updated_at: new Date().toISOString(),
   };
 
@@ -132,6 +134,7 @@ export async function updateEpisodeVideo(
     .update({
       video_url: cdnUrl,
       status: 'ready',
+      error_message: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', episodeId);

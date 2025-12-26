@@ -463,7 +463,7 @@ const AdminEpisodes: React.FC = () => {
             episode_number: epNum,
             title: `Bölüm ${epNum}`,
             duration_seconds: 1440,
-            status: 'missing',
+            status: 'pending',
             video_url: null
           })
         );
@@ -879,14 +879,26 @@ const AdminEpisodes: React.FC = () => {
                         <p className="text-white font-black text-base uppercase tracking-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${
+                            ep.status === 'ready' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                             ep.status === 'patched' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                            ep.status === 'missing' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
+                            ep.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                            ep.status === 'pending_download' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                            ep.status === 'downloading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                            ep.status === 'uploading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                            ep.status === 'source_missing' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
                             ep.status === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                            ep.status === 'missing' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
                             'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                           }`}>
-                            {ep.status === 'patched' ? '✓ Hazır' :
-                             ep.status === 'missing' ? '⚠ Henüz eklenmemiş' :
+                            {ep.status === 'ready' ? '✓ Hazır' :
+                             ep.status === 'patched' ? '✓ Hazır' :
+                             ep.status === 'pending' ? '⏳ Bekliyor' :
+                             ep.status === 'pending_download' ? '⏬ İndirilecek' :
+                             ep.status === 'downloading' ? '⬇️ İndiriliyor' :
+                             ep.status === 'uploading' ? '⬆️ Yükleniyor' :
+                             ep.status === 'source_missing' ? '❌ Kaynak Yok' :
                              ep.status === 'error' ? '❌ Hata' :
+                             ep.status === 'missing' ? '⚠ Henüz eklenmemiş' :
                              '⚠ Henüz eklenmemiş'}
                           </span>
                           {ep.video_url && (

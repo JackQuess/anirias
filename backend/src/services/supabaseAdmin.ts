@@ -112,7 +112,7 @@ export async function upsertEpisodeByKey(params: {
   animeId: string;
   seasonId: string;
   episodeNumber: number;
-  cdnUrl: string;
+  cdnUrl: string | null;
   hlsUrl?: string | null;
   durationSeconds?: number | null;
   title?: string | null;
@@ -124,7 +124,7 @@ export async function upsertEpisodeByKey(params: {
     video_url: cdnUrl,
     hls_url: hlsUrl ?? existing?.hls_url ?? null,
     duration_seconds: durationSeconds ?? existing?.duration_seconds ?? 0,
-    status: status || 'patched',
+    status: status || (cdnUrl ? 'ready' : 'pending'),
     error_message: null,
     updated_at: new Date().toISOString(),
     title: title || existing?.title || `Bölüm ${episodeNumber}`,
@@ -184,6 +184,7 @@ export async function updateEpisodePath(episodeId: string, cdnUrl: string) {
     .update({
       video_url: cdnUrl,
       status: 'ready',
+      error_message: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', episodeId);
