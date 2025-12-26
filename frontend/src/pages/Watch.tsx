@@ -84,6 +84,7 @@ const Watch: React.FC = () => {
   
   // UX State
   const [isDragging, setIsDragging] = useState(false);
+  const [isUserSeeking, setIsUserSeeking] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -161,6 +162,7 @@ const Watch: React.FC = () => {
     setPlaybackError(null);
     setCurrentTime(0);
     setDuration(0);
+    setIsUserSeeking(false); // Reset seeking flag on episode change
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -186,6 +188,9 @@ const Watch: React.FC = () => {
   }, [duration]);
 
   const showControlsTemporary = useCallback(() => {
+    // Do NOT show controls if user is seeking (Netflix-style UX)
+    if (isUserSeeking) return;
+    
     setShowControls(true);
     document.body.style.cursor = 'default';
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -195,7 +200,7 @@ const Watch: React.FC = () => {
         if (isFullscreen) document.body.style.cursor = 'none';
       }
     }, isMobile ? 2200 : 2500);
-  }, [isPlaying, isFullscreen, isMobile]);
+  }, [isPlaying, isFullscreen, isMobile, isUserSeeking]);
 
   const togglePlay = useCallback((e?: React.MouseEvent | KeyboardEvent, skipControls?: boolean) => {
     e?.stopPropagation();
@@ -214,18 +219,35 @@ const Watch: React.FC = () => {
     }
   }, [showControlsTemporary]);
 
-  const handleSeekStart = () => setIsDragging(true);
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => setCurrentTime(parseFloat(e.target.value));
+  const handleSeekStart = () => {
+    setIsDragging(true);
+    setIsUserSeeking(true);
+  };
+  
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentTime(parseFloat(e.target.value));
+  };
+  
   const handleSeekEnd = (e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => {
     const time = parseFloat((e.target as HTMLInputElement).value);
     if (videoRef.current) videoRef.current.currentTime = time;
     setIsDragging(false);
-    showControlsTemporary();
+    // Do NOT show controls after seeking - Netflix-style UX
+    // Reset seeking flag after a short delay to allow time updates to settle
+    setTimeout(() => {
+      setIsUserSeeking(false);
+    }, 100);
   };
 
   const skipTime = useCallback((amount: number) => {
     if (!videoRef.current) return;
+    // Set seeking flag to prevent controls from showing
+    setIsUserSeeking(true);
     videoRef.current.currentTime += amount;
+    // Reset seeking flag after a short delay
+    setTimeout(() => {
+      setIsUserSeeking(false);
+    }, 100);
   }, []);
 
   const goToEpisode = useCallback((episode?: { episode_number: number; season_number?: number } | null) => {
@@ -269,7 +291,10 @@ const Watch: React.FC = () => {
   };
 
   const onTimeUpdate = () => {
-    if (videoRef.current && !isDragging) setCurrentTime(videoRef.current.currentTime);
+    // Update time silently - do NOT trigger controls during seeking
+    if (videoRef.current && !isDragging) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
   };
 
   const onProgress = () => {
@@ -619,14 +644,14 @@ const Watch: React.FC = () => {
                    <span className="text-[9px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0">
+                <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
                    {episodes?.map((ep) => {
                      const isCurrent = ep.episode_number === currentEpNum;
                      return (
                        <button 
                           key={`${ep.season_id}-${ep.episode_number}`} 
                           onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
-                          className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full text-left h-[56px] ${
+                          className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
                             isCurrent 
                             ? 'bg-brand-red text-white shadow-md shadow-brand-red/20' 
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
@@ -691,31 +716,35 @@ const Watch: React.FC = () => {
               </button>
             </div>
             {showMobileSheet && (
-              <div className="mt-3 bg-brand-surface border border-brand-border rounded-3xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden space-y-1.5 shadow-2xl">
-                <div className="flex items-center justify-between pb-2.5 border-b border-white/10 flex-shrink-0">
-                  <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
-                  <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-xs">✕</button>
+              <div className="mt-3 bg-brand-surface border border-brand-border rounded-3xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden shadow-2xl">
+                <div className="flex flex-col w-full">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-white/10 flex-shrink-0 mb-1.5">
+                    <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
+                    <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-xs">✕</button>
+                  </div>
+                  <div className="flex flex-col space-y-1.5 w-full">
+                    {episodes?.map((ep) => {
+                      const isCurrent = ep.episode_number === currentEpNum;
+                      return (
+                        <button
+                          key={`${ep.season_id}-${ep.episode_number}`}
+                          onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
+                          className={`w-full max-w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left h-[56px] flex-shrink-0 ${
+                            isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
+                          }`}
+                        >
+                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
+                            {ep.episode_number}
+                          </div>
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-[9px] font-black uppercase truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className="text-[7px] text-gray-400 mt-0.5">24 DK</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                {episodes?.map((ep) => {
-                  const isCurrent = ep.episode_number === currentEpNum;
-                  return (
-                    <button
-                      key={`${ep.season_id}-${ep.episode_number}`}
-                      onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left h-[56px] ${
-                        isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
-                        {ep.episode_number}
-                      </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-[9px] font-black uppercase truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                        <p className="text-[7px] text-gray-400 mt-0.5">24 DK</p>
-                      </div>
-                    </button>
-                  );
-                })}
               </div>
             )}
           </div>

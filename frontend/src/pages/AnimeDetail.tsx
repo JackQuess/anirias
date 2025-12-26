@@ -212,12 +212,12 @@ const AnimeDetail: React.FC = () => {
                   </div>
                </div>
 
-               <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0">
+               <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0 w-full">
                   {visibleEpisodes.map(ep => {
                     const currentSeason = seasons?.find(s => s.id === selectedSeasonId);
                     const seasonNum = currentSeason?.season_number || 1;
                     return (
-                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${seasonNum}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02]">
+                    <Link key={`${ep.season_id}-${ep.episode_number}`} to={`/watch/${anime.id}?season=${seasonNum}&episode=${ep.episode_number}`} className="group w-full max-w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02] flex-shrink-0">
                        <div className="w-7 h-7 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[10px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
                           {ep.episode_number}
                        </div>
@@ -229,7 +229,7 @@ const AnimeDetail: React.FC = () => {
                     );
                   })}
                   {visibleEpisodes.length === 0 && (
-                    <div className="col-span-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
+                    <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
                       Yakında
                     </div>
                   )}
