@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
@@ -28,6 +28,7 @@ const AdminEpisodes: React.FC = () => {
   const navigate = useNavigate();
   
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
+  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [isAction, setIsAction] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPatching, setIsPatching] = useState(false);
@@ -104,28 +105,52 @@ const AdminEpisodes: React.FC = () => {
   const { data: seasons, loading: seasonsLoading, reload: reloadSeasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
   // Fetch ALL episodes by anime_id - no season_id filter
   const { data: allEpisodes, loading: episodesLoading, reload } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
-  const selectedSeason = seasons?.find((s) => s.id === selectedSeasonId);
+  
+  // Find selected season by season_number (primary) or by id (fallback)
+  const selectedSeason = useMemo(() => {
+    if (selectedSeasonNumber !== null) {
+      return seasons?.find((s) => s.season_number === selectedSeasonNumber) || null;
+    }
+    if (selectedSeasonId) {
+      return seasons?.find((s) => s.id === selectedSeasonId) || null;
+    }
+    return null;
+  }, [seasons, selectedSeasonNumber, selectedSeasonId]);
+  
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = (seasons?.length ?? 0) > 0;
 
-  // Filter episodes by selected season's season_number
-  const episodes = React.useMemo(() => {
-    if (!allEpisodes || !selectedSeason) return [];
-    return allEpisodes.filter(ep => ep.season_number === selectedSeason.season_number);
-  }, [allEpisodes, selectedSeason]);
+  // Filter episodes by selected season_number (CRITICAL: use season_number, not season_id)
+  const episodes = useMemo(() => {
+    if (!allEpisodes || selectedSeasonNumber === null) return [];
+    // Filter by season_number directly - this is the source of truth
+    const filtered = allEpisodes.filter(ep => ep.season_number === selectedSeasonNumber);
+    // Sort by episode_number to ensure correct order
+    return filtered.sort((a, b) => a.episode_number - b.episode_number);
+  }, [allEpisodes, selectedSeasonNumber]);
 
+  // Initialize selected season by season_number (primary source of truth)
   useEffect(() => {
-    if (seasons && seasons.length > 0 && !selectedSeasonId) {
-      setSelectedSeasonId(seasons[0].id);
+    if (seasons && seasons.length > 0 && selectedSeasonNumber === null) {
+      // Select first season by season_number
+      const firstSeason = seasons.sort((a, b) => a.season_number - b.season_number)[0];
+      if (firstSeason) {
+        setSelectedSeasonNumber(firstSeason.season_number);
+        setSelectedSeasonId(firstSeason.id); // Keep for backward compatibility
+      }
     }
-  }, [seasons, selectedSeasonId]);
+  }, [seasons, selectedSeasonNumber]);
 
+  // Sync selectedSeasonId when season_number changes
   useEffect(() => {
-    if (seasons && selectedSeasonId) {
-      const found = seasons.find((s) => s.id === selectedSeasonId);
+    if (selectedSeasonNumber !== null && seasons) {
+      const found = seasons.find((s) => s.season_number === selectedSeasonNumber);
+      if (found && found.id !== selectedSeasonId) {
+        setSelectedSeasonId(found.id);
+      }
       if (found) setAutoSeasonNumber(found.season_number);
     }
-  }, [seasons, selectedSeasonId]);
+  }, [selectedSeasonNumber, seasons, selectedSeasonId]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Bu bölümü kalıcı olarak silmek istediğinize emin misiniz?')) return;
@@ -478,7 +503,8 @@ const AdminEpisodes: React.FC = () => {
       // Reload seasons list
       await reloadSeasons();
 
-      // Automatically select the newly created season
+      // Automatically select the newly created season by season_number
+      setSelectedSeasonNumber(newSeason.season_number);
       setSelectedSeasonId(newSeason.id);
       
       // Reload episodes to show newly created episodes
@@ -696,8 +722,12 @@ const AdminEpisodes: React.FC = () => {
       alert(message);
       
       // Reload seasons and episodes
-      reloadSeasons();
-      reload();
+      await reloadSeasons();
+      await reload();
+      
+      // After reload, reset selection to trigger re-selection of first season
+      setSelectedSeasonNumber(null);
+      setSelectedSeasonId('');
     } catch (err: any) {
       alert(err?.message || 'Sezon düzeltme başarısız');
     } finally {
@@ -855,7 +885,7 @@ const AdminEpisodes: React.FC = () => {
           {seasons && seasons.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
               {seasons.map(s => {
-                const isSelected = selectedSeasonId === s.id;
+                const isSelected = selectedSeasonNumber === s.season_number;
                 return (
               <div
                 key={s.id}
@@ -885,7 +915,10 @@ const AdminEpisodes: React.FC = () => {
                         </div>
                   </div>
                   <button
-                    onClick={() => setSelectedSeasonId(s.id)}
+                    onClick={() => {
+                      setSelectedSeasonNumber(s.season_number);
+                      setSelectedSeasonId(s.id);
+                    }}
                         className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border transition-all ${
                           isSelected
                             ? 'bg-brand-red text-white border-brand-red'
