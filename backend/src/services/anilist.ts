@@ -46,7 +46,7 @@ export interface AniListMedia {
           day?: number | null;
         } | null;
       } | null;
-    } | null;
+    }>;
   } | null;
 }
 
@@ -199,7 +199,7 @@ export function detectSeasonRanges(media: AniListMedia, allRelated: AniListMedia
 
   // Process relations to detect sequels/prequels
   const relations = media.relations?.edges || [];
-  const sequelNodes: Array<{ node: AniListMedia; relationType: string; startDate?: { year?: number; month?: number; day?: number } }> = [];
+  const sequelNodes: Array<{ node: AniListMedia; relationType: string; startDate?: { year?: number | null; month?: number | null; day?: number | null } | null }> = [];
   
   for (const edge of relations) {
     if (!edge?.node) continue;

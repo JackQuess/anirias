@@ -324,7 +324,7 @@ export async function hybridImportAnime(params: HybridImportParams): Promise<Hyb
     // STEP 6: MAL validation (soft check)
     let malValidation;
     if (malId) {
-      const { data: episodeCount } = await supabaseAdmin
+      const { count: episodeCount } = await supabaseAdmin
         .from('episodes')
         .select('id', { count: 'exact', head: true })
         .eq('anime_id', animeId);
