@@ -21,15 +21,31 @@ const PauseIcon = ({ size = 24 }: { size?: number }) => (
   </svg>
 );
 
-const RotateCcwIcon = ({ size = 24 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 12h4l-1.5 1.5A8 8 0 1112 20" />
+const VolumeIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
   </svg>
 );
 
-const RotateCwIcon = ({ size = 24 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 12h-4l1.5-1.5A8 8 0 1112 4" />
+const VolumeMuteIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <line x1="23" y1="9" x2="17" y2="15" />
+    <line x1="17" y1="9" x2="23" y2="15" />
+  </svg>
+);
+
+const SettingsIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24" />
+  </svg>
+);
+
+const ChevronDownIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
   </svg>
 );
 
@@ -98,6 +114,13 @@ const Watch: React.FC = () => {
   const [showContinueWatching, setShowContinueWatching] = useState(false);
   const [savedProgress, setSavedProgress] = useState<WatchProgress | null>(null);
   const progressSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Netflix-style player features
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [quality, setQuality] = useState('auto');
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -215,12 +238,12 @@ const Watch: React.FC = () => {
     document.body.style.cursor = 'default';
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
+      if (isPlaying && !showSpeedMenu && !showQualityMenu && !showVolumeSlider) {
         setShowControls(false);
         if (isFullscreen) document.body.style.cursor = 'none';
       }
     }, isMobile ? 2200 : 2500);
-  }, [isPlaying, isFullscreen, isMobile, isUserSeeking]);
+  }, [isPlaying, isFullscreen, isMobile, isUserSeeking, showSpeedMenu, showQualityMenu, showVolumeSlider]);
 
   const togglePlay = useCallback((e?: React.MouseEvent | KeyboardEvent, skipControls?: boolean) => {
     e?.stopPropagation();
@@ -309,7 +332,35 @@ const Watch: React.FC = () => {
         setVolume(1);
         videoRef.current.volume = 1;
       }
+      showControlsTemporary();
     }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.volume = newVolume;
+      videoRef.current.muted = newVolume === 0;
+      setVolume(newVolume);
+      setIsMuted(newVolume === 0);
+    }
+  };
+
+  const handlePlaybackSpeedChange = (speed: number) => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+      setPlaybackSpeed(speed);
+      setShowSpeedMenu(false);
+      showControlsTemporary();
+    }
+  };
+
+  const handleQualityChange = (q: string) => {
+    setQuality(q);
+    setShowQualityMenu(false);
+    // Quality switching would require HLS.js level switching
+    // For now, just update the UI state
+    showControlsTemporary();
   };
 
   const toggleFullscreen = async () => {
@@ -338,7 +389,7 @@ const Watch: React.FC = () => {
       const newTime = videoRef.current.currentTime;
       setCurrentTime(newTime);
       
-      // Check for auto-play next episode (Netflix-style)
+      // Check for auto-play next episode (Netflix-style) - at 95%
       if (duration > 0 && nextEpisode && !autoPlayCountdown && !showAutoPlayOverlay) {
         const progressPercent = (newTime / duration) * 100;
         if (progressPercent >= 95) {
@@ -348,6 +399,13 @@ const Watch: React.FC = () => {
       }
     }
   };
+
+  // Check if we're in the last 90 seconds for Next Episode button
+  const showNextEpisodeButton = useMemo(() => {
+    if (!nextEpisode || !duration) return false;
+    const remaining = duration - currentTime;
+    return remaining <= 90 && remaining > 0;
+  }, [nextEpisode, duration, currentTime]);
 
   const onProgress = () => {
     if (videoRef.current && videoRef.current.buffered.length > 0) {
@@ -362,11 +420,13 @@ const Watch: React.FC = () => {
     const handleDurationChange = () => syncDuration();
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('loadedmetadata', handleDurationChange);
+    // Initialize playback speed
+    video.playbackRate = playbackSpeed;
     return () => {
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('loadedmetadata', handleDurationChange);
     };
-  }, [syncDuration]);
+  }, [syncDuration, playbackSpeed]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -588,7 +648,8 @@ const Watch: React.FC = () => {
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
-  const controlsVisible = (!hasStarted || !isPlaying || showControls || isBuffering || !!playbackError);
+  // Show controls when: not started, paused, buffering, error, or user interaction
+  const shouldShowControls = !hasStarted || !isPlaying || showControls || isBuffering || !!playbackError;
   
   // Skip Intro logic - Netflix-style
   const introStart = currentEpisode.intro_start ?? null;
@@ -763,122 +824,190 @@ const Watch: React.FC = () => {
                   </div>
                 )}
 
-                {controlsVisible && (
-                  <div className={`absolute inset-0 z-30 flex flex-col justify-between pointer-events-none transition-opacity duration-200 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/70" />
-
-                    <div className="relative flex items-start justify-between pt-6 px-4 md:px-8">
-                      <div className="flex-1 flex justify-center">
-                        <Link
-                          to={`/anime/${animeId}`}
-                          className="pointer-events-auto"
-                        >
-                          <div className="bg-white/10 border border-white/15 rounded-full px-6 py-3 shadow-lg backdrop-blur-md text-center">
-                            <div className="text-white text-sm md:text-base font-black uppercase tracking-[0.16em]">
-                              {titleString}
-                            </div>
-                            <div className="text-white/80 text-[11px] mt-1 font-semibold tracking-wide uppercase">
-                              Episode {currentEpisode.episode_number}
-                            </div>
-                          </div>
-                        </Link>
+                {/* Top-Center Episode Badge - Netflix-style */}
+                {shouldShowControls && (
+                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto transition-opacity duration-300">
+                    <Link
+                      to={`/anime/${animeId}`}
+                      className="bg-black/60 backdrop-blur-xl border border-white/20 rounded-lg px-4 py-2 shadow-2xl"
+                    >
+                      <div className="text-white text-xs md:text-sm font-bold uppercase tracking-wide text-center">
+                        {titleString}
                       </div>
-                      <div className="flex items-center gap-3 pointer-events-auto">
-                        <button
-                          onClick={toggleFullscreen}
-                          className="w-11 h-11 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
-                        >
-                          {isFullscreen ? <MinimizeIcon size={20} /> : <MaximizeIcon size={20} />}
-                        </button>
+                      <div className="text-white/80 text-[10px] md:text-xs mt-0.5 font-semibold tracking-wide text-center">
+                        Bölüm {currentEpisode.episode_number}
                       </div>
-                    </div>
+                    </Link>
+                  </div>
+                )}
 
-                    <div className="relative flex items-center justify-center w-full px-3 md:px-8 pb-10 md:pb-16 pointer-events-auto">
-                      <div className="flex items-center justify-between w-full max-w-5xl gap-3 md:gap-5">
-                        <button
-                          onClick={() => goToEpisode(prevEpisode)}
-                          disabled={!prevEpisode}
-                          className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
-                            prevEpisode ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
-                          }`}
-                        >
-                          <SkipPrevIcon size={22} />
-                        </button>
-
-                        <button
-                          onClick={() => skipTime(-10)}
-                          className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
-                        >
-                          <RotateCcwIcon size={24} />
-                          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black tracking-tight">10</span>
-                        </button>
-
-                        <button
-                          onClick={(e) => togglePlay(e as any)}
-                          className="w-[76px] h-[76px] md:w-20 md:h-20 rounded-full bg-white text-brand-black shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
-                        >
-                          {isPlaying ? <PauseIcon size={40} /> : <PlayIcon size={40} />}
-                        </button>
-
-                        <button
-                          onClick={() => skipTime(10)}
-                          className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center justify-center backdrop-blur-md"
-                        >
-                          <RotateCwIcon size={24} />
-                          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black tracking-tight">10</span>
-                        </button>
-
-                        <button
-                          onClick={() => goToEpisode(nextEpisode)}
-                          disabled={!nextEpisode}
-                          className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full border text-white flex items-center justify-center transition-all backdrop-blur-md ${
-                            nextEpisode ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
-                          }`}
-                        >
-                          <SkipNextIcon size={22} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="relative pointer-events-auto px-5 pb-6">
-                      <div className="relative h-[8px] bg-white/15 rounded-full overflow-hidden">
-                        <div className="absolute top-0 left-0 h-full bg-white/30" style={{ width: `${duration ? (buffered / duration) * 100 : 0}%` }} />
-                        <div className="absolute top-0 left-0 h-full bg-white" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
+                {/* Minimal Bottom Controls Bar - Netflix-style */}
+                {shouldShowControls && (
+                  <div className="absolute bottom-0 left-0 right-0 z-40 pointer-events-none transition-opacity duration-300">
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent h-32" />
+                    
+                    {/* Controls container */}
+                    <div className="relative px-4 md:px-6 pb-4 md:pb-6 pointer-events-auto">
+                      {/* Timeline - Thin with hover glow */}
+                      <div 
+                        className="relative h-1 bg-white/20 rounded-full mb-3 group cursor-pointer transition-all duration-200 hover:h-1.5"
+                        onMouseEnter={() => setShowControls(true)}
+                      >
+                        {/* Buffered progress */}
+                        <div 
+                          className="absolute top-0 left-0 h-full bg-white/30 rounded-full transition-all duration-200" 
+                          style={{ width: `${duration ? (buffered / duration) * 100 : 0}%` }} 
+                        />
+                        {/* Current progress */}
+                        <div 
+                          className="absolute top-0 left-0 h-full bg-brand-red rounded-full transition-all duration-200 group-hover:shadow-[0_0_8px_rgba(229,9,20,0.8)]" 
+                          style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} 
+                        />
+                        {/* Seek input */}
                         <input
                           type="range"
                           min={0}
                           max={duration || 100}
                           step="0.1"
                           value={currentTime}
-                          onMouseDown={isMobile ? undefined : handleSeekStart}
-                          onChange={isMobile ? undefined : handleSeekChange}
-                          onMouseUp={isMobile ? undefined : handleSeekEnd}
+                          onMouseDown={handleSeekStart}
+                          onChange={handleSeekChange}
+                          onMouseUp={handleSeekEnd}
                           onTouchStart={handleSeekStart}
                           onTouchEnd={handleSeekEnd}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer touch-pan-x"
                         />
                       </div>
-                      <div className="flex items-center justify-between text-white text-sm font-semibold tracking-wide mt-3 px-1 drop-shadow">
-                        <div className="flex items-center gap-2">
-                          <span>{formatTime(currentTime)}</span>
-                          <span className="text-white/70">/</span>
-                          <span>{formatTime(duration)}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {nextEpisode && (
+
+                      {/* Control buttons row */}
+                      <div className="flex items-center justify-between gap-2 md:gap-4">
+                        {/* Left side: Play/Pause, Time, Volume */}
+                        <div className="flex items-center gap-2 md:gap-3">
+                          <button
+                            onClick={(e) => togglePlay(e as any)}
+                            className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-white hover:scale-110 transition-transform"
+                          >
+                            {isPlaying ? <PauseIcon size={24} /> : <PlayIcon size={24} />}
+                          </button>
+                          
+                          <div className="text-white text-xs md:text-sm font-medium tabular-nums">
+                            {formatTime(currentTime)} / {formatTime(duration)}
+                          </div>
+
+                          {/* Volume control */}
+                          <div 
+                            className="relative flex items-center"
+                            onMouseEnter={() => setShowVolumeSlider(true)}
+                            onMouseLeave={() => setShowVolumeSlider(false)}
+                          >
                             <button
-                              onClick={() => goToEpisode(nextEpisode)}
-                              className="group flex items-center gap-2 text-white text-sm font-semibold rounded-full bg-white/10 px-4 py-2 transition-all duration-200 ease-out border border-white/15 backdrop-blur-md hover:bg-white hover:text-brand-black hover:shadow-[0_0_20px_rgba(255,255,255,0.35)]"
+                              onClick={toggleMute}
+                              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-white hover:scale-110 transition-transform"
                             >
-                              <span>Sonraki Bölüm</span>
-                              <span className="transform transition-transform duration-200 ease-out group-hover:translate-x-1">
-                                <ChevronRightIcon size={18} />
-                              </span>
+                              {isMuted ? <VolumeMuteIcon size={20} /> : <VolumeIcon size={20} />}
                             </button>
-                          )}
+                            {showVolumeSlider && (
+                              <div className="absolute left-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg p-3 border border-white/20 shadow-2xl">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="1"
+                                  step="0.01"
+                                  value={volume}
+                                  onChange={handleVolumeChange}
+                                  className="w-20 h-1 bg-white/20 rounded-full appearance-none cursor-pointer volume-slider"
+                                  style={{
+                                    background: `linear-gradient(to right, #e50914 0%, #e50914 ${volume * 100}%, rgba(255,255,255,0.2) ${volume * 100}%, rgba(255,255,255,0.2) 100%)`
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right side: Speed, Quality, Fullscreen */}
+                        <div className="flex items-center gap-2 md:gap-3">
+                          {/* Playback Speed */}
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                setShowSpeedMenu(!showSpeedMenu);
+                                setShowQualityMenu(false);
+                              }}
+                              className="px-2 md:px-3 py-1.5 text-white text-xs md:text-sm font-medium hover:bg-white/10 rounded transition-colors"
+                            >
+                              {playbackSpeed}x
+                            </button>
+                            {showSpeedMenu && (
+                              <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl min-w-[100px] overflow-hidden">
+                                {[0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                                  <button
+                                    key={speed}
+                                    onClick={() => handlePlaybackSpeedChange(speed)}
+                                    className={`w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors ${
+                                      playbackSpeed === speed ? 'bg-brand-red/30' : ''
+                                    }`}
+                                  >
+                                    {speed}x
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quality Selector */}
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                setShowQualityMenu(!showQualityMenu);
+                                setShowSpeedMenu(false);
+                              }}
+                              className="px-2 md:px-3 py-1.5 text-white text-xs md:text-sm font-medium hover:bg-white/10 rounded transition-colors flex items-center gap-1"
+                            >
+                              {quality === 'auto' ? 'Otomatik' : quality}
+                              <ChevronDownIcon size={12} />
+                            </button>
+                            {showQualityMenu && (
+                              <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl min-w-[120px] overflow-hidden">
+                                {['auto', '1080p', '4K'].map((q) => (
+                                  <button
+                                    key={q}
+                                    onClick={() => handleQualityChange(q)}
+                                    className={`w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors ${
+                                      quality === q ? 'bg-brand-red/30' : ''
+                                    }`}
+                                  >
+                                    {q === 'auto' ? 'Otomatik' : q}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Fullscreen */}
+                          <button
+                            onClick={toggleFullscreen}
+                            className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-white hover:scale-110 transition-transform"
+                          >
+                            {isFullscreen ? <MinimizeIcon size={20} /> : <MaximizeIcon size={20} />}
+                          </button>
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Next Episode Button - Bottom-right (last 90 seconds) */}
+                {showNextEpisodeButton && nextEpisode && !showAutoPlayOverlay && (
+                  <div className="absolute bottom-6 right-6 z-50 pointer-events-auto transition-opacity duration-300">
+                    <button
+                      onClick={handleNextEpisodeNow}
+                      className="bg-black/75 hover:bg-black/90 backdrop-blur-md text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold uppercase tracking-wide text-xs md:text-sm border border-white/20 hover:border-white/40 transition-all duration-300 shadow-2xl flex items-center gap-2 group"
+                    >
+                      <span>Sonraki Bölüm</span>
+                      <ChevronRightIcon size={16} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
                   </div>
                 )}
 
