@@ -206,22 +206,47 @@ export const db = {
     if (!checkEnv()) return [];
     
     try {
-      // CRITICAL: Fetch ALL episodes by anime_id only
-      // DO NOT filter by season_id - episodes will be grouped by season_number in frontend
-      // Order by season_number first, then episode_number
-      // Note: nullsFirst: false is not supported by Supabase PostgREST, so we'll filter nulls in frontend if needed
-      const query = supabase!
+      // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+      // New imports (e.g. Overlord) don't have direct episodes.anime_id
+      // Must use JOIN via seasons table to fetch episodes correctly
+      // Query pattern: SELECT e.* FROM episodes e JOIN seasons s ON s.id = e.season_id WHERE s.anime_id = ?
+      // ORDER BY s.season_number, e.episode_number
+      
+      // Step 1: Fetch all season IDs for this anime
+      const { data: seasons, error: seasonsError } = await supabase!
+        .from('seasons')
+        .select('id, season_number')
+        .eq('anime_id', animeId)
+        .order('season_number', { ascending: true });
+      
+      if (seasonsError) {
+        console.error('[db.getEpisodes] Seasons query error:', seasonsError);
+        return [];
+      }
+      
+      if (!seasons || seasons.length === 0) {
+        console.warn('[db.getEpisodes] No seasons found for animeId:', animeId);
+        return [];
+      }
+      
+      const seasonIds = seasons.map(s => s.id);
+      const seasonMap = new Map(seasons.map(s => [s.id, s.season_number]));
+      
+      // Step 2: Fetch all episodes for these seasons
+      let query = supabase!
         .from('episodes')
         .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
-        .eq('anime_id', animeId)
-        .order('season_number', { ascending: true })
-        .order('episode_number', { ascending: true });
+        .in('season_id', seasonIds);
       
-      const { data, error } = await query;
+      // If seasonId is provided (for backward compatibility), filter by it
+      if (seasonId) {
+        query = query.eq('season_id', seasonId);
+      }
+      
+      const { data, error } = await query.order('episode_number', { ascending: true });
       
       if (error) {
-        console.error('[db.getEpisodes] Query error:', error);
-        // Return empty array on error rather than crashing
+        console.error('[db.getEpisodes] Episodes query error:', error);
         return [];
       }
       
@@ -230,26 +255,27 @@ export const db = {
         return [];
       }
       
-      console.log('[db.getEpisodes] Found', data.length, 'episodes for animeId:', animeId);
+      // Step 3: Enrich episodes with season_number from seasonMap (in case episode.season_number is NULL)
+      const enrichedEpisodes = (data as any[]).map((ep: any) => {
+        const seasonNumber = ep.season_number ?? seasonMap.get(ep.season_id) ?? 0;
+        return {
+          ...ep,
+          season_number: seasonNumber,
+          anime_id: ep.anime_id || animeId, // Ensure anime_id is set
+        };
+      });
       
-      // If seasonId is provided (for backward compatibility), filter in-memory
-      // But this should NOT be used for new code - use season_number grouping instead
-      if (seasonId) {
-        const filtered = data.filter(ep => ep.season_id === seasonId);
-        return filtered as Episode[];
-      }
-      
-      // Return all episodes - no status or video_url filtering
-      // Filter out episodes with NULL season_number (they should be fixed by SQL migration)
-      // Sort to ensure episodes with season_number come first, then nulls
-      const sorted = (data as Episode[]).sort((a, b) => {
-        if (a.season_number === null && b.season_number === null) return 0;
-        if (a.season_number === null) return 1; // nulls last
-        if (b.season_number === null) return -1;
-        if (a.season_number !== b.season_number) return a.season_number - b.season_number;
+      // Step 4: Sort by season_number, then episode_number
+      const sorted = enrichedEpisodes.sort((a, b) => {
+        const aSeason = a.season_number ?? 0;
+        const bSeason = b.season_number ?? 0;
+        if (aSeason !== bSeason) return aSeason - bSeason;
         return a.episode_number - b.episode_number;
       });
-      return sorted;
+      
+      console.log('[db.getEpisodes] Found', sorted.length, 'episodes for animeId:', animeId);
+      
+      return sorted as Episode[];
     } catch (err) {
       console.error('[db.getEpisodes] Unexpected error:', err);
       return [];
@@ -284,9 +310,13 @@ export const db = {
 
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
     if (!checkEnv()) return [];
+    
+    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+    // Must join through seasons to get anime relation for new imports
+    // Use seasons!inner(anime:animes(*)) to ensure we get anime via seasons
     let query = supabase!
       .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, anime:animes(*)')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(anime:animes(*))')
       .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
     
     if (limit !== undefined && offset !== undefined) {
@@ -298,10 +328,25 @@ export const db = {
     
     const { data, error } = await query;
       
-    if (error) return [];
+    if (error) {
+      console.error('[db.getLatestEpisodes] Query error:', error);
+      return [];
+    }
+    
+    // Extract and flatten the nested structure
+    // Supabase returns: { episode fields, seasons: { anime: { ... } } }
+    // We need: { episode fields, anime: { ... } }
+    const flattened = (data || []).map((item: any) => {
+      const anime = item.seasons?.anime || item.anime || null;
+      return {
+        ...item,
+        anime_id: item.anime_id || item.seasons?.anime?.id || null,
+        anime: anime,
+      };
+    });
     
     // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
-    const sorted = (data || []).sort((a: any, b: any) => {
+    const sorted = flattened.sort((a: any, b: any) => {
       const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
       const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
       
@@ -592,40 +637,50 @@ export const db = {
 
   getCalendar: async (): Promise<CalendarEntry[]> => {
     if (!checkEnv()) return [];
+    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+    // Must join through seasons to get anime relation for new imports
     const { data, error } = await supabase!
       .from('episodes')
-      .select('id, anime_id, season_number, episode_number, air_date, status, short_note, animes:animes(*)')
+      .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, seasons!inner(anime:animes(*))')
       .not('air_date', 'is', null)
       .order('air_date', { ascending: true });
     if (error) {
       console.error('Calendar fetch error:', error);
       return [];
     }
-    return (data || []).map(ep => ({
+    // Extract and flatten the nested structure
+    return (data || []).map((ep: any) => ({
       id: ep.id,
-      anime_id: ep.anime_id,
+      anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
       episode_id: ep.id,
       episode_number: ep.episode_number,
-      season_number: (ep as any).season_number ?? null,
+      season_number: ep.season_number || ep.seasons?.season_number || null,
       air_date: ep.air_date,
-      status: (ep as any).status,
-      short_note: (ep as any).short_note,
-      animes: ep.animes as any
+      status: ep.status,
+      short_note: ep.short_note,
+      animes: ep.seasons?.anime || ep.animes || null
     }));
   },
 
   getCalendarEpisodes: async (): Promise<(Episode & { anime: Anime | null })[]> => {
     if (!checkEnv()) return [];
+    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+    // Must join through seasons to get anime relation for new imports
     const { data, error } = await supabase!
       .from('episodes')
-      .select('*, anime:animes(id,title,cover_image)')
+      .select('*, seasons!inner(anime:animes(id,title,cover_image))')
       .order('air_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
     if (error) {
       console.error('Calendar episodes fetch error:', error);
       return [];
     }
-    return data || [];
+    // Extract and flatten the nested structure
+    return (data || []).map((ep: any) => ({
+      ...ep,
+      anime: ep.seasons?.anime || ep.anime || null,
+      anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
+    })) as (Episode & { anime: Anime | null })[];
   },
   
   getNotifications: async (userId: string): Promise<Notification[]> => {
