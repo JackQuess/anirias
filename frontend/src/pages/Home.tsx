@@ -17,7 +17,7 @@ const Home: React.FC = () => {
   const { data: featured, loading: featLoading, error: featError, reload } = useLoad(db.getFeaturedAnimes);
   const { data: continueWatching } = useLoad(() => user ? db.getContinueWatching(user.id) : Promise.resolve([]), [user]);
   const { data: allAnimes } = useLoad(() => db.getAllAnimes('view_count'));
-  const { data: latestEpisodes } = useLoad(db.getLatestEpisodes);
+  const { data: latestEpisodes } = useLoad(() => db.getLatestEpisodes(12)); // Limit to 12 for home page
   const { data: myWatchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
   const { data: newSeasons } = useLoad(() => db.getAllAnimes('created_at'));
 

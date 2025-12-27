@@ -230,12 +230,21 @@ export const db = {
     if (error) throw error;
   },
 
-  getLatestEpisodes: async (): Promise<(Episode & { anime: Anime })[]> => {
+  getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
     if (!checkEnv()) return [];
-    const { data, error } = await supabase!
+    let query = supabase!
       .from('episodes')
       .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, anime:animes(*)')
       .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
+    
+    if (limit !== undefined && offset !== undefined) {
+      // Supabase range is inclusive: range(0, 23) returns 24 items
+      query = query.range(offset, offset + limit - 1);
+    } else if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+    
+    const { data, error } = await query;
       
     if (error) return [];
     
