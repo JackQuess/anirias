@@ -234,12 +234,31 @@ export const db = {
     if (!checkEnv()) return [];
     const { data, error } = await supabase!
       .from('episodes')
-      .select('*, anime:animes(*)')
-      .order('created_at', { ascending: false })
-      .limit(12);
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, anime:animes(*)')
+      .order('air_date', { ascending: false, nullsLast: true })
+      .order('created_at', { ascending: false });
       
     if (error) return [];
-    return data as (Episode & { anime: Anime })[];
+    
+    // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
+    const sorted = (data || []).sort((a, b) => {
+      const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
+      const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
+      
+      if (aDate !== null && bDate !== null) {
+        return bDate - aDate; // Both have air_date: DESC
+      }
+      if (aDate !== null && bDate === null) {
+        return -1; // a has air_date, b doesn't: a comes first
+      }
+      if (aDate === null && bDate !== null) {
+        return 1; // b has air_date, a doesn't: b comes first
+      }
+      // Both are NULL: use created_at DESC
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    
+    return sorted as (Episode & { anime: Anime })[];
   },
 
   // --- USER DATA ---

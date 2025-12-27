@@ -16,7 +16,8 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
   const title = getDisplayTitle(anime.title);
   const cover = anime.cover_image || '';
   const coverSrc = proxyImage(cover);
-  const link = episode ? `/watch/${anime.id}/${episode.episode_number}` : `/anime/${anime.id}`;
+  const seasonNumber = episode?.season_number || 1;
+  const link = episode ? `/watch/${anime.id}?season=${seasonNumber}&episode=${episode.episode_number}` : `/anime/${anime.id}`;
   
   return (
     <Link to={link} className={`group relative flex flex-col w-full flex-shrink-0 ${featured ? 'md:col-span-2' : ''}`}>
@@ -77,7 +78,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
           
           {episode && (
              <p className="text-[8px] md:text-[9px] font-black text-brand-red uppercase tracking-widest mb-1">
-               BÖLÜM {episode.episode_number}
+               {episode.season_number ? `S${episode.season_number} E${episode.episode_number}` : `BÖLÜM ${episode.episode_number}`}
              </p>
           )}
 
