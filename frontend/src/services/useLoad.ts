@@ -57,8 +57,10 @@ export function useLoad<T>(
       isMounted = false;
       clearTimeout(timeoutId);
     };
+    // CRITICAL: Include fetcher in dependencies so useEffect re-runs when fetcher changes
+    // This ensures episodes are refetched when selectedSeasonId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retryCount, ...safeDependencies]);
+  }, [fetcher, retryCount, ...safeDependencies]);
 
   return { data, loading, error, reload };
 }

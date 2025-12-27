@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
@@ -105,10 +105,12 @@ const AdminEpisodes: React.FC = () => {
   
   // ADMIN PANEL: Fetch episodes DIRECTLY by season_id (not anime_id + season_number)
   // This ensures episodes are fetched correctly even if season_number is NULL or inconsistent
-  const { data: episodes, loading: episodesLoading, reload } = useLoad(
+  // CRITICAL: Use useCallback to memoize fetcher so useLoad hook properly detects changes
+  const fetchEpisodes = useCallback(
     () => selectedSeasonId ? db.getEpisodesBySeasonId(selectedSeasonId) : Promise.resolve([]),
     [selectedSeasonId]
   );
+  const { data: episodes, loading: episodesLoading, reload } = useLoad(fetchEpisodes, [selectedSeasonId]);
   
   // Find selected season by season_id (UUID) - ONLY source of truth
   const selectedSeason = useMemo(() => {
