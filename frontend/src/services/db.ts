@@ -178,6 +178,30 @@ export const db = {
     if (error) throw error;
   },
 
+  // Admin panel: Get episodes by season_id directly (for admin use only)
+  getEpisodesBySeasonId: async (seasonId: string): Promise<Episode[]> => {
+    if (!checkEnv()) return [];
+    if (!seasonId) return [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('episodes')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+        .eq('season_id', seasonId)
+        .order('episode_number', { ascending: true });
+      
+      if (error) {
+        console.error('[db.getEpisodesBySeasonId] Query error:', error);
+        return [];
+      }
+      
+      return (data || []) as Episode[];
+    } catch (err: any) {
+      console.error('[db.getEpisodesBySeasonId] Unexpected error:', err);
+      return [];
+    }
+  },
+
   getEpisodes: async (animeId: string, seasonId?: string): Promise<Episode[]> => {
     if (!checkEnv()) return [];
     

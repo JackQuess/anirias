@@ -103,31 +103,27 @@ const AdminEpisodes: React.FC = () => {
 
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
   const { data: seasons, loading: seasonsLoading, reload: reloadSeasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
-  // Fetch ALL episodes by anime_id - no season_id filter
-  const { data: allEpisodes, loading: episodesLoading, reload } = useLoad(() => db.getEpisodes(animeId!), [animeId]);
   
-  // Find selected season by season_number (primary) or by id (fallback)
+  // ADMIN PANEL: Fetch episodes DIRECTLY by season_id (not anime_id + season_number)
+  // This ensures episodes are fetched correctly even if season_number is NULL or inconsistent
+  const { data: episodes, loading: episodesLoading, reload } = useLoad(
+    () => selectedSeasonId ? db.getEpisodesBySeasonId(selectedSeasonId) : Promise.resolve([]),
+    [selectedSeasonId]
+  );
+  
+  // Find selected season by season_id (primary) or by season_number (fallback for UI)
   const selectedSeason = useMemo(() => {
-    if (selectedSeasonNumber !== null) {
-      return seasons?.find((s) => s.season_number === selectedSeasonNumber) || null;
-    }
     if (selectedSeasonId) {
       return seasons?.find((s) => s.id === selectedSeasonId) || null;
     }
+    if (selectedSeasonNumber !== null) {
+      return seasons?.find((s) => s.season_number === selectedSeasonNumber) || null;
+    }
     return null;
-  }, [seasons, selectedSeasonNumber, selectedSeasonId]);
+  }, [seasons, selectedSeasonId, selectedSeasonNumber]);
   
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = (seasons?.length ?? 0) > 0;
-
-  // Filter episodes by selected season_id (UUID) - CRITICAL: Use season_id, not season_number
-  const episodes = useMemo(() => {
-    if (!allEpisodes || !selectedSeasonId) return [];
-    // Filter by season_id (UUID) - this matches backend/app logic
-    const filtered = allEpisodes.filter(ep => ep.season_id === selectedSeasonId);
-    // Sort by episode_number to ensure correct order
-    return filtered.sort((a, b) => a.episode_number - b.episode_number);
-  }, [allEpisodes, selectedSeasonId]);
 
   // Initialize selected season by season_id (UUID) - primary source of truth
   useEffect(() => {
