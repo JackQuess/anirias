@@ -235,13 +235,12 @@ export const db = {
     const { data, error } = await supabase!
       .from('episodes')
       .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, anime:animes(*)')
-      .order('air_date', { ascending: false, nullsLast: true })
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
       
     if (error) return [];
     
     // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
-    const sorted = (data || []).sort((a, b) => {
+    const sorted = (data || []).sort((a: any, b: any) => {
       const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
       const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
       
@@ -258,7 +257,8 @@ export const db = {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     
-    return sorted as (Episode & { anime: Anime })[];
+    // Type assertion: Supabase returns anime as single object (not array) for foreign key relations
+    return sorted as unknown as (Episode & { anime: Anime })[];
   },
 
   // --- USER DATA ---
