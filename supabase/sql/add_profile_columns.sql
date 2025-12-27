@@ -13,12 +13,16 @@ ALTER TABLE public.profiles
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS bio text;
 
+-- Ensure updated_at column exists (required for update tracking)
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone;
+
 -- Verify columns exist
 -- SELECT column_name, data_type, is_nullable
 -- FROM information_schema.columns
 -- WHERE table_schema = 'public' 
 --   AND table_name = 'profiles'
---   AND column_name IN ('bio', 'avatar_id', 'banner_id');
+--   AND column_name IN ('bio', 'avatar_id', 'banner_id', 'updated_at');
 
 -- Note: After running this migration, Supabase schema cache should refresh automatically.
 -- If columns still don't appear, you may need to:

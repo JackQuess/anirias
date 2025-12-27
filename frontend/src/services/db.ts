@@ -404,7 +404,7 @@ export const db = {
     if (updates.avatar_url !== undefined) safeUpdates.avatar_url = updates.avatar_url;
     if (updates.banner_url !== undefined) safeUpdates.banner_url = updates.banner_url;
     
-    // Always update updated_at
+    // Always update updated_at (required for tracking)
     safeUpdates.updated_at = new Date().toISOString();
     
     const { data, error } = await supabase!
