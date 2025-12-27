@@ -108,10 +108,38 @@ export const db = {
     if (error) throw error;
   },
 
-  deleteAnime: async (id: string) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { error } = await supabase!.from('animes').delete().eq('id', id);
-    if (error) throw error;
+  deleteAnime: async (id: string, adminToken?: string): Promise<{ success: boolean; deleted?: any; error?: string }> => {
+    // Use backend API for complete cascade deletion
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (!apiBase) {
+      throw new Error("Backend API URL not configured (VITE_API_BASE_URL)");
+    }
+
+    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    if (!token) {
+      throw new Error('Admin token is required');
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/admin/delete-anime`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token
+        },
+        body: JSON.stringify({ animeId: id })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+
+      return { success: true, deleted: data.deleted };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'Failed to delete anime' };
+    }
   },
 
   toggleFeatured: async (animeId: string, status: boolean) => {

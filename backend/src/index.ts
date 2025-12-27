@@ -4,6 +4,7 @@ import autoImportRouter from './routes/admin/autoImport.js';
 import bunnyPatchRouter from './routes/admin/bunnyPatch.js';
 import hybridImportRouter from './routes/admin/hybridImport.js';
 import fixSeasonsRouter from './routes/admin/fixSeasons.js';
+import deleteAnimeRouter from './routes/admin/deleteAnime.js';
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/admin', autoImportRouter);
 app.use('/api/admin', bunnyPatchRouter);
 app.use('/api/admin', hybridImportRouter);
 app.use('/api/admin', fixSeasonsRouter);
+app.use('/api/admin', deleteAnimeRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {

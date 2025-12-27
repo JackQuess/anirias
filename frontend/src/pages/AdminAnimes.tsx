@@ -13,18 +13,45 @@ const AdminAnimes: React.FC = () => {
   const { data: animes, loading, error, reload } = useLoad(() => db.getAllAnimes('created_at'));
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [adminToken, setAdminToken] = useState('');
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Bu animeyi ve tüm bölümlerini silmek istediğinize emin misiniz?')) return;
+  const handleDeleteClick = (id: string, title: string) => {
+    setDeleteConfirm({ id, title });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    
+    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    if (!token) {
+      alert('Admin token gerekli.');
+      setDeleteConfirm(null);
+      return;
+    }
+
     try {
-      setIsDeleting(id);
-      await db.deleteAnime(id);
-      reload();
+      setIsDeleting(deleteConfirm.id);
+      const result = await db.deleteAnime(deleteConfirm.id, token);
+      
+      if (result.success) {
+        alert(`Anime ve tüm ilgili veriler başarıyla silindi.\n\nSilinen:\n- Anime: 1\n- Sezonlar: ${result.deleted?.seasons || 0}\n- Bölümler: ${result.deleted?.episodes || 0}\n- İzleme listesi: ${result.deleted?.watchlist || 0}\n- İlerleme: ${result.deleted?.watch_progress || 0}\n- Geçmiş: ${result.deleted?.watch_history || 0}\n- Yorumlar: ${result.deleted?.comments || 0}`);
+        reload();
+      } else {
+        alert(`Silme hatası: ${result.error || 'Bilinmeyen hata'}`);
+      }
     } catch (err: any) {
       alert('Silme hatası: ' + err.message);
     } finally {
       setIsDeleting(null);
+      setDeleteConfirm(null);
+      setAdminToken('');
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm(null);
+    setAdminToken('');
   };
 
   const filteredAnimes = animes?.filter(a => getDisplayTitle(a.title).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -115,7 +142,7 @@ const AdminAnimes: React.FC = () => {
                         <Link to={`/admin/episodes/${anime.id}`} className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all">BÖLÜMLER</Link>
                         <Link to={`/admin/animes/${anime.id}/edit`} className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all">DÜZENLE</Link>
                         <button 
-                          onClick={() => handleDelete(anime.id)}
+                          onClick={() => handleDeleteClick(anime.id, titleString)}
                           disabled={isDeleting === anime.id}
                           className="bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white px-4 py-2.5 rounded-xl text-[10px] font-black transition-all disabled:opacity-20"
                         >
@@ -133,6 +160,65 @@ const AdminAnimes: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={handleDeleteCancel} />
+          <div className="relative w-full max-w-lg bg-brand-dark border border-brand-red/50 p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.3)]">
+            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-4">
+              <span className="text-brand-red">SİLME</span> ONAYI
+            </h2>
+            <p className="text-white/80 text-sm mb-6 leading-relaxed">
+              Bu anime ve <strong className="text-brand-red">TÜM bölümleri</strong> kalıcı olarak silinecek.
+            </p>
+            <div className="bg-brand-red/10 border border-brand-red/30 rounded-2xl p-4 mb-6">
+              <p className="text-white font-black text-lg uppercase italic">{getDisplayTitle(deleteConfirm.title)}</p>
+            </div>
+            <p className="text-gray-400 text-xs mb-6">
+              Bu işlem geri alınamaz. Aşağıdaki veriler silinecek:
+            </p>
+            <ul className="text-gray-500 text-xs space-y-1 mb-6 list-disc list-inside">
+              <li>Tüm sezonlar</li>
+              <li>Tüm bölümler</li>
+              <li>İzleme listesi kayıtları</li>
+              <li>İzleme ilerlemesi</li>
+              <li>İzleme geçmişi</li>
+              <li>Yorumlar</li>
+            </ul>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 block">
+                  Admin Token (X-ADMIN-TOKEN)
+                </label>
+                <input
+                  type="password"
+                  value={adminToken}
+                  onChange={(e) => setAdminToken(e.target.value)}
+                  placeholder="ADMIN_TOKEN"
+                  className="w-full bg-brand-black border border-brand-border rounded-xl px-4 py-3 text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                >
+                  İPTAL
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting === deleteConfirm.id}
+                  className="flex-1 bg-brand-red hover:bg-brand-redHover text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                >
+                  {isDeleting === deleteConfirm.id ? 'SİLİNİYOR...' : 'SİL'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
