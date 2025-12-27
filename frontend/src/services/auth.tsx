@@ -25,14 +25,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return;
     try {
       const prof = await fetchProfile(currentUser.id);
-      setProfile(prof);
+      if (prof) {
+        setProfile(prof);
+      }
     } catch (e) {
       console.error("Profil yüklenirken hata:", e);
     }
   };
 
   const refreshProfile = async () => {
-    if (user) await loadUserProfile(user);
+    if (user) {
+      await loadUserProfile(user);
+    }
   };
 
   const signOut = async () => {

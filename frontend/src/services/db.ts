@@ -392,9 +392,25 @@ export const db = {
   },
 
   // --- PROFILE ---
-  updateProfile: async (userId: string, updates: Partial<Profile>) => {
-    if (!checkEnv()) return;
-    await supabase!.from('profiles').update(updates).eq('id', userId);
+  updateProfile: async (userId: string, updates: Partial<Profile>): Promise<Profile> => {
+    if (!checkEnv()) throw new Error("Backend connection failed");
+    const { data, error } = await supabase!
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('[db.updateProfile] Error:', error);
+      throw new Error(`Profil güncellenemedi: ${error.message}`);
+    }
+    
+    if (!data) {
+      throw new Error('Profil güncellendi ancak veri alınamadı');
+    }
+    
+    return data as Profile;
   },
   
   getAdminUsers: async (): Promise<Profile[]> => {

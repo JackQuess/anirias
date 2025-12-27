@@ -45,11 +45,14 @@ const Profile: React.FC = () => {
   useEffect(() => {
     if (profile) {
       const safeBio = sanitizeBio(profile.bio || '');
+      const avatarId = (profile as any).avatar_id || findAvatarIdBySrc(profile.avatar_url) || '';
+      const bannerId = (profile as any).banner_id || '';
+      
       setEditForm({
         username: profile.username || '',
         bio: safeBio,
-        avatar_id: (profile as any).avatar_id || findAvatarIdBySrc(profile.avatar_url) || '',
-        banner_id: (profile as any).banner_id || ''
+        avatar_id: avatarId,
+        banner_id: bannerId
       });
     }
   }, [profile, findAvatarIdBySrc]);
@@ -76,29 +79,50 @@ const Profile: React.FC = () => {
     }
 
     try {
-      await db.updateProfile(user.id, {
+      // Update in database and get fresh data
+      const updatedProfile = await db.updateProfile(user.id, {
         bio: sanitizedBio,
         avatar_id: editForm.avatar_id,
         banner_id: editForm.banner_id
       } as any);
-      setProfile(prev => prev ? { ...prev, bio: sanitizedBio, avatar_id: editForm.avatar_id, banner_id: editForm.banner_id } : prev);
+      
+      // Update global profile context with fresh DB data
+      setProfile(updatedProfile);
+      
+      // Force refresh to ensure all components get updated data
       await refreshProfile();
+      
+      // Update local form state to match
+      setEditForm(prev => ({
+        ...prev,
+        bio: sanitizedBio,
+        avatar_id: editForm.avatar_id,
+        banner_id: editForm.banner_id
+      }));
+      
       setIsEditing(false);
       setErrors({});
       alert('Profil güncellendi!');
-    } catch (err) {
-      alert('Güncelleme başarısız oldu.');
+    } catch (err: any) {
+      console.error('[Profile] Update error:', err);
+      alert(`Güncelleme başarısız oldu: ${err?.message || 'Bilinmeyen hata'}`);
     }
   };
 
   const displayProfile = profile || { username: 'Anirias Guest', role: 'user', bio: 'Henüz bir biyografi eklenmemiş.', avatar_url: '', banner_id: 'jjk_gojo' } as any;
-  const currentAvatarId = editForm.avatar_id || (profile as any)?.avatar_id || findAvatarIdBySrc(profile?.avatar_url);
-  const currentBannerId = editForm.banner_id || (profile as any)?.banner_id;
+  
+  // Use profile data as source of truth (from DB), fallback to editForm when editing
+  const currentAvatarId = isEditing 
+    ? (editForm.avatar_id || (profile as any)?.avatar_id || findAvatarIdBySrc(profile?.avatar_url))
+    : ((profile as any)?.avatar_id || findAvatarIdBySrc(profile?.avatar_url));
+  const currentBannerId = isEditing 
+    ? (editForm.banner_id || (profile as any)?.banner_id)
+    : ((profile as any)?.banner_id);
+  
   const selectedAvatar = AVATARS.find(a => a.id === currentAvatarId);
   const selectedBanner = BANNERS.find(b => b.id === currentBannerId);
-  const avatarSrc = selectedAvatar ? getAvatarSrc(selectedAvatar.id) : getAvatarSrc((profile as any)?.avatar_id);
-  console.log('Profile avatar_id:', (profile as any)?.avatar_id, 'banner_id:', (profile as any)?.banner_id);
-  const bannerSrc = getBannerSrc(selectedBanner?.id || (profile as any)?.banner_id);
+  const avatarSrc = currentAvatarId ? getAvatarSrc(currentAvatarId) : (profile?.avatar_url || '');
+  const bannerSrc = currentBannerId ? getBannerSrc(currentBannerId) : getBannerSrc((profile as any)?.banner_id || 'jjk_gojo');
 
   const stats = useMemo(() => {
     const totalEps = history?.length || 0;
