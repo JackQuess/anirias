@@ -117,10 +117,16 @@ const AdminEpisodes: React.FC = () => {
   
   // Fetch episodes by season_id - always returns array
   const fetchEpisodes = useCallback(async (): Promise<Episode[]> => {
-    if (!selectedSeasonId) return [];
+    if (!selectedSeasonId) {
+      if (import.meta.env.DEV) console.log('[AdminEpisodes] fetchEpisodes: selectedSeasonId is empty, returning []');
+      return [];
+    }
+    if (import.meta.env.DEV) console.log('[AdminEpisodes] fetchEpisodes: fetching episodes for seasonId:', selectedSeasonId);
     const data = await db.getEpisodesBySeasonId(selectedSeasonId);
+    if (import.meta.env.DEV) console.log('[AdminEpisodes] fetchEpisodes: received', Array.isArray(data) ? data.length : 0, 'episodes');
     return Array.isArray(data) ? data : [];
   }, [selectedSeasonId]);
+  // CRITICAL: Pass both fetcher and selectedSeasonId to ensure useLoad re-runs when season changes
   const { data: episodesRaw, loading: episodesLoading, reload } = useLoad(fetchEpisodes, [selectedSeasonId]);
   
   // CRITICAL: Ensure episodes is ALWAYS an array
@@ -146,6 +152,13 @@ const AdminEpisodes: React.FC = () => {
       }
     }
   }, [seasons, selectedSeasonId]);
+
+  // CRITICAL: Reload episodes when selectedSeasonId changes (for multi-season anime)
+  useEffect(() => {
+    if (selectedSeasonId) {
+      reload();
+    }
+  }, [selectedSeasonId, reload]);
 
   // Update autoSeasonNumber when selected season changes
   useEffect(() => {
