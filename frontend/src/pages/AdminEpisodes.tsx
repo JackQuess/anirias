@@ -28,7 +28,6 @@ const AdminEpisodes: React.FC = () => {
   const navigate = useNavigate();
   
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
-  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [isAction, setIsAction] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPatching, setIsPatching] = useState(false);
@@ -111,42 +110,32 @@ const AdminEpisodes: React.FC = () => {
     [selectedSeasonId]
   );
   
-  // Find selected season by season_id (primary) or by season_number (fallback for UI)
+  // Find selected season by season_id (UUID) - ONLY source of truth
   const selectedSeason = useMemo(() => {
-    if (selectedSeasonId) {
-      return seasons?.find((s) => s.id === selectedSeasonId) || null;
-    }
-    if (selectedSeasonNumber !== null) {
-      return seasons?.find((s) => s.season_number === selectedSeasonNumber) || null;
-    }
-    return null;
-  }, [seasons, selectedSeasonId, selectedSeasonNumber]);
+    if (!selectedSeasonId || !seasons) return null;
+    return seasons.find((s) => s.id === selectedSeasonId) || null;
+  }, [seasons, selectedSeasonId]);
   
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = (seasons?.length ?? 0) > 0;
 
-  // Initialize selected season by season_id (UUID) - primary source of truth
+  // Initialize selected season by season_id (UUID) - ONLY source of truth
   useEffect(() => {
     if (seasons && seasons.length > 0 && !selectedSeasonId) {
       // Select first season by season_number (use slice to avoid mutating original array)
       const firstSeason = [...seasons].sort((a, b) => a.season_number - b.season_number)[0];
       if (firstSeason) {
-        setSelectedSeasonId(firstSeason.id); // Primary: season_id (UUID)
-        setSelectedSeasonNumber(firstSeason.season_number); // Keep for UI display
+        setSelectedSeasonId(firstSeason.id); // ONLY source of truth: season_id (UUID)
       }
     }
   }, [seasons, selectedSeasonId]);
 
-  // Sync selectedSeasonId when season_number changes
+  // Update autoSeasonNumber when selected season changes
   useEffect(() => {
-    if (selectedSeasonNumber !== null && seasons) {
-      const found = seasons.find((s) => s.season_number === selectedSeasonNumber);
-      if (found && found.id !== selectedSeasonId) {
-        setSelectedSeasonId(found.id);
-      }
-      if (found) setAutoSeasonNumber(found.season_number);
+    if (selectedSeason) {
+      setAutoSeasonNumber(selectedSeason.season_number);
     }
-  }, [selectedSeasonNumber, seasons, selectedSeasonId]);
+  }, [selectedSeason]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Bu bölümü kalıcı olarak silmek istediğinize emin misiniz?')) return;
@@ -501,8 +490,7 @@ const AdminEpisodes: React.FC = () => {
       // Reload seasons list
       await reloadSeasons();
 
-      // Automatically select the newly created season by season_number
-      setSelectedSeasonNumber(newSeason.season_number);
+      // Automatically select the newly created season by season_id
       setSelectedSeasonId(newSeason.id);
       
       // Reload episodes to show newly created episodes
@@ -724,7 +712,6 @@ const AdminEpisodes: React.FC = () => {
       await reload();
       
       // After reload, reset selection to trigger re-selection of first season
-      setSelectedSeasonNumber(null);
       setSelectedSeasonId('');
     } catch (err: any) {
       alert(err?.message || 'Sezon düzeltme başarısız');
@@ -883,7 +870,7 @@ const AdminEpisodes: React.FC = () => {
           {seasons && seasons.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
               {seasons.map(s => {
-                const isSelected = selectedSeasonNumber === s.season_number;
+                const isSelected = selectedSeasonId === s.id;
                 return (
               <div
                 key={s.id}
@@ -914,7 +901,6 @@ const AdminEpisodes: React.FC = () => {
                   </div>
                   <button
                     onClick={() => {
-                      setSelectedSeasonNumber(s.season_number);
                       setSelectedSeasonId(s.id);
                     }}
                         className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border transition-all ${
