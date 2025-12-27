@@ -415,12 +415,28 @@ export const db = {
       .single();
     
     if (error) {
-      console.error('[db.updateProfile] Error:', error);
-      // Provide helpful error message for missing columns
-      if (error.message?.includes('column') && error.message?.includes('schema cache')) {
-        throw new Error('Profil sütunları eksik. Lütfen veritabanı migration\'ını çalıştırın: supabase/sql/add_profile_columns.sql');
+      console.error('[db.updateProfile] Full Error:', error);
+      console.error('[db.updateProfile] Error Code:', error.code);
+      console.error('[db.updateProfile] Error Message:', error.message);
+      console.error('[db.updateProfile] Error Details:', error.details);
+      console.error('[db.updateProfile] Error Hint:', error.hint);
+      console.error('[db.updateProfile] Update Payload:', safeUpdates);
+      
+      // Check for specific error types
+      if (error.code === '42703' || (error.message?.includes('column') && error.message?.includes('does not exist'))) {
+        throw new Error(`Sütun bulunamadı: ${error.message}. Lütfen migration'ı kontrol edin: supabase/sql/add_profile_columns.sql`);
       }
-      throw new Error(`Profil güncellenemedi: ${error.message}`);
+      
+      if (error.code === '42P01' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        throw new Error(`Tablo bulunamadı: ${error.message}`);
+      }
+      
+      if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
+        throw new Error(`İzin hatası: Profil güncelleme yetkiniz yok. RLS politikalarını kontrol edin.`);
+      }
+      
+      // Generic error with full details
+      throw new Error(`Profil güncellenemedi: ${error.message || error.code || 'Bilinmeyen hata'}`);
     }
     
     if (!data) {

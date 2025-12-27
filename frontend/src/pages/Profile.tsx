@@ -105,7 +105,15 @@ const Profile: React.FC = () => {
       alert('Profil güncellendi!');
     } catch (err: any) {
       console.error('[Profile] Update error:', err);
-      alert(`Güncelleme başarısız oldu: ${err?.message || 'Bilinmeyen hata'}`);
+      console.error('[Profile] Error details:', {
+        message: err?.message,
+        code: err?.code,
+        stack: err?.stack
+      });
+      
+      // Show detailed error to help debug
+      const errorMsg = err?.message || 'Bilinmeyen hata';
+      alert(`Güncelleme başarısız oldu: ${errorMsg}\n\nKonsolu kontrol edin (F12) daha fazla detay için.`);
     }
   };
 
