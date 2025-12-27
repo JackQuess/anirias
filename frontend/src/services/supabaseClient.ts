@@ -14,25 +14,17 @@ export const hasSupabaseEnv =
   supabaseUrl.startsWith('https://');
 
 if (!hasSupabaseEnv) {
-  console.warn('[Supabase] ENV eksik veya geçersiz', {
-    VITE_SUPABASE_URL: supabaseUrl,
-    VITE_SUPABASE_ANON_KEY: supabaseAnonKey ? 'present' : 'missing',
-  });
-} else {
-  console.log('[Supabase] Client initialized successfully');
-  console.log('[Supabase] URL:', supabaseUrl);
-  console.log('[Supabase] Anon Key present:', !!supabaseAnonKey);
+  if (import.meta.env.DEV) {
+    console.warn('[Supabase] ENV eksik veya geçersiz', {
+      VITE_SUPABASE_URL: supabaseUrl,
+      VITE_SUPABASE_ANON_KEY: supabaseAnonKey ? 'present' : 'missing',
+    });
+  }
 }
 
 export const supabase: SupabaseClient | null = hasSupabaseEnv
   ? createClient(supabaseUrl!, supabaseAnonKey!)
   : null;
-
-if (supabase) {
-  console.log('[Supabase] Client instance created');
-} else {
-  console.error('[Supabase] Client instance is NULL');
-}
 
 /**
  * Hard-assert helper for places where Supabase MUST exist

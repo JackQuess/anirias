@@ -100,34 +100,49 @@ const AdminEpisodes: React.FC = () => {
   const [hlsInput, setHlsInput] = useState<string>('');
   const [airDateInput, setAirDateInput] = useState<string>(new Date().toISOString().slice(0,16));
 
+  // Fetch anime data
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
-  const { data: seasons, loading: seasonsLoading, reload: reloadSeasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
   
-  // ADMIN PANEL: Fetch episodes DIRECTLY by season_id (not anime_id + season_number)
-  // This ensures episodes are fetched correctly even if season_number is NULL or inconsistent
-  // CRITICAL: Use useCallback to memoize fetcher so useLoad hook properly detects changes
-  const fetchEpisodes = useCallback(
-    () => selectedSeasonId ? db.getEpisodesBySeasonId(selectedSeasonId) : Promise.resolve([]),
-    [selectedSeasonId]
-  );
-  const { data: episodes, loading: episodesLoading, reload } = useLoad(fetchEpisodes, [selectedSeasonId]);
+  // Fetch seasons - always returns array
+  const fetchSeasons = useCallback(async (): Promise<Season[]> => {
+    const data = await db.getSeasons(animeId!);
+    return Array.isArray(data) ? data : [];
+  }, [animeId]);
+  const { data: seasonsRaw, loading: seasonsLoading, reload: reloadSeasons } = useLoad(fetchSeasons);
   
-  // Find selected season by season_id (UUID) - ONLY source of truth
+  // CRITICAL: Ensure seasons is ALWAYS an array
+  const seasons = useMemo(() => {
+    return Array.isArray(seasonsRaw) ? seasonsRaw : [];
+  }, [seasonsRaw]);
+  
+  // Fetch episodes by season_id - always returns array
+  const fetchEpisodes = useCallback(async (): Promise<Episode[]> => {
+    if (!selectedSeasonId) return [];
+    const data = await db.getEpisodesBySeasonId(selectedSeasonId);
+    return Array.isArray(data) ? data : [];
+  }, [selectedSeasonId]);
+  const { data: episodesRaw, loading: episodesLoading, reload } = useLoad(fetchEpisodes, [selectedSeasonId]);
+  
+  // CRITICAL: Ensure episodes is ALWAYS an array
+  const episodes = useMemo(() => {
+    return Array.isArray(episodesRaw) ? episodesRaw : [];
+  }, [episodesRaw]);
+  
+  // Find selected season by season_id
   const selectedSeason = useMemo(() => {
-    if (!selectedSeasonId || !seasons) return null;
+    if (!selectedSeasonId || !Array.isArray(seasons)) return null;
     return seasons.find((s) => s.id === selectedSeasonId) || null;
   }, [seasons, selectedSeasonId]);
   
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
-  const hasSeasons = (seasons?.length ?? 0) > 0;
+  const hasSeasons = seasons.length > 0;
 
-  // Initialize selected season by season_id (UUID) - ONLY source of truth
+  // Initialize selected season: auto-select first season when seasons load
   useEffect(() => {
-    if (seasons && seasons.length > 0 && !selectedSeasonId) {
-      // Select first season by season_number (use slice to avoid mutating original array)
+    if (Array.isArray(seasons) && seasons.length > 0 && !selectedSeasonId) {
       const firstSeason = [...seasons].sort((a, b) => a.season_number - b.season_number)[0];
       if (firstSeason) {
-        setSelectedSeasonId(firstSeason.id); // ONLY source of truth: season_id (UUID)
+        setSelectedSeasonId(firstSeason.id);
       }
     }
   }, [seasons, selectedSeasonId]);
@@ -152,7 +167,7 @@ const AdminEpisodes: React.FC = () => {
 
   const resetForm = () => {
     const nowIso = new Date().toISOString();
-    setNewEp({ episode_number: (episodes?.length || 0) + 1, title: '', stream_id: '', duration_seconds: 1440, created_at: nowIso });
+    setNewEp({ episode_number: episodes.length + 1, title: '', stream_id: '', duration_seconds: 1440, created_at: nowIso });
     setHlsInput('');
     setAirDateInput(nowIso.slice(0,16));
     setEditEp(null);
@@ -377,7 +392,7 @@ const AdminEpisodes: React.FC = () => {
       alert('Slug veya sezon bilgisi eksik.');
       return;
     }
-    const season = seasons?.find((s) => s.id === selectedSeasonId);
+    const season = Array.isArray(seasons) ? seasons.find((s) => s.id === selectedSeasonId) : null;
     if (!season) {
       alert('Sezon bulunamadı.');
       return;
@@ -394,21 +409,21 @@ const AdminEpisodes: React.FC = () => {
   };
 
   const handleMissingScan = () => {
-    const season = seasons?.find((s) => s.id === selectedSeasonId);
+    const season = Array.isArray(seasons) ? seasons.find((s) => s.id === selectedSeasonId) : null;
     if (!season) {
       alert('Sezon bulunamadı.');
       return;
     }
     const total = season.episode_count || 0;
-    const existingNums = new Set((episodes || []).map((e) => e.episode_number));
+    const existingNums = new Set(episodes.map((e) => e.episode_number));
     const missing: number[] = [];
     for (let i = 1; i <= total; i += 1) {
       if (!existingNums.has(i)) missing.push(i);
     }
-    const noVideo = (episodes || [])
+    const noVideo = episodes
       .filter((e) => !e.video_url)
       .map((e) => e.episode_number);
-    const error = (episodes || [])
+    const error = episodes
       .filter((e) => e.status === 'error')
       .map((e) => e.episode_number);
     setMissingSummary({ missing, noVideo, error });
@@ -416,15 +431,15 @@ const AdminEpisodes: React.FC = () => {
   };
 
   const handlePatchMissingOnly = async () => {
-    const season = seasons?.find((s) => s.id === selectedSeasonId);
+    const season = Array.isArray(seasons) ? seasons.find((s) => s.id === selectedSeasonId) : null;
     if (!season) return;
     await handleBunnyPatch(season.season_number);
     setIsMissingModalOpen(false);
   };
 
   const handleOpenSeasonModal = () => {
-    const nextSeasonNumber = (seasons?.length || 0) > 0 
-      ? Math.max(...(seasons?.map(s => s.season_number) || [])) + 1 
+    const nextSeasonNumber = seasons.length > 0 
+      ? Math.max(...seasons.map(s => s.season_number)) + 1 
       : 1;
     setSeasonForm({
       season_number: nextSeasonNumber,
@@ -445,7 +460,7 @@ const AdminEpisodes: React.FC = () => {
     }
 
     // Check for duplicate season
-    const existingSeason = seasons?.find(s => s.season_number === seasonNum);
+    const existingSeason = Array.isArray(seasons) ? seasons.find(s => s.season_number === seasonNum) : null;
     if (existingSeason) {
       alert('Bu sezon zaten mevcut');
       return;
@@ -545,7 +560,7 @@ const AdminEpisodes: React.FC = () => {
       return;
     }
     
-    if (!episodes || episodes.length === 0) {
+    if (episodes.length === 0) {
       alert('Bu sezonda patch edilecek bölüm yok. Önce bölümleri oluşturun.');
       return;
     }
@@ -582,7 +597,7 @@ const AdminEpisodes: React.FC = () => {
       const patched = data?.patched ?? 0;
       const errors = data?.errors ?? [];
       const missing = errors.length;
-      const total = episodes?.length || 0;
+      const total = episodes.length;
       
       const summary = [
         `Toplam: ${total} bölüm`,
@@ -637,7 +652,7 @@ const AdminEpisodes: React.FC = () => {
 
   const handleSelectAniList = async (media: any) => {
     if (!bindingSeason || !animeId) return;
-    const alreadyBound = seasons?.some((s) => s.anilist_id === media.id);
+    const alreadyBound = Array.isArray(seasons) ? seasons.some((s) => s.anilist_id === media.id) : false;
     if (alreadyBound) {
       alert('Bu AniList ID zaten başka bir sezona bağlı.');
       return;
@@ -736,7 +751,7 @@ const AdminEpisodes: React.FC = () => {
             <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1">Sezon ve Bölüm Arşivi</p>
             {selectedSeason && (
               <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-2">
-                AniList: {selectedSeason.episode_count || 0} Bölüm | Mevcut: {episodes?.length || 0} Bölüm
+                AniList: {selectedSeason.episode_count || 0} Bölüm | Mevcut: {episodes.length} Bölüm
               </p>
             )}
           </div>
@@ -869,7 +884,7 @@ const AdminEpisodes: React.FC = () => {
           )}
 
           {/* Season Cards */}
-          {seasons && seasons.length > 0 && (
+          {seasons.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
               {seasons.map(s => {
                 const isSelected = selectedSeasonId === s.id;
@@ -975,7 +990,7 @@ const AdminEpisodes: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-border">
-                    {episodes?.map(ep => (
+                    {episodes.map(ep => (
                       <tr key={ep.id} className="hover:bg-white/[0.03] transition-colors group">
                         <td className="px-10 py-6 font-black text-brand-red italic text-xl">
                           {ep.episode_number < 10 ? `0${ep.episode_number}` : ep.episode_number}
@@ -1041,7 +1056,7 @@ const AdminEpisodes: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                    {(!episodes || episodes.length === 0) && !episodesLoading && selectedSeasonId && (
+                    {episodes.length === 0 && !episodesLoading && selectedSeasonId && (
                       <tr>
                         <td colSpan={4} className="px-10 py-20 text-center text-gray-600 font-black uppercase text-xs tracking-[0.4em] opacity-40 italic">
                           Bu sezona ait bölüm yok. Yeni bir bölüm ekleyerek başlayın.
@@ -1165,7 +1180,7 @@ const AdminEpisodes: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => handleSelectAniList(item)}
-                  disabled={seasons?.some((s) => s.anilist_id === item.id)}
+                  disabled={Array.isArray(seasons) ? seasons.some((s) => s.anilist_id === item.id) : false}
                   className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-brand-red/40 transition-all disabled:opacity-40"
                 >
                   <img src={item.coverImage?.large} className="w-16 h-24 object-cover rounded-xl" />

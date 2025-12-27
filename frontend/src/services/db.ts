@@ -5,7 +5,9 @@ import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, 
 // Helper to ensure Supabase is configured
 const checkEnv = () => {
   if (!hasSupabaseEnv || !supabase) {
-    console.warn("Supabase bağlantısı yok. Lütfen .env dosyasını yapılandırın.");
+    if (import.meta.env.DEV) {
+      console.warn("Supabase bağlantısı yok. Lütfen .env dosyasını yapılandırın.");
+    }
     return false;
   }
   return true;
@@ -61,38 +63,30 @@ export const db = {
       .eq('is_featured', true)
       .order('updated_at', { ascending: false });
     
-    if (error) console.error("Featured Error:", error);
-    return data || [];
+    if (error) {
+      if (import.meta.env.DEV) console.error("[db.getFeaturedAnimes] Query error:", error);
+      return [];
+    }
+    return Array.isArray(data) ? data : [];
   },
 
   getAllAnimes: async (sortBy: string = 'created_at'): Promise<Anime[]> => {
-    console.log('[db.getAllAnimes] Starting fetch, sortBy:', sortBy);
-    console.log('[db.getAllAnimes] hasSupabaseEnv:', hasSupabaseEnv);
-    console.log('[db.getAllAnimes] supabase client exists:', !!supabase);
-    
-    if (!checkEnv()) {
-      console.warn('[db.getAllAnimes] checkEnv() returned false - Supabase not configured');
-      return [];
-    }
+    if (!checkEnv()) return [];
     
     try {
-      console.log('[db.getAllAnimes] Making Supabase query...');
       const { data, error } = await supabase!
         .from('animes')
         .select('*')
         .order(sortBy, { ascending: false });
 
       if (error) {
-        console.error('[db.getAllAnimes] Query error:', error);
-        console.error('[db.getAllAnimes] Error details:', JSON.stringify(error, null, 2));
+        if (import.meta.env.DEV) console.error('[db.getAllAnimes] Query error:', error);
         return [];
       }
       
-      console.log('[db.getAllAnimes] Query successful, data count:', data?.length || 0);
-      return data || [];
+      return Array.isArray(data) ? data : [];
     } catch (err: any) {
-      console.error('[db.getAllAnimes] Unexpected error:', err);
-      console.error('[db.getAllAnimes] Error stack:', err?.stack);
+      if (import.meta.env.DEV) console.error('[db.getAllAnimes] Unexpected error:', err);
       return [];
     }
   },
@@ -105,7 +99,10 @@ export const db = {
       .eq('id', id)
       .maybeSingle();
     
-    if (error) console.error("Get Anime Error:", error);
+    if (error) {
+      if (import.meta.env.DEV) console.error("[db.getAnimeById] Query error:", error);
+      return null;
+    }
     return data;
   },
 
@@ -212,13 +209,13 @@ export const db = {
         .order('episode_number', { ascending: true });
       
       if (error) {
-        console.error('[db.getEpisodesBySeasonId] Query error:', error);
+        if (import.meta.env.DEV) console.error('[db.getEpisodesBySeasonId] Query error:', error);
         return [];
       }
       
-      return (data || []) as Episode[];
+      return Array.isArray(data) ? data : [];
     } catch (err: any) {
-      console.error('[db.getEpisodesBySeasonId] Unexpected error:', err);
+      if (import.meta.env.DEV) console.error('[db.getEpisodesBySeasonId] Unexpected error:', err);
       return [];
     }
   },
@@ -241,12 +238,11 @@ export const db = {
         .order('season_number', { ascending: true });
       
       if (seasonsError) {
-        console.error('[db.getEpisodes] Seasons query error:', seasonsError);
+        if (import.meta.env.DEV) console.error('[db.getEpisodes] Seasons query error:', seasonsError);
         return [];
       }
       
       if (!seasons || seasons.length === 0) {
-        console.warn('[db.getEpisodes] No seasons found for animeId:', animeId);
         return [];
       }
       
@@ -267,14 +263,15 @@ export const db = {
       const { data, error } = await query.order('episode_number', { ascending: true });
       
       if (error) {
-        console.error('[db.getEpisodes] Episodes query error:', error);
+        if (import.meta.env.DEV) console.error('[db.getEpisodes] Episodes query error:', error);
         return [];
       }
       
       if (!data || data.length === 0) {
-        console.warn('[db.getEpisodes] No episodes found for animeId:', animeId);
         return [];
       }
+      
+      // Enrich episodes with season_number from seasonMap
       
       // Step 3: Enrich episodes with season_number from seasonMap (in case episode.season_number is NULL)
       const enrichedEpisodes = (data as any[]).map((ep: any) => {
@@ -293,8 +290,6 @@ export const db = {
         if (aSeason !== bSeason) return aSeason - bSeason;
         return a.episode_number - b.episode_number;
       });
-      
-      console.log('[db.getEpisodes] Found', sorted.length, 'episodes for animeId:', animeId);
       
       return sorted as Episode[];
     } catch (err) {

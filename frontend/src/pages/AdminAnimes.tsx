@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,49 +6,38 @@ import ErrorState from '../components/ErrorState';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { Anime } from '../types';
 
 const AdminAnimes: React.FC = () => {
   const navigate = useNavigate();
-  console.log('[AdminAnimes] Component rendering');
-  
-  // Memoize fetcher to prevent recreation on every render
-  const fetchAnimes = useCallback(() => {
-    console.log('[AdminAnimes] useLoad fetcher called');
-    return db.getAllAnimes('created_at');
+
+  // Fetch animes - always returns array
+  const fetchAnimes = useCallback(async (): Promise<Anime[]> => {
+    const data = await db.getAllAnimes('created_at');
+    return Array.isArray(data) ? data : [];
   }, []);
-  
-  const { data: animes, loading, error, reload } = useLoad(fetchAnimes);
-  
-  // CRITICAL: Ensure animes is always an array
-  // Check if animes is array, if not, convert to array or use empty array
-  console.log('[AdminAnimes] animes isArray:', Array.isArray(animes), animes);
-  
-  // Safely extract array from animes - handle both direct array and object with data property
-  const animesArray = useMemo(() => {
-    if (Array.isArray(animes)) {
-      return animes;
-    }
-    // If animes is an object with data property (e.g., { data: [...] }), extract it
-    if (animes && typeof animes === 'object' && 'data' in animes) {
-      const data = (animes as any).data;
-      return Array.isArray(data) ? data : [];
-    }
-    // Fallback to empty array if animes is null, undefined, or not an array
-    return [];
-  }, [animes]);
-  
-  console.log('[AdminAnimes] State:', { 
-    animesCount: animesArray.length, 
-    animesType: typeof animes,
-    animesIsArray: Array.isArray(animes),
-    loading, 
-    error: error?.message 
-  });
-  
+
+  const { data: animesRaw, loading, error, reload } = useLoad(fetchAnimes);
+
+  // CRITICAL: Ensure animes is ALWAYS an array
+  const animes = useMemo(() => {
+    return Array.isArray(animesRaw) ? animesRaw : [];
+  }, [animesRaw]);
+
+  // Local state
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [adminToken, setAdminToken] = useState('');
+
+  // Filtered animes - always array
+  const filteredAnimes = useMemo(() => {
+    if (!Array.isArray(animes)) return [];
+    return animes.filter(a => {
+      const title = getDisplayTitle(a.title);
+      return title.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  }, [animes, searchTerm]);
 
   const handleDeleteClick = (id: string, title: string) => {
     setDeleteConfirm({ id, title });
@@ -76,6 +64,7 @@ const AdminAnimes: React.FC = () => {
         alert(`Silme hatası: ${result.error || 'Bilinmeyen hata'}`);
       }
     } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[AdminAnimes] Delete error:', err);
       alert('Silme hatası: ' + err.message);
     } finally {
       setIsDeleting(null);
@@ -89,21 +78,16 @@ const AdminAnimes: React.FC = () => {
     setAdminToken('');
   };
 
-  // CRITICAL: filteredAnimes must always be an array
-  const filteredAnimes = useMemo(() => {
-    if (!Array.isArray(animesArray)) {
-      console.warn('[AdminAnimes] animesArray is not an array, using empty array');
-      return [];
-    }
-    return animesArray.filter(a => getDisplayTitle(a.title).toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [animesArray, searchTerm]);
-
   return (
     <div className="space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">İçerik <span className="text-brand-red">Yönetimi</span></h1>
-          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Platformdaki tüm animeleri düzenleyin veya yenilerini ekleyin</p>
+          <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">
+            İçerik <span className="text-brand-red">Yönetimi</span>
+          </h1>
+          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">
+            Platformdaki tüm animeleri düzenleyin veya yenilerini ekleyin
+          </p>
         </div>
         <button 
           onClick={() => navigate('/admin/animes/new')}
@@ -113,95 +97,118 @@ const AdminAnimes: React.FC = () => {
         </button>
       </div>
 
-      {/* Quick Filter */}
+      {/* Search Filter */}
       <div className="relative">
-         <input 
+        <input 
           type="text" 
           placeholder="ANİME ARA..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-brand-dark border border-brand-border rounded-2xl px-12 py-4 text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
-         />
-         <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        />
+        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
       </div>
 
+      {/* Loading State */}
       {loading && <LoadingSkeleton type="list" count={8} />}
+
+      {/* Error State */}
       {error && <ErrorState message={error.message} onRetry={reload} />}
 
-      {!loading && !error && Array.isArray(filteredAnimes) && (
+      {/* Anime List */}
+      {!loading && !error && (
         <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-brand-border bg-white/5">
-                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Anime Bilgisi</th>
-                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Puan / Yıl</th>
-                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">İzlenme</th>
-                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-border">
-              {filteredAnimes.map((anime) => {
-                const titleString = getDisplayTitle(anime.title);
-                return (
-                  <tr key={anime.id} className="hover:bg-white/[0.03] transition-colors group">
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-6">
-                        <div className="w-14 h-20 rounded-xl overflow-hidden border border-brand-border shadow-lg">
-                          <img
-                            src={proxyImage(anime.cover_image || '')}
-                            className="w-full h-full object-cover"
-                            alt={titleString}
-                            onError={(e) => {
-                              const fallback = anime.cover_image || '';
-                              if (fallback && (e.target as HTMLImageElement).src !== fallback) {
-                                (e.target as HTMLImageElement).src = fallback;
-                              }
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-white font-black text-base uppercase tracking-tight group-hover:text-brand-red transition-colors">{titleString}</p>
-                          <div className="flex gap-2 mt-1">
-                            {anime.genres && Array.isArray(anime.genres) && anime.genres.slice(0, 2).map(g => (
-                              <span key={g} className="text-[9px] text-gray-600 font-black uppercase tracking-widest">{g}</span>
-                            ))}
+          {filteredAnimes.length === 0 ? (
+            <div className="px-8 py-20 text-center">
+              <p className="text-gray-600 font-black uppercase text-xs tracking-[0.3em]">
+                {searchTerm ? 'Aradığınız kriterde anime bulunamadı.' : 'Henüz anime eklenmedi.'}
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-brand-border bg-white/5">
+                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Anime Bilgisi</th>
+                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Puan / Yıl</th>
+                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">İzlenme</th>
+                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border">
+                {filteredAnimes.map((anime) => {
+                  const titleString = getDisplayTitle(anime.title);
+                  return (
+                    <tr key={anime.id} className="hover:bg-white/[0.03] transition-colors group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-6">
+                          <div className="w-14 h-20 rounded-xl overflow-hidden border border-brand-border shadow-lg">
+                            <img
+                              src={proxyImage(anime.cover_image || '')}
+                              className="w-full h-full object-cover"
+                              alt={titleString}
+                              onError={(e) => {
+                                const fallback = anime.cover_image || '';
+                                if (fallback && (e.target as HTMLImageElement).src !== fallback) {
+                                  (e.target as HTMLImageElement).src = fallback;
+                                }
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <p className="text-white font-black text-base uppercase tracking-tight group-hover:text-brand-red transition-colors">
+                              {titleString}
+                            </p>
+                            <div className="flex gap-2 mt-1">
+                              {Array.isArray(anime.genres) && anime.genres.slice(0, 2).map(g => (
+                                <span key={g} className="text-[9px] text-gray-600 font-black uppercase tracking-widest">
+                                  {g}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <p className="text-white font-black text-sm italic">{anime.year}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                         <span className="text-brand-red text-xs font-black italic">★ {anime.score}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <p className="text-white font-black text-sm">{anime.view_count?.toLocaleString() || 0}</p>
-                      <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">GÖRÜNTÜLENME</p>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <Link to={`/admin/episodes/${anime.id}`} className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all">BÖLÜMLER</Link>
-                        <Link to={`/admin/animes/${anime.id}/edit`} className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all">DÜZENLE</Link>
-                        <button 
-                          onClick={() => handleDeleteClick(anime.id, titleString)}
-                          disabled={isDeleting === anime.id}
-                          className="bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white px-4 py-2.5 rounded-xl text-[10px] font-black transition-all disabled:opacity-20"
-                        >
-                          {isDeleting === anime.id ? '...' : 'SİL'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredAnimes.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-8 py-20 text-center text-gray-600 font-black uppercase text-xs tracking-[0.3em]">Aradığınız kriterde anime bulunamadı.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-white font-black text-sm italic">{anime.year}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-brand-red text-xs font-black italic">★ {anime.score}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-white font-black text-sm">{anime.view_count?.toLocaleString() || 0}</p>
+                        <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">GÖRÜNTÜLENME</p>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <Link 
+                            to={`/admin/episodes/${anime.id}`} 
+                            className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all"
+                          >
+                            BÖLÜMLER
+                          </Link>
+                          <Link 
+                            to={`/admin/animes/${anime.id}/edit`} 
+                            className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all"
+                          >
+                            DÜZENLE
+                          </Link>
+                          <button 
+                            onClick={() => handleDeleteClick(anime.id, titleString)}
+                            disabled={isDeleting === anime.id}
+                            className="bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white px-4 py-2.5 rounded-xl text-[10px] font-black transition-all disabled:opacity-20"
+                          >
+                            {isDeleting === anime.id ? '...' : 'SİL'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -217,7 +224,9 @@ const AdminAnimes: React.FC = () => {
               Bu anime ve <strong className="text-brand-red">TÜM bölümleri</strong> kalıcı olarak silinecek.
             </p>
             <div className="bg-brand-red/10 border border-brand-red/30 rounded-2xl p-4 mb-6">
-              <p className="text-white font-black text-lg uppercase italic">{getDisplayTitle(deleteConfirm.title)}</p>
+              <p className="text-white font-black text-lg uppercase italic">
+                {getDisplayTitle(deleteConfirm.title)}
+              </p>
             </div>
             <p className="text-gray-400 text-xs mb-6">
               Bu işlem geri alınamaz. Aşağıdaki veriler silinecek:
