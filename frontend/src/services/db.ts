@@ -394,15 +394,32 @@ export const db = {
   // --- PROFILE ---
   updateProfile: async (userId: string, updates: Partial<Profile>): Promise<Profile> => {
     if (!checkEnv()) throw new Error("Backend connection failed");
+    
+    // Filter out undefined/null values and only include fields that exist
+    const safeUpdates: Record<string, any> = {};
+    if (updates.bio !== undefined) safeUpdates.bio = updates.bio;
+    if (updates.avatar_id !== undefined) safeUpdates.avatar_id = updates.avatar_id;
+    if (updates.banner_id !== undefined) safeUpdates.banner_id = updates.banner_id;
+    if (updates.username !== undefined) safeUpdates.username = updates.username;
+    if (updates.avatar_url !== undefined) safeUpdates.avatar_url = updates.avatar_url;
+    if (updates.banner_url !== undefined) safeUpdates.banner_url = updates.banner_url;
+    
+    // Always update updated_at
+    safeUpdates.updated_at = new Date().toISOString();
+    
     const { data, error } = await supabase!
       .from('profiles')
-      .update(updates)
+      .update(safeUpdates)
       .eq('id', userId)
       .select()
       .single();
     
     if (error) {
       console.error('[db.updateProfile] Error:', error);
+      // Provide helpful error message for missing columns
+      if (error.message?.includes('column') && error.message?.includes('schema cache')) {
+        throw new Error('Profil sütunları eksik. Lütfen veritabanı migration\'ını çalıştırın: supabase/sql/add_profile_columns.sql');
+      }
       throw new Error(`Profil güncellenemedi: ${error.message}`);
     }
     
