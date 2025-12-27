@@ -129,10 +129,15 @@ const AdminEpisodes: React.FC = () => {
   // CRITICAL: Pass both fetcher and selectedSeasonId to ensure useLoad re-runs when season changes
   const { data: episodesRaw, loading: episodesLoading, reload } = useLoad(fetchEpisodes, [selectedSeasonId]);
   
-  // CRITICAL: Ensure episodes is ALWAYS an array
+  // CRITICAL: Ensure episodes is ALWAYS an array and filter by selectedSeasonId
+  // This prevents stale data from showing when season changes
   const episodes = useMemo(() => {
-    return Array.isArray(episodesRaw) ? episodesRaw : [];
-  }, [episodesRaw]);
+    if (!Array.isArray(episodesRaw)) return [];
+    // Filter episodes by selectedSeasonId to prevent stale data display
+    // getEpisodesBySeasonId already filters, but this adds extra safety
+    if (!selectedSeasonId) return [];
+    return episodesRaw.filter(ep => ep.season_id === selectedSeasonId);
+  }, [episodesRaw, selectedSeasonId]);
   
   // Find selected season by season_id
   const selectedSeason = useMemo(() => {

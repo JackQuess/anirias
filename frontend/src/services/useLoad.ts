@@ -22,8 +22,9 @@ export function useLoad<T>(
     let isMounted = true;
     setLoading(true);
     setError(null);
-    // Clear old data when dependencies change to prevent stale data display
-    setData(null);
+    // FIXED: Don't clear old data immediately - keep it visible until new data arrives
+    // This prevents UI flicker/flash when dependencies change
+    // setData(null); // REMOVED: Causes UI to flash empty
 
     const timeoutId = setTimeout(() => {
       if (isMounted && loading) {
@@ -42,6 +43,8 @@ export function useLoad<T>(
       } catch (err: any) {
         if (isMounted) {
           setError(err instanceof Error ? err : new Error('Beklenmedik bir hata oluştu'));
+          // Only clear data on error if there's no existing data
+          // This prevents clearing good data if a subsequent request fails
         }
       } finally {
         if (isMounted) {
