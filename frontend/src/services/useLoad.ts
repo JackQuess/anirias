@@ -57,8 +57,10 @@ export function useLoad<T>(
       isMounted = false;
       clearTimeout(timeoutId);
     };
-    // CRITICAL: Include fetcher in dependencies so useEffect re-runs when fetcher changes
-    // This ensures episodes are refetched when selectedSeasonId changes
+    // CRITICAL: Include both fetcher and dependencies
+    // - fetcher: ensures useEffect re-runs when fetcher function reference changes
+    // - safeDependencies: ensures useEffect re-runs when explicit dependencies change
+    // Note: For inline arrow functions, prefer memoizing with useCallback to prevent infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetcher, retryCount, ...safeDependencies]);
 

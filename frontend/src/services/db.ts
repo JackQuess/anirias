@@ -66,14 +66,35 @@ export const db = {
   },
 
   getAllAnimes: async (sortBy: string = 'created_at'): Promise<Anime[]> => {
-    if (!checkEnv()) return [];
-    const { data, error } = await supabase!
-      .from('animes')
-      .select('*')
-      .order(sortBy, { ascending: false });
+    console.log('[db.getAllAnimes] Starting fetch, sortBy:', sortBy);
+    console.log('[db.getAllAnimes] hasSupabaseEnv:', hasSupabaseEnv);
+    console.log('[db.getAllAnimes] supabase client exists:', !!supabase);
+    
+    if (!checkEnv()) {
+      console.warn('[db.getAllAnimes] checkEnv() returned false - Supabase not configured');
+      return [];
+    }
+    
+    try {
+      console.log('[db.getAllAnimes] Making Supabase query...');
+      const { data, error } = await supabase!
+        .from('animes')
+        .select('*')
+        .order(sortBy, { ascending: false });
 
-    if (error) console.error("All Animes Error:", error);
-    return data || [];
+      if (error) {
+        console.error('[db.getAllAnimes] Query error:', error);
+        console.error('[db.getAllAnimes] Error details:', JSON.stringify(error, null, 2));
+        return [];
+      }
+      
+      console.log('[db.getAllAnimes] Query successful, data count:', data?.length || 0);
+      return data || [];
+    } catch (err: any) {
+      console.error('[db.getAllAnimes] Unexpected error:', err);
+      console.error('[db.getAllAnimes] Error stack:', err?.stack);
+      return [];
+    }
   },
 
   getAnimeById: async (id: string): Promise<Anime | null> => {

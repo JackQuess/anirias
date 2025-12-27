@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { Link, useNavigate } from 'react-router-dom';
@@ -10,7 +10,16 @@ import { proxyImage } from '@/utils/proxyImage';
 
 const AdminAnimes: React.FC = () => {
   const navigate = useNavigate();
-  const { data: animes, loading, error, reload } = useLoad(() => db.getAllAnimes('created_at'));
+  console.log('[AdminAnimes] Component rendering');
+  
+  // Memoize fetcher to prevent recreation on every render
+  const fetchAnimes = useCallback(() => {
+    console.log('[AdminAnimes] useLoad fetcher called');
+    return db.getAllAnimes('created_at');
+  }, []);
+  
+  const { data: animes, loading, error, reload } = useLoad(fetchAnimes);
+  console.log('[AdminAnimes] State:', { animesCount: animes?.length, loading, error: error?.message });
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
