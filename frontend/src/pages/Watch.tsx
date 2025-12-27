@@ -311,6 +311,12 @@ const Watch: React.FC = () => {
     }
   }, [nextEpisode, seasonNumber, goToEpisode]);
 
+  const handlePrevEpisodeNow = useCallback(() => {
+    if (prevEpisode) {
+      goToEpisode({ episode_number: prevEpisode.episode_number, season_number: seasonNumber });
+    }
+  }, [prevEpisode, seasonNumber, goToEpisode]);
+
   // Strict: Do NOT auto-redirect to first episode if currentEpisode not found
   // User must explicitly select an episode from the active season
 
@@ -740,10 +746,12 @@ const Watch: React.FC = () => {
                     }
                   }}
                   onNextEpisode={handleNextEpisodeNow}
+                  onPrevEpisode={handlePrevEpisodeNow}
                   onToggleMute={toggleMute}
                   onToggleFullscreen={toggleFullscreen}
                   onCyclePlaybackRate={cyclePlaybackRate}
                   hasNextEpisode={showNextEpisodeButton && !!nextEpisode}
+                  hasPrevEpisode={!!prevEpisode}
                   onMouseMove={showControlsTemporary}
                 />
 
