@@ -120,26 +120,26 @@ const AdminEpisodes: React.FC = () => {
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = (seasons?.length ?? 0) > 0;
 
-  // Filter episodes by selected season_number (CRITICAL: use season_number, not season_id)
+  // Filter episodes by selected season_id (UUID) - CRITICAL: Use season_id, not season_number
   const episodes = useMemo(() => {
-    if (!allEpisodes || selectedSeasonNumber === null) return [];
-    // Filter by season_number directly - this is the source of truth
-    const filtered = allEpisodes.filter(ep => ep.season_number === selectedSeasonNumber);
+    if (!allEpisodes || !selectedSeasonId) return [];
+    // Filter by season_id (UUID) - this matches backend/app logic
+    const filtered = allEpisodes.filter(ep => ep.season_id === selectedSeasonId);
     // Sort by episode_number to ensure correct order
     return filtered.sort((a, b) => a.episode_number - b.episode_number);
-  }, [allEpisodes, selectedSeasonNumber]);
+  }, [allEpisodes, selectedSeasonId]);
 
-  // Initialize selected season by season_number (primary source of truth)
+  // Initialize selected season by season_id (UUID) - primary source of truth
   useEffect(() => {
-    if (seasons && seasons.length > 0 && selectedSeasonNumber === null) {
+    if (seasons && seasons.length > 0 && !selectedSeasonId) {
       // Select first season by season_number (use slice to avoid mutating original array)
       const firstSeason = [...seasons].sort((a, b) => a.season_number - b.season_number)[0];
       if (firstSeason) {
-        setSelectedSeasonNumber(firstSeason.season_number);
-        setSelectedSeasonId(firstSeason.id); // Keep for backward compatibility
+        setSelectedSeasonId(firstSeason.id); // Primary: season_id (UUID)
+        setSelectedSeasonNumber(firstSeason.season_number); // Keep for UI display
       }
     }
-  }, [seasons, selectedSeasonNumber]);
+  }, [seasons, selectedSeasonId]);
 
   // Sync selectedSeasonId when season_number changes
   useEffect(() => {
@@ -974,91 +974,99 @@ const AdminEpisodes: React.FC = () => {
 
           {episodesLoading ? <LoadingSkeleton type="list" count={5} /> : (
             <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-brand-border bg-white/5">
-                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Sıra</th>
-                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Bölüm Detayı</th>
-                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Süre</th>
-                    <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-border">
-                  {episodes?.map(ep => (
-                    <tr key={ep.id} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="px-10 py-6 font-black text-brand-red italic text-xl">
-                        {ep.episode_number < 10 ? `0${ep.episode_number}` : ep.episode_number}
-                      </td>
-                      <td className="px-10 py-6">
-                        <p className="text-white font-black text-base uppercase tracking-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${
-                            ep.status === 'ready' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                            ep.status === 'patched' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                            ep.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                            ep.status === 'pending_download' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                            ep.status === 'downloading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                            ep.status === 'uploading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                            ep.status === 'source_missing' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                            ep.status === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                            ep.status === 'missing' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
-                            'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                          }`}>
-                            {ep.status === 'ready' ? '✓ Hazır' :
-                             ep.status === 'patched' ? '✓ Hazır' :
-                             ep.status === 'pending' ? '⏳ Bekliyor' :
-                             ep.status === 'pending_download' ? '⏬ İndirilecek' :
-                             ep.status === 'downloading' ? '⬇️ İndiriliyor' :
-                             ep.status === 'uploading' ? '⬆️ Yükleniyor' :
-                             ep.status === 'source_missing' ? '❌ Kaynak Yok' :
-                             ep.status === 'error' ? '❌ Hata' :
-                             ep.status === 'missing' ? '⚠ Henüz eklenmemiş' :
-                             '⚠ Henüz eklenmemiş'}
-                          </span>
-                          {ep.video_url && (
-                            <span className="text-[9px] text-gray-500 font-mono max-w-xs truncate">
-                              {ep.video_url}
+              {!selectedSeasonId ? (
+                <div className="px-10 py-20 text-center">
+                  <p className="text-gray-600 font-black uppercase text-xs tracking-[0.4em] opacity-60 italic">
+                    Lütfen bir sezon seçin
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-brand-border bg-white/5">
+                      <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Sıra</th>
+                      <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Bölüm Detayı</th>
+                      <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Süre</th>
+                      <th className="px-10 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-brand-border">
+                    {episodes?.map(ep => (
+                      <tr key={ep.id} className="hover:bg-white/[0.03] transition-colors group">
+                        <td className="px-10 py-6 font-black text-brand-red italic text-xl">
+                          {ep.episode_number < 10 ? `0${ep.episode_number}` : ep.episode_number}
+                        </td>
+                        <td className="px-10 py-6">
+                          <p className="text-white font-black text-base uppercase tracking-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${
+                              ep.status === 'ready' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                              ep.status === 'patched' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                              ep.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                              ep.status === 'pending_download' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                              ep.status === 'downloading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                              ep.status === 'uploading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                              ep.status === 'source_missing' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                              ep.status === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                              ep.status === 'missing' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
+                              'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                            }`}>
+                              {ep.status === 'ready' ? '✓ Hazır' :
+                               ep.status === 'patched' ? '✓ Hazır' :
+                               ep.status === 'pending' ? '⏳ Bekliyor' :
+                               ep.status === 'pending_download' ? '⏬ İndirilecek' :
+                               ep.status === 'downloading' ? '⬇️ İndiriliyor' :
+                               ep.status === 'uploading' ? '⬆️ Yükleniyor' :
+                               ep.status === 'source_missing' ? '❌ Kaynak Yok' :
+                               ep.status === 'error' ? '❌ Hata' :
+                               ep.status === 'missing' ? '⚠ Henüz eklenmemiş' :
+                               '⚠ Henüz eklenmemiş'}
                             </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-10 py-6 text-xs text-gray-500 font-bold italic">{Math.floor(ep.duration_seconds / 60)} DAKİKA</td>
-                      <td className="px-10 py-6 text-right">
-                         <div className="flex items-center justify-end gap-4">
-                            <button 
-                              disabled
-                              title="Bu işlem artık Desktop App üzerinden yapılır."
-                              className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
-                            >
-                              DÜZENLE
-                            </button>
-                            <button 
-                              disabled
-                              title="Bu işlem artık Desktop App üzerinden yapılır."
-                              className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
-                            >
-                              VİDEO PATCH
-                            </button>
-                            <button 
-                              disabled
-                              title="Bu işlem artık Desktop App üzerinden yapılır."
-                              className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
-                            >
-                              SİL
-                            </button>
-                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {(!episodes || episodes.length === 0) && !episodesLoading && (
-                    <tr>
-                      <td colSpan={4} className="px-10 py-20 text-center text-gray-600 font-black uppercase text-xs tracking-[0.4em] opacity-40 italic">
-                        Bu sezona henüz bölüm eklenmemiş. Yeni bir bölüm ekleyerek başlayın.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                            {ep.video_url && (
+                              <span className="text-[9px] text-gray-500 font-mono max-w-xs truncate">
+                                {ep.video_url}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-10 py-6 text-xs text-gray-500 font-bold italic">{Math.floor(ep.duration_seconds / 60)} DAKİKA</td>
+                        <td className="px-10 py-6 text-right">
+                           <div className="flex items-center justify-end gap-4">
+                              <button 
+                                disabled
+                                title="Bu işlem artık Desktop App üzerinden yapılır."
+                                className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
+                              >
+                                DÜZENLE
+                              </button>
+                              <button 
+                                disabled
+                                title="Bu işlem artık Desktop App üzerinden yapılır."
+                                className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
+                              >
+                                VİDEO PATCH
+                              </button>
+                              <button 
+                                disabled
+                                title="Bu işlem artık Desktop App üzerinden yapılır."
+                                className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
+                              >
+                                SİL
+                              </button>
+                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!episodes || episodes.length === 0) && !episodesLoading && selectedSeasonId && (
+                      <tr>
+                        <td colSpan={4} className="px-10 py-20 text-center text-gray-600 font-black uppercase text-xs tracking-[0.4em] opacity-40 italic">
+                          Bu sezona ait bölüm yok. Yeni bir bölüm ekleyerek başlayın.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
         </>
