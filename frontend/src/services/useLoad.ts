@@ -22,6 +22,8 @@ export function useLoad<T>(
     let isMounted = true;
     setLoading(true);
     setError(null);
+    // Clear old data when dependencies change to prevent stale data display
+    setData(null);
 
     const timeoutId = setTimeout(() => {
       if (isMounted && loading) {
@@ -55,6 +57,7 @@ export function useLoad<T>(
       isMounted = false;
       clearTimeout(timeoutId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retryCount, ...safeDependencies]);
 
   return { data, loading, error, reload };
