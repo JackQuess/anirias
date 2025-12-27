@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { Link, useNavigate } from 'react-router-dom';
@@ -19,7 +19,33 @@ const AdminAnimes: React.FC = () => {
   }, []);
   
   const { data: animes, loading, error, reload } = useLoad(fetchAnimes);
-  console.log('[AdminAnimes] State:', { animesCount: animes?.length, loading, error: error?.message });
+  
+  // CRITICAL: Ensure animes is always an array
+  // Check if animes is array, if not, convert to array or use empty array
+  console.log('[AdminAnimes] animes isArray:', Array.isArray(animes), animes);
+  
+  // Safely extract array from animes - handle both direct array and object with data property
+  const animesArray = useMemo(() => {
+    if (Array.isArray(animes)) {
+      return animes;
+    }
+    // If animes is an object with data property (e.g., { data: [...] }), extract it
+    if (animes && typeof animes === 'object' && 'data' in animes) {
+      const data = (animes as any).data;
+      return Array.isArray(data) ? data : [];
+    }
+    // Fallback to empty array if animes is null, undefined, or not an array
+    return [];
+  }, [animes]);
+  
+  console.log('[AdminAnimes] State:', { 
+    animesCount: animesArray.length, 
+    animesType: typeof animes,
+    animesIsArray: Array.isArray(animes),
+    loading, 
+    error: error?.message 
+  });
+  
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
@@ -63,7 +89,14 @@ const AdminAnimes: React.FC = () => {
     setAdminToken('');
   };
 
-  const filteredAnimes = animes?.filter(a => getDisplayTitle(a.title).toLowerCase().includes(searchTerm.toLowerCase()));
+  // CRITICAL: filteredAnimes must always be an array
+  const filteredAnimes = useMemo(() => {
+    if (!Array.isArray(animesArray)) {
+      console.warn('[AdminAnimes] animesArray is not an array, using empty array');
+      return [];
+    }
+    return animesArray.filter(a => getDisplayTitle(a.title).toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [animesArray, searchTerm]);
 
   return (
     <div className="space-y-10">
@@ -95,7 +128,7 @@ const AdminAnimes: React.FC = () => {
       {loading && <LoadingSkeleton type="list" count={8} />}
       {error && <ErrorState message={error.message} onRetry={reload} />}
 
-      {!loading && !error && filteredAnimes && (
+      {!loading && !error && Array.isArray(filteredAnimes) && (
         <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
           <table className="w-full text-left">
             <thead>
@@ -129,7 +162,7 @@ const AdminAnimes: React.FC = () => {
                         <div>
                           <p className="text-white font-black text-base uppercase tracking-tight group-hover:text-brand-red transition-colors">{titleString}</p>
                           <div className="flex gap-2 mt-1">
-                            {anime.genres.slice(0, 2).map(g => (
+                            {anime.genres && Array.isArray(anime.genres) && anime.genres.slice(0, 2).map(g => (
                               <span key={g} className="text-[9px] text-gray-600 font-black uppercase tracking-widest">{g}</span>
                             ))}
                           </div>
