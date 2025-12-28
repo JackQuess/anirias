@@ -292,7 +292,10 @@ ON public.notifications
 FOR SELECT
 USING (user_id = auth.uid());
 
-RAISE NOTICE '✓ RLS policy created';
+DO $$
+BEGIN
+  RAISE NOTICE '✓ RLS policy created';
+END $$;
 
 -- ============================================================================
 -- STEP 5: VERIFY COLUMN STRUCTURE
