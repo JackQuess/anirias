@@ -196,7 +196,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onError?.('Video oynatılamadı.');
     };
 
+    const handleCanPlay = () => {
+      // Video is ready to play - ensure no pending play() errors
+      // This helps prevent AbortError when video becomes ready
+    };
+
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('progress', handleProgress);
     video.addEventListener('ended', handleEnded);
@@ -246,10 +252,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('progress', handleProgress);
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
+      
+      // Cancel any pending play() requests to prevent AbortError
+      if (!video.paused) {
+        video.pause();
+      }
+      
       hlsRef.current?.destroy();
       hlsRef.current = null;
       if (nextEpisodeCountdownRef.current) {
@@ -274,10 +287,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video) return;
 
     if (video.paused) {
-      video.play().then(() => {
-        setIsPlaying(true);
-        showControlsTemporary();
-      });
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            showControlsTemporary();
+          })
+          .catch((error) => {
+            // Ignore AbortError - video was interrupted by new load
+            if (error.name !== 'AbortError' && import.meta.env.DEV) {
+              console.warn('[VideoPlayer] Play error:', error);
+            }
+          });
+      }
     } else {
       video.pause();
       setIsPlaying(false);
@@ -381,15 +404,64 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video || initialTime <= 0) return;
     
-    video.currentTime = initialTime;
-    setCurrentTime(initialTime);
-    lastTimeUpdateRef.current = initialTime;
     setShowResumeCard(false);
-    onSeek?.(initialTime);
-    video.play().then(() => {
-      setIsPlaying(true);
-      showControlsTemporary();
-    });
+    
+    // Wait for video to be ready before seeking and playing
+    const seekAndPlay = () => {
+      if (!video || !video.readyState) {
+        // Wait for video to be ready
+        const checkReady = () => {
+          if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+            video.currentTime = initialTime;
+            setCurrentTime(initialTime);
+            lastTimeUpdateRef.current = initialTime;
+            onSeek?.(initialTime);
+            
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => {
+                  setIsPlaying(true);
+                  showControlsTemporary();
+                })
+                .catch((error) => {
+                  // Ignore AbortError - video was interrupted
+                  if (error.name !== 'AbortError' && import.meta.env.DEV) {
+                    console.warn('[VideoPlayer] Resume play error:', error);
+                  }
+                });
+            }
+          } else {
+            // Retry after a short delay
+            setTimeout(checkReady, 100);
+          }
+        };
+        checkReady();
+      } else {
+        // Video is ready, seek and play immediately
+        video.currentTime = initialTime;
+        setCurrentTime(initialTime);
+        lastTimeUpdateRef.current = initialTime;
+        onSeek?.(initialTime);
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+              showControlsTemporary();
+            })
+            .catch((error) => {
+              // Ignore AbortError - video was interrupted
+              if (error.name !== 'AbortError' && import.meta.env.DEV) {
+                console.warn('[VideoPlayer] Resume play error:', error);
+              }
+            });
+        }
+      }
+    };
+    
+    seekAndPlay();
   }, [initialTime, onSeek, showControlsTemporary]);
 
   const handleResumeCancel = useCallback(() => {
