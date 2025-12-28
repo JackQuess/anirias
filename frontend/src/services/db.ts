@@ -717,13 +717,23 @@ export const db = {
     if (!checkEnv()) return [];
     
     try {
+      // PostgREST join syntax: anime:animes(*) uses the foreign key constraint
+      // If this fails with 400, the FK constraint may be missing or misnamed
       const { data, error } = await supabase!
         .from('watchlist')
         .select('*, anime:animes(*)')
         .eq('user_id', userId);
       
       if (error) {
-        if (import.meta.env.DEV) console.error('[db.getWatchlist] Query error:', error);
+        if (import.meta.env.DEV) {
+          console.error('[db.getWatchlist] Query error:', error);
+          console.error('[db.getWatchlist] Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+        }
         return [];
       }
       return Array.isArray(data) ? data : [];
