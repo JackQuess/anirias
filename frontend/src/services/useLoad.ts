@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { LoadState } from '../types';
 
 export function useLoad<T>(
@@ -10,6 +10,7 @@ export function useLoad<T>(
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // SAFE: Ensure dependencies is always an array
   const safeDependencies = Array.isArray(dependencies) ? dependencies : [];
@@ -20,6 +21,16 @@ export function useLoad<T>(
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Abort previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
     setLoading(true);
     setError(null);
     // FIXED: Don't clear old data immediately - keep it visible until new data arrives
@@ -27,7 +38,8 @@ export function useLoad<T>(
     // setData(null); // REMOVED: Causes UI to flash empty
 
     const timeoutId = setTimeout(() => {
-      if (isMounted && loading) {
+      if (isMounted && loading && !controller.signal.aborted) {
+        controller.abort();
         setError(new Error('İstek zaman aşımına uğradı. Lütfen bağlantınızı kontrol edin.'));
         setLoading(false);
       }
@@ -36,18 +48,26 @@ export function useLoad<T>(
     const executeFetch = async () => {
       try {
         const result = await fetcher();
-        if (isMounted) {
-          setData(result);
-          setError(null);
+        // Check if request was aborted or component unmounted
+        if (controller.signal.aborted || !isMounted) {
+          return;
         }
+        setData(result);
+        setError(null);
       } catch (err: any) {
-        if (isMounted) {
-          setError(err instanceof Error ? err : new Error('Beklenmedik bir hata oluştu'));
-          // Only clear data on error if there's no existing data
-          // This prevents clearing good data if a subsequent request fails
+        // Ignore abort errors
+        if (controller.signal.aborted || !isMounted) {
+          return;
         }
+        // Don't set error for aborted requests
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        setError(err instanceof Error ? err : new Error('Beklenmedik bir hata oluştu'));
+        // Only clear data on error if there's no existing data
+        // This prevents clearing good data if a subsequent request fails
       } finally {
-        if (isMounted) {
+        if (isMounted && !controller.signal.aborted) {
           setLoading(false);
           clearTimeout(timeoutId);
         }
@@ -58,7 +78,9 @@ export function useLoad<T>(
 
     return () => {
       isMounted = false;
+      controller.abort();
       clearTimeout(timeoutId);
+      abortControllerRef.current = null;
     };
     // CRITICAL: Include both fetcher and dependencies
     // - fetcher: ensures useEffect re-runs when fetcher function reference changes

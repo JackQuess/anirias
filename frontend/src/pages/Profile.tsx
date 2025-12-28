@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/services/auth';
 import { Navigate, Link } from 'react-router-dom';
 import { useLoad } from '@/services/useLoad';
@@ -30,11 +30,51 @@ const Profile: React.FC = () => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
 
-  const { data: history } = useLoad(() => user ? db.getWatchHistory(user.id) : Promise.resolve([]), [user]);
-  const { data: watchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
-  const { data: recommendations } = useLoad(() => history ? db.getPersonalizedRecommendations(history) : Promise.resolve([]), [history]);
+  // Memoize fetcher functions to prevent infinite loops
+  // Use user?.id instead of entire user object to prevent unnecessary re-renders
+  const userId = user?.id;
 
-  console.log('PROFILE DATA', profile);
+  const fetchWatchHistory = useCallback(async () => {
+    if (!userId) return [];
+    try {
+      return await db.getWatchHistory(userId);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[Profile] Watch history fetch error:', err);
+      return [];
+    }
+  }, [userId]);
+
+  const fetchWatchlist = useCallback(async () => {
+    if (!userId) return [];
+    try {
+      return await db.getWatchlist(userId);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[Profile] Watchlist fetch error:', err);
+      return [];
+    }
+  }, [userId]);
+
+  const { data: history } = useLoad(fetchWatchHistory, [userId]);
+  const { data: watchlist } = useLoad(fetchWatchlist, [userId]);
+
+  // Use history length as stable dependency instead of entire history array
+  const historyLength = history?.length ?? 0;
+  const historyStable = useMemo(() => history || [], [historyLength]);
+
+  // Memoize recommendations fetcher - only fetch if history exists and has items
+  const fetchRecommendations = useCallback(async () => {
+    if (!historyStable || historyStable.length === 0) {
+      return [];
+    }
+    try {
+      return await db.getPersonalizedRecommendations(historyStable);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[Profile] Recommendations fetch error:', err);
+      return [];
+    }
+  }, [historyLength]); // Only depend on length, not entire array
+
+  const { data: recommendations } = useLoad(fetchRecommendations, [historyLength]);
 
   const findAvatarIdBySrc = useCallback((src?: string | null) => {
     if (!src) return '';
@@ -42,8 +82,12 @@ const Profile: React.FC = () => {
     return match?.id || '';
   }, []);
 
+  // Only update editForm when profile changes, not on every render
+  const profileIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (profile) {
+    if (profile && profile.id !== profileIdRef.current) {
+      profileIdRef.current = profile.id;
       const safeBio = sanitizeBio(profile.bio || '');
       const avatarId = (profile as any).avatar_id || findAvatarIdBySrc(profile.avatar_url) || '';
       const bannerId = (profile as any).banner_id || '';
@@ -55,7 +99,7 @@ const Profile: React.FC = () => {
         banner_id: bannerId
       });
     }
-  }, [profile, findAvatarIdBySrc]);
+  }, [profile?.id, findAvatarIdBySrc]); // Only depend on profile.id, not entire profile object
 
   const sanitizeBio = (value: string) => {
     const noHtml = value.replace(/<[^>]*>/g, '');
@@ -133,12 +177,12 @@ const Profile: React.FC = () => {
   const bannerSrc = currentBannerId ? getBannerSrc(currentBannerId) : getBannerSrc((profile as any)?.banner_id || 'jjk_gojo');
 
   const stats = useMemo(() => {
-    const totalEps = history?.length || 0;
+    const totalEps = historyStable?.length || 0;
     const hours = Math.round((totalEps * 24) / 60);
     const level = Math.floor(totalEps / 10) + 1;
     const xp = (totalEps % 10) * 10;
     return { totalEps, hours, level, xp };
-  }, [history]);
+  }, [historyLength]); // Only depend on length
 
   if (status === 'LOADING') return <div className="min-h-screen bg-brand-black flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand-red"></div></div>;
   if (!user) return <Navigate to="/login" />;
@@ -253,13 +297,13 @@ const Profile: React.FC = () => {
                       <div className="h-4 bg-black/40 rounded-full overflow-hidden relative z-10">
                          <div className="h-full bg-gradient-to-r from-brand-red to-red-500 w-[40%]" style={{ width: `${stats.xp}%` }} />
                       </div>
-                      <p className="text-[9px] text-gray-500 mt-4 font-bold uppercase tracking-widest relative z-10">Bir sonraki seviye için {5 - (history?.length || 0) % 5} bölüm daha izle</p>
+                      <p className="text-[9px] text-gray-500 mt-4 font-bold uppercase tracking-widest relative z-10">Bir sonraki seviye için {5 - (historyLength % 5)} bölüm daha izle</p>
                    </section>
 
                    <section>
                       <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-8">SON <span className="text-brand-red">ETKİNLİKLER</span></h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         {history?.slice(0, 4).map((h, i) => (
+                         {historyStable?.slice(0, 4).map((h, i) => (
                            <div key={i} className="flex items-center gap-6 p-6 bg-brand-surface border border-white/5 rounded-[2rem]">
                               <img src={h.anime?.cover_image || ''} className="w-16 h-24 object-cover rounded-xl" />
                               <div>
@@ -296,7 +340,7 @@ const Profile: React.FC = () => {
 
               {activeTab === 'history' && (
                 <div className="bg-brand-surface rounded-[3.5rem] border border-white/5 overflow-hidden divide-y divide-white/5">
-                   {history?.map((h, i) => (
+                   {historyStable?.map((h, i) => (
                      <div key={i} className="flex items-center gap-8 p-8 hover:bg-white/[0.02] transition-all group">
                         <img src={h.anime?.cover_image || ''} className="w-24 h-32 object-cover rounded-2xl border border-white/5 group-hover:scale-105 transition-transform" />
                         <div className="flex-1">
