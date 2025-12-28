@@ -137,7 +137,7 @@ const Calendar: React.FC = () => {
                       </div>
 
                       <div className="flex-shrink-0">
-                         <Link to={`/watch/${entry.anime_id}?season=${entry.season_number || 1}&episode=${entry.episode_number}`} className="bg-white text-brand-black px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-3">
+                         <Link to={`/watch/${(entry.anime || entry.animes)?.slug || entry.anime_id}/${entry.season_number || 1}/${entry.episode_number}`} className="bg-white text-brand-black px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-3">
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                             İZLE
                           </Link>

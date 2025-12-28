@@ -17,7 +17,9 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
   const cover = anime.cover_image || '';
   const coverSrc = proxyImage(cover);
   const seasonNumber = episode?.season_number || 1;
-  const link = episode ? `/watch/${anime.id}?season=${seasonNumber}&episode=${episode.episode_number}` : `/anime/${anime.id}`;
+  const link = episode 
+    ? `/watch/${anime.slug || anime.id}/${seasonNumber}/${episode.episode_number}` 
+    : `/anime/${anime.slug || anime.id}`;
   
   return (
     <Link to={link} className={`group relative flex flex-col w-full flex-shrink-0 ${featured ? 'md:col-span-2' : ''}`}>

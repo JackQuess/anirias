@@ -87,6 +87,36 @@ const Watch: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
+  // BACKWARD COMPATIBILITY: Redirect old UUID-based URLs to slug format
+  useEffect(() => {
+    const seasonParam = searchParams.get('season');
+    const episodeParam = searchParams.get('episode');
+    
+    // If this looks like a UUID-based URL, fetch anime and redirect
+    if (animeId && (seasonParam || episodeParam)) {
+      db.getAnimeByIdOrSlug(animeId).then((anime) => {
+        if (anime?.slug) {
+          const season = seasonParam ? parseInt(seasonParam, 10) : 1;
+          const episode = episodeParam ? parseInt(episodeParam, 10) : 1;
+          navigate(`/watch/${anime.slug}/${season}/${episode}`, { replace: true });
+        }
+      }).catch(() => {
+        // If fetch fails, stay on current page (will show error)
+      });
+    } else if (animeId && !episodeId) {
+      // Just /watch/{uuid} - redirect to anime detail page
+      db.getAnimeByIdOrSlug(animeId).then((anime) => {
+        if (anime?.slug) {
+          navigate(`/anime/${anime.slug}`, { replace: true });
+        } else {
+          navigate(`/anime/${animeId}`, { replace: true });
+        }
+      }).catch(() => {
+        navigate('/browse', { replace: true });
+      });
+    }
+  }, [animeId, episodeId, searchParams, navigate]);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -285,7 +315,7 @@ const Watch: React.FC = () => {
   }, []);
 
   const goToEpisode = useCallback((episode?: { episode_number: number; season_number?: number } | null) => {
-    if (!episode || !seasonNumber) return;
+    if (!episode || !seasonNumber || !anime) return;
     // Clear auto-play countdown when navigating
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
@@ -293,8 +323,10 @@ const Watch: React.FC = () => {
     }
     setAutoPlayCountdown(null);
     setShowAutoPlayOverlay(false);
-    navigate(`/watch/${animeId}?season=${seasonNumber}&episode=${episode.episode_number}`);
-  }, [navigate, animeId, seasonNumber]);
+    // Use slug-based URL
+    const slug = anime.slug || anime.id;
+    navigate(`/watch/${slug}/${episode.season_number || seasonNumber}/${episode.episode_number}`);
+  }, [navigate, anime, seasonNumber]);
   
   const handleCancelAutoPlay = useCallback(() => {
     if (countdownTimerRef.current) {
@@ -664,7 +696,14 @@ const Watch: React.FC = () => {
   // EARLY RETURNS - All hooks must be called before this point
   if (!anime) return <div className="pt-40 text-center"><LoadingSkeleton type="banner" /></div>;
   if (!querySeasonNumber) {
-    return <div className="pt-40 text-center text-white font-black uppercase">Sezon parametresi gerekli. URL: /watch/{animeId}?season=1&episode=1</div>;
+    // Redirect to slug-based URL format
+    useEffect(() => {
+      if (anime?.slug) {
+        navigate(`/watch/${anime.slug}/1/1`, { replace: true });
+      }
+    }, [anime?.slug, navigate]);
+    
+    return <div className="pt-40 text-center text-white font-black uppercase">Yönlendiriliyor...</div>;
   }
   if (!episodes) {
     return <div className="pt-40 text-center text-white font-black uppercase">Sezon {querySeasonNumber} yükleniyor...</div>;

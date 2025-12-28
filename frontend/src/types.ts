@@ -134,6 +134,7 @@ export interface CalendarEntry {
   season_number?: number | null;
   air_date: string;
   animes?: Anime;
+  anime?: Anime; // Alias for animes (for consistency)
   status?: string | null;
   short_note?: string | null;
 }

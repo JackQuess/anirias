@@ -1123,17 +1123,21 @@ export const db = {
       }
       
       // Extract and flatten the nested structure
-      return data.map((ep: any) => ({
-        id: ep.id,
-        anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
-        episode_id: ep.id,
-        episode_number: ep.episode_number,
-        season_number: ep.season_number || ep.seasons?.season_number || null,
-        air_date: ep.air_date,
-        status: ep.status,
-        short_note: ep.short_note,
-        animes: ep.seasons?.anime || ep.animes || null
-      }));
+      return data.map((ep: any) => {
+        const anime = ep.seasons?.anime || ep.animes || null;
+        return {
+          id: ep.id,
+          anime_id: ep.anime_id || anime?.id || null,
+          episode_id: ep.id,
+          episode_number: ep.episode_number,
+          season_number: ep.season_number || ep.seasons?.season_number || null,
+          air_date: ep.air_date,
+          status: ep.status,
+          short_note: ep.short_note,
+          animes: anime,
+          anime: anime // Alias for easier access
+        };
+      });
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getCalendar] Unexpected error:', err);
       return [];
