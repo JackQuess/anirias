@@ -54,8 +54,15 @@ const Profile: React.FC = () => {
     }
   }, [userId]);
 
-  const { data: history } = useLoad(fetchWatchHistory, [userId]);
-  const { data: watchlist } = useLoad(fetchWatchlist, [userId]);
+  const { data: history, reload: reloadHistory } = useLoad(fetchWatchHistory, [userId]);
+  const { data: watchlist, reload: reloadWatchlist } = useLoad(fetchWatchlist, [userId]);
+
+  // Reload watchlist when watchlist tab becomes active (in case user added items from other pages)
+  useEffect(() => {
+    if (activeTab === 'watchlist') {
+      reloadWatchlist();
+    }
+  }, [activeTab, reloadWatchlist]);
 
   // Use history length as stable dependency instead of entire history array
   const historyLength = history?.length ?? 0;

@@ -734,8 +734,29 @@ export const db = {
   },
 
   updateWatchlist: async (userId: string, animeId: string, status: WatchlistStatus) => {
-    if (!checkEnv()) return;
-    await supabase!.from('watchlist').upsert({ user_id: userId, anime_id: animeId, status, updated_at: new Date().toISOString() });
+    if (!checkEnv()) {
+      if (import.meta.env.DEV) console.warn('[db.updateWatchlist] Supabase not configured');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase!
+        .from('watchlist')
+        .upsert({ 
+          user_id: userId, 
+          anime_id: animeId, 
+          status, 
+          updated_at: new Date().toISOString() 
+        });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.updateWatchlist] Error:', error);
+        throw error;
+      }
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.updateWatchlist] Unexpected error:', err);
+      throw err;
+    }
   },
 
   saveWatchProgress: async (progress: Partial<WatchProgress>) => {
