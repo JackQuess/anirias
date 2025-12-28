@@ -37,7 +37,12 @@ const Navbar: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      db.getNotifications(user.id).then(setNotifications);
+      db.getNotifications(user.id)
+        .then(setNotifications)
+        .catch(() => {
+          // Silently fail - notifications might not be available
+          setNotifications([]);
+        });
     }
   }, [user]);
 
@@ -68,7 +73,6 @@ const Navbar: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  console.log('Navbar avatar_id:', (profile as any)?.avatar_id);
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const isActive = (path: string) => location.pathname === path;
 
@@ -177,7 +181,7 @@ const Navbar: React.FC = () => {
                   >
                     <div className="w-8 h-8 md:w-9 md:h-9 bg-brand-red rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-brand-red/20 overflow-hidden">
                       {profile?.avatar_id ? (
-                        <img src={getAvatarSrc(profile.avatar_id)} className="w-full h-full object-cover" />
+                        <img src={getAvatarSrc(profile.avatar_id)} className="w-full h-full object-cover" alt="avatar" />
                       ) : (
                         (profile?.username || 'U').charAt(0).toUpperCase()
                       )}
@@ -193,7 +197,7 @@ const Navbar: React.FC = () => {
                       <div className="mb-6 pb-6 border-b border-white/5 flex items-center gap-4">
                          <div className="w-10 h-10 bg-brand-red rounded-xl flex items-center justify-center text-white font-black overflow-hidden">
                             {profile?.avatar_id ? (
-                              <img src={getAvatarSrc(profile.avatar_id)} className="w-full h-full object-cover" />
+                              <img src={getAvatarSrc(profile.avatar_id)} className="w-full h-full object-cover" alt="avatar" />
                             ) : (
                               (profile?.username || 'U').charAt(0).toUpperCase()
                             )}

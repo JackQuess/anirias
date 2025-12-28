@@ -18,56 +18,83 @@ export const db = {
   getPersonalizedRecommendations: async (history: WatchHistory[]): Promise<Anime[]> => {
     if (!checkEnv()) return [];
     
-    // 1. İzlenenlerin türlerini topla
-    const genreCounts: Record<string, number> = {};
-    history.forEach(h => h.anime?.genres?.forEach(g => genreCounts[g] = (genreCounts[g] || 0) + 1));
-    const favGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).map(e => e[0]).slice(0, 3);
+    try {
+      // 1. İzlenenlerin türlerini topla
+      const genreCounts: Record<string, number> = {};
+      history.forEach(h => h.anime?.genres?.forEach(g => genreCounts[g] = (genreCounts[g] || 0) + 1));
+      const favGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).map(e => e[0]).slice(0, 3);
 
-    if (favGenres.length === 0) return db.getAllAnimes('view_count');
+      if (favGenres.length === 0) return db.getAllAnimes('view_count');
 
-    // 2. Bu türlerdeki animeleri getir (rpc veya filtreleme ile)
-    const { data } = await supabase!
-      .from('animes')
-      .select('*')
-      .overlaps('genres', favGenres)
-      .limit(10);
+      // 2. Bu türlerdeki animeleri getir (rpc veya filtreleme ile)
+      const { data, error } = await supabase!
+        .from('animes')
+        .select('*')
+        .overlaps('genres', favGenres)
+        .limit(10);
       
-    // 3. Zaten izlediklerini çıkar
-    const watchedIds = new Set(history.map(h => h.anime_id));
-    return (data || []).filter(a => !watchedIds.has(a.id)).slice(0, 5);
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getPersonalizedRecommendations] Query error:', error);
+        return [];
+      }
+        
+      // 3. Zaten izlediklerini çıkar
+      const watchedIds = new Set(history.map(h => h.anime_id));
+      return (data || []).filter(a => !watchedIds.has(a.id)).slice(0, 5);
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getPersonalizedRecommendations] Unexpected error:', err);
+      return [];
+    }
   },
 
   getSimilarAnimes: async (animeId: string): Promise<Anime[]> => {
     if (!checkEnv()) return [];
-    // Gerçek bir senaryoda burada embedding vector search kullanılır.
-    // Şimdilik aynı türe sahip diğer animeleri getiriyoruz.
-    const current = await db.getAnimeById(animeId);
-    if (!current || !current.genres) return [];
+    
+    try {
+      // Gerçek bir senaryoda burada embedding vector search kullanılır.
+      // Şimdilik aynı türe sahip diğer animeleri getiriyoruz.
+      const current = await db.getAnimeById(animeId);
+      if (!current || !current.genres) return [];
 
-    const { data } = await supabase!
-      .from('animes')
-      .select('*')
-      .overlaps('genres', current.genres.slice(0, 2))
-      .neq('id', animeId)
-      .limit(6);
+      const { data, error } = await supabase!
+        .from('animes')
+        .select('*')
+        .overlaps('genres', current.genres.slice(0, 2))
+        .neq('id', animeId)
+        .limit(6);
 
-    return data || [];
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getSimilarAnimes] Query error:', error);
+        return [];
+      }
+
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getSimilarAnimes] Unexpected error:', err);
+      return [];
+    }
   },
 
   // --- ANIME READ METHODS ---
   getFeaturedAnimes: async (): Promise<Anime[]> => {
     if (!checkEnv()) return [];
-    const { data, error } = await supabase!
-      .from('animes')
-      .select('*')
-      .eq('is_featured', true)
-      .order('updated_at', { ascending: false });
     
-    if (error) {
-      if (import.meta.env.DEV) console.error("[db.getFeaturedAnimes] Query error:", error);
+    try {
+      const { data, error } = await supabase!
+        .from('animes')
+        .select('*')
+        .eq('is_featured', true)
+        .order('updated_at', { ascending: false });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error("[db.getFeaturedAnimes] Query error:", error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getFeaturedAnimes] Unexpected error:', err);
       return [];
     }
-    return Array.isArray(data) ? data : [];
   },
 
   getAllAnimes: async (sortBy: string = 'created_at'): Promise<Anime[]> => {
@@ -93,40 +120,51 @@ export const db = {
 
   getAnimeById: async (id: string): Promise<Anime | null> => {
     if (!checkEnv()) return null;
-    const { data, error } = await supabase!
-      .from('animes')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
     
-    if (error) {
-      if (import.meta.env.DEV) console.error("[db.getAnimeById] Query error:", error);
+    try {
+      const { data, error } = await supabase!
+        .from('animes')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error("[db.getAnimeById] Query error:", error);
+        return null;
+      }
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getAnimeById] Unexpected error:', err);
       return null;
     }
-    return data;
   },
 
   getAnimeBySlug: async (slug: string): Promise<Anime | null> => {
     if (!checkEnv()) return null;
     if (!slug) return null;
     
-    const { data, error } = await supabase!
-      .from('animes')
-      .select('*')
-      .eq('slug', slug)
-      .maybeSingle();
-    
-    if (error) {
-      if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Query error:", error);
+    try {
+      const { data, error } = await supabase!
+        .from('animes')
+        .select('*')
+        .eq('slug', slug)
+        .maybeSingle();
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Query error:", error);
+        return null;
+      }
+      
+      if (!data) {
+        if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Anime not found for slug:", slug);
+        return null;
+      }
+      
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getAnimeBySlug] Unexpected error:', err);
       return null;
     }
-    
-    if (!data) {
-      if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Anime not found for slug:", slug);
-      return null;
-    }
-    
-    return data;
   },
 
   // --- ANIME WRITE METHODS (ADMIN) ---
@@ -193,27 +231,47 @@ export const db = {
   // --- SEASONS & EPISODES ---
   getSeasons: async (animeId: string): Promise<Season[]> => {
     if (!checkEnv()) return [];
-    const { data } = await supabase!.from('seasons').select('*').eq('anime_id', animeId).order('season_number', { ascending: true });
-    return data || [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('seasons')
+        .select('*')
+        .eq('anime_id', animeId)
+        .order('season_number', { ascending: true });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getSeasons] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getSeasons] Unexpected error:', err);
+      return [];
+    }
   },
 
   getSeasonByAnimeAndNumber: async (animeId: string, seasonNumber: number): Promise<Season | null> => {
     if (!checkEnv()) return null;
     if (!animeId || !seasonNumber) return null;
     
-    const { data, error } = await supabase!
-      .from('seasons')
-      .select('*')
-      .eq('anime_id', animeId)
-      .eq('season_number', seasonNumber)
-      .maybeSingle();
-    
-    if (error) {
-      if (import.meta.env.DEV) console.error("[db.getSeasonByAnimeAndNumber] Query error:", error);
+    try {
+      const { data, error } = await supabase!
+        .from('seasons')
+        .select('*')
+        .eq('anime_id', animeId)
+        .eq('season_number', seasonNumber)
+        .maybeSingle();
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error("[db.getSeasonByAnimeAndNumber] Query error:", error);
+        return null;
+      }
+      
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getSeasonByAnimeAndNumber] Unexpected error:', err);
       return null;
     }
-    
-    return data;
   },
 
   createSeason: async (season: Partial<Season>) => {
@@ -393,67 +451,90 @@ export const db = {
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
     if (!checkEnv()) return [];
     
-    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
-    // Must join through seasons to get anime relation for new imports
-    // Use seasons!inner(anime:animes(*)) to ensure we get anime via seasons
-    let query = supabase!
-      .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(anime:animes(*))')
-      .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
-    
-    if (limit !== undefined && offset !== undefined) {
-      // Supabase range is inclusive: range(0, 23) returns 24 items
-      query = query.range(offset, offset + limit - 1);
-    } else if (limit !== undefined) {
-      query = query.limit(limit);
-    }
-    
-    const { data, error } = await query;
+    try {
+      // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+      // Must join through seasons to get anime relation for new imports
+      // Use seasons!inner(anime:animes(*)) to ensure we get anime via seasons
+      let query = supabase!
+        .from('episodes')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(anime:animes(*))')
+        .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
       
-    if (error) {
-      console.error('[db.getLatestEpisodes] Query error:', error);
+      if (limit !== undefined && offset !== undefined) {
+        // Supabase range is inclusive: range(0, 23) returns 24 items
+        query = query.range(offset, offset + limit - 1);
+      } else if (limit !== undefined) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
+        
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Query error:', error);
+        return [];
+      }
+      
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
+      // Extract and flatten the nested structure
+      // Supabase returns: { episode fields, seasons: { anime: { ... } } }
+      // We need: { episode fields, anime: { ... } }
+      const flattened = data.map((item: any) => {
+        const anime = item.seasons?.anime || item.anime || null;
+        return {
+          ...item,
+          anime_id: item.anime_id || item.seasons?.anime?.id || null,
+          anime: anime,
+        };
+      });
+      
+      // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
+      const sorted = flattened.sort((a: any, b: any) => {
+        const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
+        const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
+        
+        if (aDate !== null && bDate !== null) {
+          return bDate - aDate; // Both have air_date: DESC
+        }
+        if (aDate !== null && bDate === null) {
+          return -1; // a has air_date, b doesn't: a comes first
+        }
+        if (aDate === null && bDate !== null) {
+          return 1; // b has air_date, a doesn't: b comes first
+        }
+        // Both are NULL: use created_at DESC
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      // Type assertion: Supabase returns anime as single object (not array) for foreign key relations
+      return sorted as unknown as (Episode & { anime: Anime })[];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Unexpected error:', err);
       return [];
     }
-    
-    // Extract and flatten the nested structure
-    // Supabase returns: { episode fields, seasons: { anime: { ... } } }
-    // We need: { episode fields, anime: { ... } }
-    const flattened = (data || []).map((item: any) => {
-      const anime = item.seasons?.anime || item.anime || null;
-      return {
-        ...item,
-        anime_id: item.anime_id || item.seasons?.anime?.id || null,
-        anime: anime,
-      };
-    });
-    
-    // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
-    const sorted = flattened.sort((a: any, b: any) => {
-      const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
-      const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
-      
-      if (aDate !== null && bDate !== null) {
-        return bDate - aDate; // Both have air_date: DESC
-      }
-      if (aDate !== null && bDate === null) {
-        return -1; // a has air_date, b doesn't: a comes first
-      }
-      if (aDate === null && bDate !== null) {
-        return 1; // b has air_date, a doesn't: b comes first
-      }
-      // Both are NULL: use created_at DESC
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-    
-    // Type assertion: Supabase returns anime as single object (not array) for foreign key relations
-    return sorted as unknown as (Episode & { anime: Anime })[];
   },
 
   // --- USER DATA ---
   getWatchlist: async (userId: string): Promise<WatchlistEntry[]> => {
     if (!checkEnv()) return [];
-    const { data } = await supabase!.from('watchlist').select('*, anime:animes(*)').eq('user_id', userId);
-    return data || [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('watchlist')
+        .select('*, anime:animes(*)')
+        .eq('user_id', userId);
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getWatchlist] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getWatchlist] Unexpected error:', err);
+      return [];
+    }
   },
 
   updateWatchlist: async (userId: string, animeId: string, status: WatchlistStatus) => {
@@ -477,28 +558,68 @@ export const db = {
 
   getWatchProgress: async (userId: string, animeId: string, episodeId: string): Promise<WatchProgress | null> => {
     if (!checkEnv()) return null;
-    const { data } = await supabase!.from('watch_progress').select('*').eq('user_id', userId).eq('anime_id', animeId).eq('episode_id', episodeId).maybeSingle();
-    return data;
+    
+    try {
+      const { data, error } = await supabase!
+        .from('watch_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('anime_id', animeId)
+        .eq('episode_id', episodeId)
+        .maybeSingle();
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getWatchProgress] Query error:', error);
+        return null;
+      }
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getWatchProgress] Unexpected error:', err);
+      return null;
+    }
   },
 
   getWatchProgressForAnime: async (userId: string, animeId: string): Promise<Array<{ episode_id: string; progress_seconds: number; duration_seconds: number }>> => {
     if (!checkEnv()) return [];
-    const { data } = await supabase!
-      .from('watch_progress')
-      .select('episode_id, progress_seconds, duration_seconds')
-      .eq('user_id', userId)
-      .eq('anime_id', animeId);
-    return data || [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('watch_progress')
+        .select('episode_id, progress_seconds, duration_seconds')
+        .eq('user_id', userId)
+        .eq('anime_id', animeId);
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getWatchProgressForAnime] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getWatchProgressForAnime] Unexpected error:', err);
+      return [];
+    }
   },
 
   getContinueWatching: async (userId: string): Promise<WatchProgress[]> => {
     if (!checkEnv()) return [];
-    const { data } = await supabase!.from('watch_progress')
-      .select('*, anime:animes(*), episode:episodes(*)')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .limit(10);
-    return data || [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('watch_progress')
+        .select('*, anime:animes(*), episode:episodes(*)')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getContinueWatching] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getContinueWatching] Unexpected error:', err);
+      return [];
+    }
   },
 
   addToWatchHistory: async (history: Partial<WatchHistory>) => {
@@ -508,26 +629,46 @@ export const db = {
 
   getWatchHistory: async (userId: string): Promise<WatchHistory[]> => {
     if (!checkEnv()) return [];
-    const { data } = await supabase!.from('watch_history')
-      .select('*, anime:animes(*), episode:episodes(*)')
-      .eq('user_id', userId)
-      .order('completed_at', { ascending: false });
-    return data || [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('watch_history')
+        .select('*, anime:animes(*), episode:episodes(*)')
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getWatchHistory] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getWatchHistory] Unexpected error:', err);
+      return [];
+    }
   },
 
   // --- COMMENTS ---
   getComments: async (animeId: string, episodeId: string): Promise<Comment[]> => {
     if (!checkEnv()) return [];
-    const { data, error } = await supabase!.from('comments')
-      .select('*, profiles:profiles(username,avatar_id)')
-      .eq('anime_id', animeId)
-      .eq('episode_id', episodeId)
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.error('Comments fetch error:', error);
+    
+    try {
+      const { data, error } = await supabase!
+        .from('comments')
+        .select('*, profiles:profiles(username,avatar_id)')
+        .eq('anime_id', animeId)
+        .eq('episode_id', episodeId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getComments] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getComments] Unexpected error:', err);
       return [];
     }
-    return data || [];
   },
 
   addComment: async (comment: Partial<Comment>) => {
@@ -599,8 +740,22 @@ export const db = {
   
   getAdminUsers: async (): Promise<Profile[]> => {
      if (!checkEnv()) return [];
-     const { data } = await supabase!.from('profiles').select('*').order('created_at', { ascending: false });
-     return data || [];
+     
+     try {
+       const { data, error } = await supabase!
+         .from('profiles')
+         .select('*')
+         .order('created_at', { ascending: false });
+       
+       if (error) {
+         if (import.meta.env.DEV) console.error('[db.getAdminUsers] Query error:', error);
+         return [];
+       }
+       return Array.isArray(data) ? data : [];
+     } catch (err: any) {
+       if (import.meta.env.DEV) console.error('[db.getAdminUsers] Unexpected error:', err);
+       return [];
+     }
   },
 
   updateProfileRole: async (userId: string, role: 'user' | 'admin') => {
@@ -653,130 +808,179 @@ export const db = {
 
   getRecentActivities: async (): Promise<ActivityLog[]> => {
     if (!checkEnv()) return [];
-    const logs: ActivityLog[] = [];
+    
+    try {
+      const logs: ActivityLog[] = [];
 
-    const fetchComments = supabase!.from('comments').select('id, text, created_at, user_id, profiles:profiles(username)').order('created_at', { ascending: false }).limit(5);
-    const fetchEpisodes = supabase!.from('episodes').select('id, title, episode_number, updated_at, anime_id').order('updated_at', { ascending: false }).limit(5);
-    const fetchAnimes = supabase!.from('animes').select('id, title, updated_at').order('updated_at', { ascending: false }).limit(3);
+      const fetchComments = supabase!.from('comments').select('id, text, created_at, user_id, profiles:profiles(username)').order('created_at', { ascending: false }).limit(5);
+      const fetchEpisodes = supabase!.from('episodes').select('id, title, episode_number, updated_at, anime_id').order('updated_at', { ascending: false }).limit(5);
+      const fetchAnimes = supabase!.from('animes').select('id, title, updated_at').order('updated_at', { ascending: false }).limit(3);
 
-    const [cRes, eRes, aRes] = await Promise.all([fetchComments, fetchEpisodes, fetchAnimes]);
+      const [cRes, eRes, aRes] = await Promise.all([fetchComments, fetchEpisodes, fetchAnimes]);
 
-    if (!cRes.error && cRes.data) {
-      cRes.data.forEach((c: any) => {
-        logs.push({
-          id: `c-${c.id}`,
-          action: 'Yeni Yorum',
-          target: (c.text || '').slice(0, 80) || 'Yorum',
-          user: c.profiles?.username || 'Kullanıcı',
-          created_at: c.created_at
+      if (!cRes.error && cRes.data) {
+        cRes.data.forEach((c: any) => {
+          logs.push({
+            id: `c-${c.id}`,
+            action: 'Yeni Yorum',
+            target: (c.text || '').slice(0, 80) || 'Yorum',
+            user: c.profiles?.username || 'Kullanıcı',
+            created_at: c.created_at
+          });
         });
-      });
-    }
-    if (!eRes.error && eRes.data) {
-      eRes.data.forEach((e: any) => {
-        logs.push({
-          id: `e-${e.id}`,
-          action: 'Bölüm Güncellendi',
-          target: `${e.title || 'Bölüm'} #${e.episode_number || ''}`,
-          user: 'Admin',
-          created_at: e.updated_at
+      }
+      if (!eRes.error && eRes.data) {
+        eRes.data.forEach((e: any) => {
+          logs.push({
+            id: `e-${e.id}`,
+            action: 'Bölüm Güncellendi',
+            target: `${e.title || 'Bölüm'} #${e.episode_number || ''}`,
+            user: 'Admin',
+            created_at: e.updated_at
+          });
         });
-      });
-    }
-    if (!aRes.error && aRes.data) {
-      aRes.data.forEach((a: any) => {
-        const t = typeof a.title === 'string' ? a.title : a.title?.english || a.title?.romaji || 'Anime';
-        logs.push({
-          id: `a-${a.id}`,
-          action: 'Anime Güncellendi',
-          target: t,
-          user: 'Admin',
-          created_at: a.updated_at
+      }
+      if (!aRes.error && aRes.data) {
+        aRes.data.forEach((a: any) => {
+          const t = typeof a.title === 'string' ? a.title : a.title?.english || a.title?.romaji || 'Anime';
+          logs.push({
+            id: `a-${a.id}`,
+            action: 'Anime Güncellendi',
+            target: t,
+            user: 'Admin',
+            created_at: a.updated_at
+          });
         });
-      });
-    }
+      }
 
-    return logs
-      .filter(l => l.created_at)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 10);
+      return logs
+        .filter(l => l.created_at)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 10);
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getRecentActivities] Unexpected error:', err);
+      return [];
+    }
   },
 
   // --- STATS & UTILS ---
   getStats: async () => {
     if (!checkEnv()) return { totalUsers: 0, totalAnimes: 0, totalViews: 0, totalEpisodes: 0 };
     
-    const { count: users } = await supabase!.from('profiles').select('*', { count: 'exact', head: true });
-    const { count: animes } = await supabase!.from('animes').select('*', { count: 'exact', head: true });
-    const { count: episodes } = await supabase!.from('episodes').select('*', { count: 'exact', head: true });
-    
-    // View count sum
-    const { data: viewsData } = await supabase!.from('animes').select('view_count');
-    const totalViews = viewsData?.reduce((acc, curr) => acc + (curr.view_count || 0), 0) || 0;
+    try {
+      const { count: users } = await supabase!.from('profiles').select('*', { count: 'exact', head: true });
+      const { count: animes } = await supabase!.from('animes').select('*', { count: 'exact', head: true });
+      const { count: episodes } = await supabase!.from('episodes').select('*', { count: 'exact', head: true });
+      
+      // View count sum
+      const { data: viewsData, error: viewsError } = await supabase!.from('animes').select('view_count');
+      
+      if (viewsError) {
+        if (import.meta.env.DEV) console.error('[db.getStats] Views query error:', viewsError);
+      }
+      
+      const totalViews = viewsData?.reduce((acc, curr) => acc + (curr.view_count || 0), 0) || 0;
 
-    return { totalUsers: users || 0, totalAnimes: animes || 0, totalViews: totalViews, totalEpisodes: episodes || 0 };
+      return { totalUsers: users || 0, totalAnimes: animes || 0, totalViews: totalViews, totalEpisodes: episodes || 0 };
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getStats] Unexpected error:', err);
+      return { totalUsers: 0, totalAnimes: 0, totalViews: 0, totalEpisodes: 0 };
+    }
   },
 
   getCalendar: async (): Promise<CalendarEntry[]> => {
     if (!checkEnv()) return [];
-    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
-    // Must join through seasons to get anime relation for new imports
-    const { data, error } = await supabase!
-      .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, seasons!inner(anime:animes(*))')
-      .not('air_date', 'is', null)
-      .order('air_date', { ascending: true });
-    if (error) {
-      console.error('Calendar fetch error:', error);
+    
+    try {
+      // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+      // Must join through seasons to get anime relation for new imports
+      const { data, error } = await supabase!
+        .from('episodes')
+        .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, seasons!inner(anime:animes(*))')
+        .not('air_date', 'is', null)
+        .order('air_date', { ascending: true });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getCalendar] Query error:', error);
+        return [];
+      }
+      
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
+      // Extract and flatten the nested structure
+      return data.map((ep: any) => ({
+        id: ep.id,
+        anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
+        episode_id: ep.id,
+        episode_number: ep.episode_number,
+        season_number: ep.season_number || ep.seasons?.season_number || null,
+        air_date: ep.air_date,
+        status: ep.status,
+        short_note: ep.short_note,
+        animes: ep.seasons?.anime || ep.animes || null
+      }));
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getCalendar] Unexpected error:', err);
       return [];
     }
-    // Extract and flatten the nested structure
-    return (data || []).map((ep: any) => ({
-      id: ep.id,
-      anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
-      episode_id: ep.id,
-      episode_number: ep.episode_number,
-      season_number: ep.season_number || ep.seasons?.season_number || null,
-      air_date: ep.air_date,
-      status: ep.status,
-      short_note: ep.short_note,
-      animes: ep.seasons?.anime || ep.animes || null
-    }));
   },
 
   getCalendarEpisodes: async (): Promise<(Episode & { anime: Anime | null })[]> => {
     if (!checkEnv()) return [];
-    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
-    // Must join through seasons to get anime relation for new imports
-    const { data, error } = await supabase!
-      .from('episodes')
-      .select('*, seasons!inner(anime:animes(id,title,cover_image))')
-      .order('air_date', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.error('Calendar episodes fetch error:', error);
+    
+    try {
+      // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+      // Must join through seasons to get anime relation for new imports
+      const { data, error } = await supabase!
+        .from('episodes')
+        .select('*, seasons!inner(anime:animes(id,title,cover_image))')
+        .order('air_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getCalendarEpisodes] Query error:', error);
+        return [];
+      }
+      
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
+      // Extract and flatten the nested structure
+      return data.map((ep: any) => ({
+        ...ep,
+        anime: ep.seasons?.anime || ep.anime || null,
+        anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
+      })) as (Episode & { anime: Anime | null })[];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getCalendarEpisodes] Unexpected error:', err);
       return [];
     }
-    // Extract and flatten the nested structure
-    return (data || []).map((ep: any) => ({
-      ...ep,
-      anime: ep.seasons?.anime || ep.anime || null,
-      anime_id: ep.anime_id || ep.seasons?.anime?.id || null,
-    })) as (Episode & { anime: Anime | null })[];
   },
   
   getNotifications: async (userId: string): Promise<Notification[]> => {
     if (!checkEnv()) return [];
-    const { data, error } = await supabase!
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.error('Notifications error:', error);
+    
+    try {
+      const { data, error } = await supabase!
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        // Silently fail - notifications table might not exist
+        if (import.meta.env.DEV) console.error('[db.getNotifications] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      // Silently fail - prevent app crash
+      if (import.meta.env.DEV) console.error('[db.getNotifications] Unexpected error:', err);
       return [];
     }
-    return data || [];
   },
   
   markNotificationRead: async (id: string) => {
