@@ -53,6 +53,14 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       .maybeSingle();
 
     if (animeError) {
+      // Enhanced error message for permission issues
+      if (animeError.message.includes('permission denied')) {
+        throw new Error(
+          `Permission denied accessing animes table. ` +
+          `This indicates the SUPABASE_SERVICE_ROLE_KEY is either missing, incorrect, or RLS policies are blocking service role access. ` +
+          `Original error: ${animeError.message}`
+        );
+      }
       throw new Error(`Failed to fetch anime: ${animeError.message}`);
     }
 

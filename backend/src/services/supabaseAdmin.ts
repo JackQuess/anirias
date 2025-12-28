@@ -4,10 +4,38 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceKey) {
-  throw new Error('Supabase admin env vars missing');
+  const missing = [];
+  if (!supabaseUrl) missing.push('SUPABASE_URL');
+  if (!serviceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  throw new Error(`Supabase admin env vars missing: ${missing.join(', ')}`);
 }
 
-export const supabaseAdmin: SupabaseClient = createClient(supabaseUrl, serviceKey);
+// Verify service key format (should start with 'eyJ' for JWT)
+if (!serviceKey.startsWith('eyJ')) {
+  console.warn('[supabaseAdmin] WARNING: Service role key does not appear to be a valid JWT token');
+}
+
+export const supabaseAdmin: SupabaseClient = createClient(supabaseUrl, serviceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
+
+// Test service role access on initialization (non-blocking)
+(async () => {
+  try {
+    const { error } = await supabaseAdmin.from('animes').select('id').limit(1);
+    if (error) {
+      console.error('[supabaseAdmin] CRITICAL: Service role cannot access animes table:', error.message);
+      console.error('[supabaseAdmin] This indicates RLS or service role key issue');
+    } else {
+      console.log('[supabaseAdmin] Service role access verified');
+    }
+  } catch (err: any) {
+    console.error('[supabaseAdmin] Failed to verify service role access:', err.message);
+  }
+})();
 
 export type AnimeRow = {
   id: string;
