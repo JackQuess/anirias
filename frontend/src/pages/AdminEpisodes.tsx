@@ -680,15 +680,7 @@ const AdminEpisodes: React.FC = () => {
     setAnilistError(null);
 
     try {
-      // Get admin token (you may want to store this in state or context)
-      const adminToken = window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
-      if (!adminToken) {
-        setAnilistError('Admin token gerekli.');
-        setAnilistLoading(false);
-        return;
-      }
-
-      // Call backend API for transactional binding
+      // Call backend API for transactional binding (no admin token needed - uses Supabase Auth)
       const updatedSeason = await db.bindAniListSeason(
         bindingSeason.id,
         media.id,
@@ -697,8 +689,7 @@ const AdminEpisodes: React.FC = () => {
           format: media.format || 'TV',
           episodes: media.episodes || null,
           seasonYear: media.seasonYear || null,
-        },
-        adminToken
+        }
       );
 
       // Success - update UI state

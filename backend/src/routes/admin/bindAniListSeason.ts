@@ -46,13 +46,26 @@ router.use((req, res, next) => {
  */
 router.post('/anilist/bind-season', async (req: Request, res: Response) => {
   try {
-    // Check admin authentication
-    const adminToken = req.header('x-admin-token');
-    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+    // Verify Supabase Auth session and admin role
+    const authHeader = req.header('authorization');
+    const token = authHeader?.replace('Bearer ', '') || authHeader;
+
+    let session;
+    try {
+      session = await verifyAdminSession(token);
+    } catch (authErr: any) {
       return res.status(401).json({ 
         success: false, 
-        error: 'Unauthorized',
+        error: authErr?.message || 'Unauthorized',
         errorCode: 'UNAUTHORIZED',
+      });
+    }
+
+    if (!session.isAdmin) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Admin role required',
+        errorCode: 'FORBIDDEN',
       });
     }
 

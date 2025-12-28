@@ -444,21 +444,40 @@ export const db = {
       format: string;
       episodes: number | null;
       seasonYear: number | null;
-    },
-    adminToken?: string
+    }
   ): Promise<Season> => {
     // Admin operation - use backend API for transactional binding
+    // Uses Supabase Auth session (no admin token needed)
     try {
-      const data = await callBackendApi(
-        '/api/admin/anilist/bind-season',
-        'POST',
-        {
+      const apiBase = getApiBase();
+      
+      // Get Supabase session for auth
+      const { data: { session } } = await supabase!.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required. Please log in.');
+      }
+
+      const res = await fetch(`${apiBase}/api/admin/anilist/bind-season`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           season_id: seasonId,
           anilist_media_id: anilistMediaId,
           anilist_media: anilistMedia,
-        },
-        adminToken
-      );
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const err: any = new Error(data?.error || 'Failed to bind season to AniList');
+        err.errorCode = data?.errorCode;
+        err.details = data?.details;
+        throw err;
+      }
 
       if (!data.success || !data.season) {
         throw new Error(data?.error || 'Failed to bind season to AniList');
