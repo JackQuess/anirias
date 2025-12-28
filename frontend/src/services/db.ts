@@ -221,14 +221,22 @@ export const db = {
   // NOTE: All admin write operations now use backend APIs for security
   // Frontend only uses anon key for read operations and user data (RLS protected)
   
-  createAnime: async (anime: Partial<Anime>, adminToken?: string) => {
+  createAnime: async (anime: Partial<Anime>, adminToken?: string): Promise<Anime> => {
     // Admin operation - must use backend API
-    throw new Error('createAnime: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'createAnime: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: POST /api/admin/create-anime'
+    );
   },
 
-  updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string) => {
+  updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string): Promise<void> => {
     // Admin operation - must use backend API
-    throw new Error('updateAnime: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'updateAnime: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: PUT /api/admin/update-anime/:id'
+    );
   },
 
   deleteAnime: async (id: string, adminToken?: string): Promise<{ success: boolean; deleted?: any; error?: string }> => {
@@ -241,9 +249,13 @@ export const db = {
     }
   },
 
-  toggleFeatured: async (animeId: string, status: boolean, adminToken?: string) => {
+  toggleFeatured: async (animeId: string, status: boolean, adminToken?: string): Promise<Anime> => {
     // Admin operation - must use backend API
-    throw new Error('toggleFeatured: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'toggleFeatured: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: POST /api/admin/toggle-featured'
+    );
   },
 
   // --- SEASONS & EPISODES ---
@@ -292,19 +304,33 @@ export const db = {
     }
   },
 
-  createSeason: async (season: Partial<Season>, adminToken?: string) => {
+  createSeason: async (season: Partial<Season>, adminToken?: string): Promise<Season> => {
     // Admin operation - must use backend API
-    throw new Error('createSeason: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    // For now, throw error with helpful message
+    throw new Error(
+      'createSeason: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: POST /api/admin/create-season\n' +
+      'Or use direct Supabase call with service role key in backend only.'
+    );
   },
 
-  updateSeason: async (id: string, updates: Partial<Season>, adminToken?: string) => {
+  updateSeason: async (id: string, updates: Partial<Season>, adminToken?: string): Promise<void> => {
     // Admin operation - must use backend API
-    throw new Error('updateSeason: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'updateSeason: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: PUT /api/admin/update-season/:id'
+    );
   },
 
-  deleteSeason: async (id: string, adminToken?: string) => {
+  deleteSeason: async (id: string, adminToken?: string): Promise<void> => {
     // Admin operation - must use backend API
-    throw new Error('deleteSeason: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'deleteSeason: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: DELETE /api/admin/delete-season/:id'
+    );
   },
 
   // Admin panel: Get episodes by season_id directly (for admin use only)
@@ -433,19 +459,32 @@ export const db = {
     }
   },
 
-  createEpisode: async (episode: Partial<Episode>, adminToken?: string) => {
+  createEpisode: async (episode: Partial<Episode>, adminToken?: string): Promise<Episode> => {
     // Admin operation - must use backend API
-    throw new Error('createEpisode: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'createEpisode: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: POST /api/admin/create-episode\n' +
+      'Or use direct Supabase call with service role key in backend only.'
+    );
   },
 
-  updateEpisode: async (id: string, updates: Partial<Episode>, adminToken?: string) => {
+  updateEpisode: async (id: string, updates: Partial<Episode>, adminToken?: string): Promise<Episode> => {
     // Admin operation - must use backend API
-    throw new Error('updateEpisode: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'updateEpisode: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: PUT /api/admin/update-episode/:id'
+    );
   },
 
-  deleteEpisode: async (id: string, adminToken?: string) => {
+  deleteEpisode: async (id: string, adminToken?: string): Promise<void> => {
     // Admin operation - must use backend API
-    throw new Error('deleteEpisode: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'deleteEpisode: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: DELETE /api/admin/delete-episode/:id'
+    );
   },
 
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
@@ -755,9 +794,13 @@ export const db = {
      }
   },
 
-  updateProfileRole: async (userId: string, role: 'user' | 'admin', adminToken?: string) => {
+  updateProfileRole: async (userId: string, role: 'user' | 'admin', adminToken?: string): Promise<void> => {
     // Admin operation - must use backend API
-    throw new Error('updateProfileRole: Admin operations must use backend API. This function is deprecated.');
+    // TODO: Implement backend API endpoint and call it here
+    throw new Error(
+      'updateProfileRole: Admin operations must use backend API.\n' +
+      'Please implement backend endpoint: PUT /api/admin/update-profile-role/:userId'
+    );
   },
 
   autoPatchEpisodeVideos: async () => {
