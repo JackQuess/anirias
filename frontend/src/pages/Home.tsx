@@ -77,10 +77,8 @@ const Home: React.FC = () => {
                      referrerPolicy="no-referrer"
                      alt="hero_bg"
                      onError={(e) => {
-                       const fallback = anime.banner_image || anime.cover_image || 'https://images.unsplash.com/photo-1541562232579-512a21360020?q=80&w=2000&auto=format&fit=crop';
-                       if ((e.target as HTMLImageElement).src !== fallback) {
-                         (e.target as HTMLImageElement).src = fallback;
-                       }
+                       // Hide image on error - gradient background will show
+                       (e.target as HTMLImageElement).style.display = 'none';
                      }}
                    />
                    <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/60 md:via-brand-black/40 to-transparent" />

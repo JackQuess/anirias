@@ -188,14 +188,14 @@ const AnimeDetail: React.FC = () => {
 
   return (
     <div className="bg-brand-black min-h-screen pb-40">
-      {/* Background Banner - Fail-safe: hide if image fails */}
-      <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden">
+      {/* Background Banner - Fail-safe: show gradient if image fails */}
+      <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden bg-gradient-to-br from-brand-red/20 via-brand-black to-brand-black">
         {(anime.banner_image || anime.cover_image) && (
           <img
             src={proxyImage(anime.banner_image || anime.cover_image || '')}
             className="w-full h-full object-cover opacity-50 blur-sm scale-105"
             onError={(e) => {
-              // Hide image on error instead of trying fallback
+              // Hide image on error - gradient background will show
               (e.target as HTMLImageElement).style.display = 'none';
             }}
             alt=""

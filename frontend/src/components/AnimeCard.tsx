@@ -44,7 +44,10 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
           referrerPolicy="no-referrer" 
           className="w-full h-full object-cover transition-transform duration-700 lg:group-hover:scale-110 lg:group-hover:rotate-1" 
           alt={title}
-          onError={(e) => { if (cover && (e.target as HTMLImageElement).src !== cover) (e.target as HTMLImageElement).src = cover; }}
+          onError={(e) => {
+            // Hide image on error - gradient background will show
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
         />
         
         {/* Dark Gradient Overlay - Always visible on mobile to show text */}
