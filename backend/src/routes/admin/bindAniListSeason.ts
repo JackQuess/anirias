@@ -204,20 +204,41 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
       updated_at: new Date().toISOString(),
     };
 
+    // Update season - use season.id (from query result) instead of season_id parameter
     const { data: updatedSeason, error: updateError } = await supabaseAdmin
       .from('seasons')
       .update(updateData)
-      .eq('id', season_id)
-      .select('id, anime_id, season_number, anilist_id, episode_count, year, title, updated_at')
+      .eq('id', season.id) // Use season.id from the query result
+      .select('id, anime_id, season_number, episode_count, year, title, updated_at')
       .single();
 
-    if (updateError || !updatedSeason) {
+    if (updateError) {
+      // Check if error is due to missing anilist_id column
+      if (updateError.message && updateError.message.includes('anilist_id')) {
+        console.error('[bindAniListSeason] anilist_id column missing from seasons table');
+        return res.status(500).json({
+          success: false,
+          error: 'Database schema error: anilist_id column missing',
+          errorCode: 'SCHEMA_ERROR',
+          details: 'The seasons table is missing the anilist_id column. Please run the migration: supabase/sql/add_seasons_anilist_id.sql',
+        });
+      }
+      
       console.error('[bindAniListSeason] Update error:', updateError);
       return res.status(500).json({
         success: false,
         error: 'Failed to update season',
         errorCode: 'DB_UPDATE_FAILED',
-        details: updateError?.message || 'Unknown database error',
+        details: updateError.message || 'Unknown database error',
+      });
+    }
+
+    if (!updatedSeason) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update season',
+        errorCode: 'DB_UPDATE_FAILED',
+        details: 'Update succeeded but no data returned',
       });
     }
 
