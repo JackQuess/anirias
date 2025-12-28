@@ -190,16 +190,17 @@ const AnimeDetail: React.FC = () => {
           {/* Sidebar (Poster & Actions) */}
           <div className="w-full sm:w-64 lg:w-[320px] mx-auto lg:mx-0 space-y-6 lg:space-y-8 flex-shrink-0">
             <div className="aspect-[2/3] rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border-4 border-white/5 shadow-2xl relative group bg-brand-surface">
-              <img
-                src={proxyImage(anime.cover_image || '')}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                onError={(e) => {
-                  const fallback = anime.cover_image || '';
-                  if (fallback && (e.target as HTMLImageElement).src !== fallback) {
-                    (e.target as HTMLImageElement).src = fallback;
-                  }
-                }}
-              />
+              {anime.cover_image && (
+                <img
+                  src={proxyImage(anime.cover_image)}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  onError={(e) => {
+                    // Hide image on error - fail-safe rendering
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                  alt=""
+                />
+              )}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                  <Link to={seasonNumbers.length > 0 ? `/watch/${anime.id}?season=${seasonNumbers[0]}&episode=1` : `/watch/${anime.id}?season=1&episode=1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
                     <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
