@@ -160,41 +160,42 @@ BEGIN
 END $$;
 
 -- Fix is_read column (CRITICAL - common mismatch)
+-- The column is named 'read' but query expects 'is_read'
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  -- Check if 'read' column exists (the actual column name)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'notifications' 
+      AND column_name = 'read'
+  ) THEN
+    -- Rename 'read' to 'is_read' to match the query
+    ALTER TABLE public.notifications RENAME COLUMN read TO is_read;
+    RAISE NOTICE '✓ Renamed read column to is_read';
+  ELSIF EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_schema = 'public' 
       AND table_name = 'notifications' 
       AND column_name = 'is_read'
   ) THEN
-    -- Check if there's a similar column with different name
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_schema = 'public' 
-        AND table_name = 'notifications' 
-        AND column_name = 'read'
-    ) THEN
-      ALTER TABLE public.notifications RENAME COLUMN read TO is_read;
-      RAISE NOTICE '✓ Renamed read column to is_read';
-    ELSIF EXISTS (
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_schema = 'public' 
-        AND table_name = 'notifications' 
-        AND column_name = 'read_status'
-    ) THEN
-      ALTER TABLE public.notifications RENAME COLUMN read_status TO is_read;
-      RAISE NOTICE '✓ Renamed read_status column to is_read';
-    ELSE
-      ALTER TABLE public.notifications ADD COLUMN is_read BOOLEAN DEFAULT false NOT NULL;
-      RAISE NOTICE '✓ Added is_read column';
-    END IF;
-  ELSE
-    -- Ensure it's BOOLEAN type
+    -- Column already named is_read, just verify type
     ALTER TABLE public.notifications ALTER COLUMN is_read TYPE BOOLEAN USING is_read::boolean;
     ALTER TABLE public.notifications ALTER COLUMN is_read SET DEFAULT false;
     ALTER TABLE public.notifications ALTER COLUMN is_read SET NOT NULL;
     RAISE NOTICE '✓ Verified is_read column';
+  ELSIF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'notifications' 
+      AND column_name = 'read_status'
+  ) THEN
+    ALTER TABLE public.notifications RENAME COLUMN read_status TO is_read;
+    RAISE NOTICE '✓ Renamed read_status column to is_read';
+  ELSE
+    -- Column doesn't exist at all, add it
+    ALTER TABLE public.notifications ADD COLUMN is_read BOOLEAN DEFAULT false NOT NULL;
+    RAISE NOTICE '✓ Added is_read column';
   END IF;
 END $$;
 
