@@ -167,18 +167,19 @@ const AnimeDetail: React.FC = () => {
 
   return (
     <div className="bg-brand-black min-h-screen pb-40">
-      {/* Background Banner */}
+      {/* Background Banner - Fail-safe: hide if image fails */}
       <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden">
-        <img
-          src={proxyImage(anime.banner_image || anime.cover_image || '')}
-          className="w-full h-full object-cover opacity-50 blur-sm scale-105"
-          onError={(e) => {
-            const fallback = anime.banner_image || anime.cover_image || '';
-            if (fallback && (e.target as HTMLImageElement).src !== fallback) {
-              (e.target as HTMLImageElement).src = fallback;
-            }
-          }}
-        />
+        {(anime.banner_image || anime.cover_image) && (
+          <img
+            src={proxyImage(anime.banner_image || anime.cover_image || '')}
+            className="w-full h-full object-cover opacity-50 blur-sm scale-105"
+            onError={(e) => {
+              // Hide image on error instead of trying fallback
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+            alt=""
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-brand-black/80 via-transparent to-transparent" />
       </div>

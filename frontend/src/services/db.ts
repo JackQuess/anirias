@@ -829,6 +829,12 @@ export const db = {
   getComments: async (animeId: string, episodeId: string): Promise<Comment[]> => {
     if (!checkEnv()) return [];
     
+    // CRITICAL: Never query with undefined/null IDs
+    if (!animeId || !episodeId || typeof animeId !== 'string' || typeof episodeId !== 'string') {
+      if (import.meta.env.DEV) console.warn('[db.getComments] Invalid IDs provided:', { animeId, episodeId });
+      return [];
+    }
+    
     try {
       const { data, error } = await supabase!
         .from('comments')

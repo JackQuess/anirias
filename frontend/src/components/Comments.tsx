@@ -11,9 +11,15 @@ const Comments: React.FC<{ animeId: string; episodeId: string }> = ({ animeId, e
   const { user, profile } = useAuth();
   const [commentText, setCommentText] = useState('');
   
-  // Load comments from DB
+  // Load comments from DB - CRITICAL: Only fetch when both IDs are valid
   const { data: comments, loading, reload } = useLoad(
-    () => db.getComments(animeId, episodeId), 
+    () => {
+      // Strict guard: never call with undefined/null
+      if (!animeId || !episodeId || typeof animeId !== 'string' || typeof episodeId !== 'string') {
+        return Promise.resolve([]);
+      }
+      return db.getComments(animeId, episodeId);
+    }, 
     [animeId, episodeId]
   );
 
