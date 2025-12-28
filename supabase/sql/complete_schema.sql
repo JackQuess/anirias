@@ -252,8 +252,12 @@ DROP POLICY IF EXISTS "Episodes viewable by everyone." ON public.episodes;
 DROP POLICY IF EXISTS "Admins can insert content" ON public.animes;
 DROP POLICY IF EXISTS "Admins can update content" ON public.animes;
 DROP POLICY IF EXISTS "Admins can delete content" ON public.animes;
-DROP POLICY IF EXISTS "Admins manage seasons" ON public.seasons;
-DROP POLICY IF EXISTS "Admins manage episodes" ON public.episodes;
+DROP POLICY IF EXISTS "Admins can insert seasons" ON public.seasons;
+DROP POLICY IF EXISTS "Admins can update seasons" ON public.seasons;
+DROP POLICY IF EXISTS "Admins can delete seasons" ON public.seasons;
+DROP POLICY IF EXISTS "Admins can insert episodes" ON public.episodes;
+DROP POLICY IF EXISTS "Admins can update episodes" ON public.episodes;
+DROP POLICY IF EXISTS "Admins can delete episodes" ON public.episodes;
 DROP POLICY IF EXISTS "Users manage own watchlist" ON public.watchlist;
 DROP POLICY IF EXISTS "Users manage own progress" ON public.watch_progress;
 DROP POLICY IF EXISTS "Users manage own history" ON public.watch_history;
@@ -312,8 +316,17 @@ CREATE POLICY "Admins can delete content"
     )
   );
 
-CREATE POLICY "Admins manage seasons" 
-  ON public.seasons FOR ALL 
+CREATE POLICY "Admins can insert seasons" 
+  ON public.seasons FOR INSERT 
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can update seasons" 
+  ON public.seasons FOR UPDATE 
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles 
@@ -321,8 +334,35 @@ CREATE POLICY "Admins manage seasons"
     )
   );
 
-CREATE POLICY "Admins manage episodes" 
-  ON public.episodes FOR ALL 
+CREATE POLICY "Admins can delete seasons" 
+  ON public.seasons FOR DELETE 
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can insert episodes" 
+  ON public.episodes FOR INSERT 
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can update episodes" 
+  ON public.episodes FOR UPDATE 
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can delete episodes" 
+  ON public.episodes FOR DELETE 
   USING (
     EXISTS (
       SELECT 1 FROM public.profiles 
