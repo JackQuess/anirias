@@ -66,17 +66,29 @@ CREATE POLICY "Users can read own notifications"
 -- Notifications: Users can update their own notifications (mark as read)
 CREATE POLICY "Users can update own notifications" 
   ON public.notifications FOR UPDATE 
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Notifications: Service role (backend) can insert notifications
 -- This allows backend to create notifications without user authentication
+-- Note: Service role bypasses RLS, so this policy is for clarity
 CREATE POLICY "Service role can insert notifications" 
   ON public.notifications FOR INSERT 
-  WITH CHECK (true); -- Backend uses service role, so this will work
+  WITH CHECK (true);
 
--- Anime Follows: Users can manage their own follows
-CREATE POLICY "Users can manage own follows" 
-  ON public.anime_follows FOR ALL 
+-- Anime Follows: Users can read their own follows
+CREATE POLICY "Users can read own follows" 
+  ON public.anime_follows FOR SELECT 
+  USING (auth.uid() = user_id);
+
+-- Anime Follows: Users can insert their own follows
+CREATE POLICY "Users can insert own follows" 
+  ON public.anime_follows FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
+-- Anime Follows: Users can delete their own follows
+CREATE POLICY "Users can delete own follows" 
+  ON public.anime_follows FOR DELETE 
   USING (auth.uid() = user_id);
 
 -- ============================================================================
