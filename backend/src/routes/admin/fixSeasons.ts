@@ -23,19 +23,28 @@ router.use((req, res, next) => {
  * }
  */
 router.post('/fix-seasons', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let animeId: string | undefined;
+  
   try {
     const adminToken = req.header('x-admin-token');
     if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    const { animeId } = req.body || {};
+    animeId = req.body?.animeId;
 
     if (!animeId || typeof animeId !== 'string') {
       return res.status(400).json({ success: false, error: 'animeId (string) is required' });
     }
 
+    console.log(`[FixSeasons] Starting fix for anime: ${animeId}`);
     const result = await fixSeasonsForAnime(animeId);
+    console.log(`[FixSeasons] Completed in ${Date.now() - startTime}ms`, {
+      success: result.success,
+      errors: result.errors.length,
+      seasonsFixed: result.seasonsFixed,
+    });
 
     // Return 200 even if no seasons/episodes found (successful operation, just nothing to fix)
     // Only return 500 if there were actual errors during processing
@@ -78,15 +87,27 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     // Log full error with stack trace
-    console.error('[FixSeasons] API CRITICAL ERROR:', {
+    const errorDetails = {
       message: err?.message || 'Unknown error',
       stack: err?.stack,
+      name: err?.name,
+      code: err?.code,
+      animeId,
       body: req.body,
-    });
+      duration: Date.now() - startTime,
+    };
+    
+    console.error('[FixSeasons] API CRITICAL ERROR:', errorDetails);
+    
+    // Always return error details in production for debugging
     return res.status(500).json({ 
       success: false, 
       error: err?.message || 'Fix seasons failed',
-      stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
+      errorType: err?.name || 'Error',
+      errorCode: err?.code,
+      animeId,
+      // Include stack in production for now to debug
+      stack: err?.stack,
     });
   }
 });

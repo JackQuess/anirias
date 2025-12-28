@@ -39,7 +39,13 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
   let episodesReassigned = 0;
 
   try {
+    // Validate supabaseAdmin is initialized
+    if (!supabaseAdmin) {
+      throw new Error('supabaseAdmin client is not initialized');
+    }
+
     // STEP 0: Verify anime exists
+    console.log(`[FixSeasons] Fetching anime: ${animeId}`);
     const { data: anime, error: animeError } = await supabaseAdmin
       .from('animes')
       .select('id, slug')
@@ -102,6 +108,12 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
     const episodesNeedingAssignment: typeof allEpisodes = [];
 
     for (const episode of allEpisodes) {
+      // Safety check: episode must have episode_number
+      if (episode.episode_number == null || typeof episode.episode_number !== 'number') {
+        errors.push(`Episode ${episode.id} has invalid episode_number - skipping`);
+        continue;
+      }
+
       if (episode.season_number !== null && episode.season_number > 0) {
         if (!episodesBySeason[episode.season_number]) {
           episodesBySeason[episode.season_number] = [];
@@ -129,17 +141,26 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       let currentSeasonEpisodes: typeof episodesNeedingAssignment = [];
 
       for (const episode of episodesNeedingAssignment) {
+        // Safety check: episode must have valid episode_number
+        if (episode.episode_number == null || typeof episode.episode_number !== 'number') {
+          errors.push(`Episode ${episode.id} has invalid episode_number in assignment loop - skipping`);
+          continue;
+        }
+
         // If current season is full and we have a new episode, start new season
         if (currentSeasonEpisodes.length >= EPISODES_PER_SEASON && 
-            currentSeasonEpisodes.length > 0 &&
-            episode.episode_number > currentSeasonEpisodes[currentSeasonEpisodes.length - 1].episode_number + 1) {
-          // Start new season
-          if (!episodesBySeason[currentSeasonNumber]) {
-            episodesBySeason[currentSeasonNumber] = [];
+            currentSeasonEpisodes.length > 0) {
+          const lastEpisode = currentSeasonEpisodes[currentSeasonEpisodes.length - 1];
+          if (lastEpisode && lastEpisode.episode_number != null &&
+              episode.episode_number > lastEpisode.episode_number + 1) {
+            // Start new season
+            if (!episodesBySeason[currentSeasonNumber]) {
+              episodesBySeason[currentSeasonNumber] = [];
+            }
+            episodesBySeason[currentSeasonNumber].push(...currentSeasonEpisodes);
+            currentSeasonNumber++;
+            currentSeasonEpisodes = [];
           }
-          episodesBySeason[currentSeasonNumber].push(...currentSeasonEpisodes);
-          currentSeasonNumber++;
-          currentSeasonEpisodes = [];
         }
         currentSeasonEpisodes.push(episode);
       }
