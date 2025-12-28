@@ -446,22 +446,15 @@ export const db = {
       seasonYear: number | null;
     }
   ): Promise<Season> => {
-    // Admin operation - use backend API for transactional binding
-    // Uses Supabase Auth session (no admin token needed)
+    // Use backend API for transactional binding
+    // No authentication required - backend uses service role key
     try {
       const apiBase = getApiBase();
-      
-      // Get Supabase session for auth
-      const { data: { session } } = await supabase!.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Authentication required. Please log in.');
-      }
 
       const res = await fetch(`${apiBase}/api/admin/anilist/bind-season`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           season_id: seasonId,
