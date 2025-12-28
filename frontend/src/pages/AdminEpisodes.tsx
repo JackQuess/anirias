@@ -491,36 +491,27 @@ const AdminEpisodes: React.FC = () => {
 
     setIsCreatingSeason(true);
     try {
-      // Create season
+      // Get admin token
+      const adminToken = window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+      if (!adminToken) {
+        alert('Admin token gerekli.');
+        setIsCreatingSeason(false);
+        return;
+      }
+
+      // Create season (backend will auto-create episodes if expected_episode_count provided)
       const newSeason = await db.createSeason({
         anime_id: animeId,
         season_number: seasonNum,
         title: `Sezon ${seasonNum}`,
         anilist_id: seasonForm.anilist_media_id || null,
-        episode_count: seasonForm.expected_episode_count || null
-      } as Partial<Season>);
+        episode_count: seasonForm.expected_episode_count || null,
+        expected_episode_count: seasonForm.expected_episode_count || null, // Backend uses this to auto-create episodes
+      } as Partial<Season> & { expected_episode_count?: number }, adminToken);
 
       if (!newSeason?.id) {
         throw new Error('Sezon oluşturulamadı');
       }
-
-      // Auto-create episode rows (1 to expected_episode_count)
-      const episodePromises = [];
-      for (let epNum = 1; epNum <= seasonForm.expected_episode_count!; epNum++) {
-        episodePromises.push(
-          db.createEpisode({
-            anime_id: animeId,
-            season_id: newSeason.id,
-            season_number: newSeason.season_number, // 🔥 CRITICAL: season_number must be set
-            episode_number: epNum,
-            title: `Bölüm ${epNum}`,
-            duration_seconds: 1440,
-            status: 'pending',
-            video_url: null
-          })
-        );
-      }
-      await Promise.all(episodePromises);
 
       // Reload seasons list
       await reloadSeasons();
@@ -539,7 +530,10 @@ const AdminEpisodes: React.FC = () => {
         expected_episode_count: null
       });
 
-      alert(`Sezon ${seasonNum} ve ${seasonForm.expected_episode_count} bölüm başarıyla oluşturuldu.`);
+      const episodeMsg = seasonForm.expected_episode_count 
+        ? ` ve ${seasonForm.expected_episode_count} bölüm`
+        : '';
+      alert(`Sezon ${seasonNum}${episodeMsg} başarıyla oluşturuldu.`);
     } catch (err: any) {
       const errorMsg = err?.message || 'Sezon oluşturulamadı';
       
