@@ -2,6 +2,14 @@ import { rm, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { runYtDlpDownload } from './ytDlp';
 import { uploadToBunny } from './bunny';
+
+// NOTE: This file is for server-side/Electron main process use only
+// It should NOT be bundled into the browser/client code
+// The supabaseAdmin functions have been moved to backend
+// TODO: Refactor this to use backend API endpoints instead of direct Supabase access
+
+// TEMPORARY: Commented out until backend API endpoints are created
+/*
 import {
   ensureAnimeSlug,
   getOrCreateSeason,
@@ -11,6 +19,31 @@ import {
   expectedCdnUrl,
   updateEpisodeVideo,
 } from './supabaseAdmin';
+*/
+
+// Placeholder functions - replace with backend API calls
+const ensureAnimeSlug = async (animeId: string): Promise<string> => {
+  throw new Error('ensureAnimeSlug: Use backend API endpoint instead');
+};
+const getOrCreateSeason = async (animeId: string, seasonNumber: number): Promise<string> => {
+  throw new Error('getOrCreateSeason: Use backend API endpoint instead');
+};
+const upsertEpisodeVideo = async (animeId: string, seasonId: string, episodeNumber: number, cdnUrl: string): Promise<void> => {
+  throw new Error('upsertEpisodeVideo: Use backend API endpoint instead');
+};
+const getEpisodesForAnime = async (animeId: string): Promise<any[]> => {
+  throw new Error('getEpisodesForAnime: Use backend API endpoint instead');
+};
+const isEpisodePathCorrect = (ep: any, slug: string): boolean => {
+  throw new Error('isEpisodePathCorrect: Use backend API endpoint instead');
+};
+const expectedCdnUrl = (slug: string, seasonNumber: number, episodeNumber: number): string => {
+  const padded = String(episodeNumber).padStart(2, '0');
+  return `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${padded}.mp4`;
+};
+const updateEpisodeVideo = async (episodeId: string, cdnUrl: string): Promise<void> => {
+  throw new Error('updateEpisodeVideo: Use backend API endpoint instead');
+};
 
 export interface AutoImportEpisodeInput {
   episodeNumber: number;

@@ -1,12 +1,39 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 /**
+ * CLIENT-SIDE SUPABASE CLIENT (BROWSER ONLY)
+ * 
+ * SECURITY RULES:
+ * - ONLY uses VITE_SUPABASE_ANON_KEY (public anon key)
+ * - NEVER uses service role key
+ * - ONLY for: auth, SELECT (read-only) queries
+ * - Write operations (INSERT/UPDATE/DELETE) must go through backend APIs
+ * 
  * Vite ONLY exposes env variables via import.meta.env
  * process.env does NOT exist in the browser.
  */
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+// SECURITY CHECK: Detect if service role key is accidentally exposed
+const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
+                       import.meta.env.SUPABASE_SERVICE_ROLE_KEY ||
+                       import.meta.env.SUPABASE_SERVICE_KEY ||
+                       import.meta.env.sb_secret;
+
+if (serviceRoleKey) {
+  console.error(
+    '🚨 CRITICAL SECURITY ISSUE: Service role key detected in frontend environment!\n' +
+    'Service role keys MUST NEVER be exposed to the browser.\n' +
+    'Remove these environment variables from frontend:\n' +
+    '- VITE_SUPABASE_SERVICE_ROLE_KEY\n' +
+    '- SUPABASE_SERVICE_ROLE_KEY\n' +
+    '- SUPABASE_SERVICE_KEY\n' +
+    '- sb_secret'
+  );
+  // Don't throw - just warn, but this is a critical security issue
+}
 
 export const hasSupabaseEnv =
   typeof supabaseUrl === 'string' &&
@@ -20,10 +47,24 @@ if (!hasSupabaseEnv) {
       VITE_SUPABASE_ANON_KEY: supabaseAnonKey ? 'present' : 'missing',
     });
   }
+} else {
+  // Log Supabase URL at startup to verify correct project
+  if (import.meta.env.DEV) {
+    console.log('[Supabase] Client initialized:', {
+      url: supabaseUrl,
+      keyType: 'anon (public)',
+      keyPrefix: supabaseAnonKey?.substring(0, 20) + '...',
+    });
+  }
 }
 
 export const supabase: SupabaseClient | null = hasSupabaseEnv
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  ? createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    })
   : null;
 
 /**

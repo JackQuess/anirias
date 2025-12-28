@@ -13,6 +13,45 @@ const checkEnv = () => {
   return true;
 };
 
+// Helper for backend API calls (admin operations)
+const getApiBase = (): string => {
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (!apiBase) {
+    throw new Error("Backend API URL not configured (VITE_API_BASE_URL)");
+  }
+  return apiBase;
+};
+
+const callBackendApi = async (
+  endpoint: string,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  body?: any,
+  adminToken?: string
+): Promise<any> => {
+  const apiBase = getApiBase();
+  const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+  if (!token) {
+    throw new Error('Admin token is required');
+  }
+
+  const res = await fetch(`${apiBase}${endpoint}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-ADMIN-TOKEN': token,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const data = await res.json();
+  
+  if (!res.ok) {
+    throw new Error(data?.error || `HTTP ${res.status}: ${data?.message || 'Unknown error'}`);
+  }
+
+  return data;
+};
+
 export const db = {
   // --- ÖNERİ MOTORU ---
   getPersonalizedRecommendations: async (history: WatchHistory[]): Promise<Anime[]> => {
@@ -141,7 +180,10 @@ export const db = {
 
   getAnimeBySlug: async (slug: string): Promise<Anime | null> => {
     if (!checkEnv()) return null;
-    if (!slug) return null;
+    if (!slug || slug.trim() === '') {
+      if (import.meta.env.DEV) console.warn('[db.getAnimeBySlug] Empty slug provided');
+      return null;
+    }
     
     try {
       const { data, error } = await supabase!
@@ -156,8 +198,16 @@ export const db = {
       }
       
       if (!data) {
-        if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Anime not found for slug:", slug);
+        // Anime not found - this is a valid state (slug might be missing or incorrect)
+        // UI should handle this gracefully by showing "Anime not found" message
+        if (import.meta.env.DEV) console.warn("[db.getAnimeBySlug] Anime not found for slug:", slug);
         return null;
+      }
+      
+      // Verify slug is not null/empty in the returned data
+      if (!data.slug || data.slug.trim() === '') {
+        if (import.meta.env.DEV) console.warn("[db.getAnimeBySlug] Anime found but slug is missing:", data.id);
+        // Still return the data - UI can handle missing slug
       }
       
       return data;
@@ -168,64 +218,32 @@ export const db = {
   },
 
   // --- ANIME WRITE METHODS (ADMIN) ---
-  createAnime: async (anime: Partial<Anime>) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const payload = {
-       ...anime,
-       view_count: 0,
-       created_at: new Date().toISOString(),
-       updated_at: new Date().toISOString()
-    };
-    const { data, error } = await supabase!.from('animes').insert([payload]).select().single();
-    if (error) throw error;
-    return data;
+  // NOTE: All admin write operations now use backend APIs for security
+  // Frontend only uses anon key for read operations and user data (RLS protected)
+  
+  createAnime: async (anime: Partial<Anime>, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('createAnime: Admin operations must use backend API. This function is deprecated.');
   },
 
-  updateAnime: async (id: string, updates: Partial<Anime>) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { error } = await supabase!.from('animes').update({...updates, updated_at: new Date().toISOString()}).eq('id', id);
-    if (error) throw error;
+  updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('updateAnime: Admin operations must use backend API. This function is deprecated.');
   },
 
   deleteAnime: async (id: string, adminToken?: string): Promise<{ success: boolean; deleted?: any; error?: string }> => {
     // Use backend API for complete cascade deletion
-    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
-    if (!apiBase) {
-      throw new Error("Backend API URL not configured (VITE_API_BASE_URL)");
-    }
-
-    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
-    if (!token) {
-      throw new Error('Admin token is required');
-    }
-
     try {
-      const res = await fetch(`${apiBase}/api/admin/delete-anime`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-ADMIN-TOKEN': token
-        },
-        body: JSON.stringify({ animeId: id })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}`);
-      }
-
+      const data = await callBackendApi('/api/admin/delete-anime', 'POST', { animeId: id }, adminToken);
       return { success: true, deleted: data.deleted };
     } catch (error: any) {
       return { success: false, error: error?.message || 'Failed to delete anime' };
     }
   },
 
-  toggleFeatured: async (animeId: string, status: boolean) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { data, error } = await supabase!.from('animes').update({ is_featured: status }).eq('id', animeId).select().single();
-    if (error) throw error;
-    return data;
+  toggleFeatured: async (animeId: string, status: boolean, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('toggleFeatured: Admin operations must use backend API. This function is deprecated.');
   },
 
   // --- SEASONS & EPISODES ---
@@ -274,26 +292,19 @@ export const db = {
     }
   },
 
-  createSeason: async (season: Partial<Season>) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { data, error } = await supabase!.from('seasons').insert([season]).select().single();
-    if (error) throw error;
-    return data;
+  createSeason: async (season: Partial<Season>, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('createSeason: Admin operations must use backend API. This function is deprecated.');
   },
 
-  updateSeason: async (id: string, updates: Partial<Season>) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { error } = await supabase!
-      .from('seasons')
-      .update(updates)
-      .eq('id', id);
-    if (error) throw error;
+  updateSeason: async (id: string, updates: Partial<Season>, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('updateSeason: Admin operations must use backend API. This function is deprecated.');
   },
 
-  deleteSeason: async (id: string) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { error } = await supabase!.from('seasons').delete().eq('id', id);
-    if (error) throw error;
+  deleteSeason: async (id: string, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('deleteSeason: Admin operations must use backend API. This function is deprecated.');
   },
 
   // Admin panel: Get episodes by season_id directly (for admin use only)
@@ -422,30 +433,19 @@ export const db = {
     }
   },
 
-  createEpisode: async (episode: Partial<Episode>) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    if (!episode.season_id) throw new Error("season_id required");
-    const { data, error } = await supabase!.from('episodes').insert([episode]).select().single();
-    if (error) throw error;
-    return data;
+  createEpisode: async (episode: Partial<Episode>, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('createEpisode: Admin operations must use backend API. This function is deprecated.');
   },
 
-  updateEpisode: async (id: string, updates: Partial<Episode>) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { data, error } = await supabase!
-      .from('episodes')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+  updateEpisode: async (id: string, updates: Partial<Episode>, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('updateEpisode: Admin operations must use backend API. This function is deprecated.');
   },
 
-  deleteEpisode: async (id: string) => {
-    if (!checkEnv()) throw new Error("Backend connection failed");
-    const { error } = await supabase!.from('episodes').delete().eq('id', id);
-    if (error) throw error;
+  deleteEpisode: async (id: string, adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('deleteEpisode: Admin operations must use backend API. This function is deprecated.');
   },
 
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
@@ -544,16 +544,13 @@ export const db = {
 
   saveWatchProgress: async (progress: Partial<WatchProgress>) => {
     if (!checkEnv()) return;
+    // User data - allowed with RLS protection
     await supabase!.from('watch_progress').upsert(progress);
     
-    // View count increment logic can be moved to a Postgres Trigger for efficiency, 
-    // but keeping a simple client-side trigger here for now.
-    if (Math.random() > 0.9) { 
-       const { data: anime } = await supabase!.from('animes').select('view_count').eq('id', progress.anime_id).single();
-       if (anime) {
-          await supabase!.from('animes').update({ view_count: (anime.view_count || 0) + 1 }).eq('id', progress.anime_id);
-       }
-    }
+    // NOTE: View count updates should be handled by:
+    // 1. Database triggers (preferred)
+    // 2. Backend API endpoints
+    // NOT by direct frontend updates to animes table
   },
 
   getWatchProgress: async (userId: string, animeId: string, episodeId: string): Promise<WatchProgress | null> => {
@@ -758,9 +755,9 @@ export const db = {
      }
   },
 
-  updateProfileRole: async (userId: string, role: 'user' | 'admin') => {
-    if (!checkEnv()) return;
-    await supabase!.from('profiles').update({ role }).eq('id', userId);
+  updateProfileRole: async (userId: string, role: 'user' | 'admin', adminToken?: string) => {
+    // Admin operation - must use backend API
+    throw new Error('updateProfileRole: Admin operations must use backend API. This function is deprecated.');
   },
 
   autoPatchEpisodeVideos: async () => {
