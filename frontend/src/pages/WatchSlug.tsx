@@ -277,6 +277,12 @@ const WatchSlug: React.FC = () => {
               onSkipIntro={() => {
                 // Intro skip handled internally by VideoPlayer
               }}
+              hasNextEpisode={!!nextEpisode}
+              onNextEpisode={() => {
+                if (nextEpisode) {
+                  navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
+                }
+              }}
             />
 
             {/* Comments */}

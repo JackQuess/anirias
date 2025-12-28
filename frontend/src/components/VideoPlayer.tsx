@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Hls from 'hls.js';
-import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2 } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2, SkipForward } from 'lucide-react';
 
 interface VideoPlayerProps {
   src: string;
@@ -16,6 +16,8 @@ interface VideoPlayerProps {
   introStart?: number; // Intro start time in seconds
   introEnd?: number; // Intro end time in seconds
   onSkipIntro?: () => void; // Callback when intro is skipped
+  hasNextEpisode?: boolean; // Whether next episode exists
+  onNextEpisode?: () => void; // Callback when next episode is requested
 }
 
 const formatTime = (seconds: number): string => {
@@ -40,6 +42,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   introStart,
   introEnd,
   onSkipIntro,
+  hasNextEpisode = false,
+  onNextEpisode,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,6 +64,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [introSkipped, setIntroSkipped] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [showNextEpisodeOverlay, setShowNextEpisodeOverlay] = useState(false);
+  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(10);
+  const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -92,6 +99,41 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const time = video.currentTime;
       setCurrentTime(time);
       onTimeUpdate?.(time, video.duration);
+      
+      // Show next episode overlay in last 10 seconds
+      if (hasNextEpisode && onNextEpisode && video.duration > 0) {
+        const remaining = video.duration - time;
+        if (remaining <= 10 && remaining > 0 && !showNextEpisodeOverlay) {
+          setShowNextEpisodeOverlay(true);
+          setNextEpisodeCountdown(Math.ceil(remaining));
+          
+          // Start countdown
+          if (nextEpisodeCountdownRef.current) {
+            clearInterval(nextEpisodeCountdownRef.current);
+          }
+          nextEpisodeCountdownRef.current = setInterval(() => {
+            setNextEpisodeCountdown((prev) => {
+              if (prev <= 1) {
+                if (nextEpisodeCountdownRef.current) {
+                  clearInterval(nextEpisodeCountdownRef.current);
+                  nextEpisodeCountdownRef.current = null;
+                }
+                // Auto-play next episode
+                onNextEpisode();
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        } else if (remaining > 10 && showNextEpisodeOverlay) {
+          // Hide overlay if user seeks back
+          setShowNextEpisodeOverlay(false);
+          if (nextEpisodeCountdownRef.current) {
+            clearInterval(nextEpisodeCountdownRef.current);
+            nextEpisodeCountdownRef.current = null;
+          }
+        }
+      }
     };
 
     const handleProgress = () => {
@@ -167,7 +209,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [src, initialTime, onTimeUpdate, onEnded, onError]);
+  }, [src, initialTime, onTimeUpdate, onEnded, onError, hasNextEpisode, onNextEpisode, showNextEpisodeOverlay]);
 
   // Fullscreen handling
   useEffect(() => {
@@ -195,12 +237,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [showControlsTemporary]);
 
-  const skipTime = useCallback((seconds: number) => {
+  const skipTime = useCallback((seconds: number, silent = false) => {
     const video = videoRef.current;
     if (!video) return;
 
     video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
-    showControlsTemporary();
+    if (!silent) {
+      showControlsTemporary();
+    }
   }, [showControlsTemporary]);
 
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -289,11 +333,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          skipTime(-10); // ±10s as per requirements
+          skipTime(-10, true); // Silent seek - no UI flash
           break;
         case 'ArrowRight':
           e.preventDefault();
-          skipTime(10);
+          skipTime(10, true); // Silent seek - no UI flash
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -330,10 +374,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, skipTime, toggleFullscreen, toggleMute]);
 
+  // Cleanup countdown on unmount
+  useEffect(() => {
+    return () => {
+      if (nextEpisodeCountdownRef.current) {
+        clearInterval(nextEpisodeCountdownRef.current);
+        nextEpisodeCountdownRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full max-w-[1200px] mx-auto bg-black rounded-[16px] overflow-hidden shadow-2xl"
+      className="relative w-full max-w-[1200px] mx-auto bg-black rounded-[16px] overflow-hidden shadow-2xl aspect-video"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
         if (isPlaying) {
@@ -359,7 +413,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {animeSlug ? (
             <Link
               to={`/anime/${animeSlug}`}
-              className="group"
+              className="group cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e5193e] transition-colors">
@@ -477,8 +531,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               </div>
             </div>
 
-            {/* Right: Volume, Fullscreen */}
-            <div className="flex items-center gap-4">
+            {/* Right: Volume, Next Episode, Fullscreen */}
+            <div className="flex items-center gap-3">
               {/* Volume - Slider slides left on hover */}
               <div className="flex items-center gap-2 group relative">
                 <button
@@ -494,7 +548,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </button>
                 <div
                   ref={volumeSliderRef}
-                  className="w-0 h-1 bg-white/20 rounded-full cursor-pointer opacity-0 group-hover:w-20 group-hover:opacity-100 transition-all duration-200 overflow-hidden"
+                  className="w-0 h-1 bg-white/20 rounded-full cursor-pointer opacity-0 group-hover:w-20 group-hover:opacity-100 transition-all duration-150 ease-out overflow-hidden absolute left-full ml-2 top-1/2 -translate-y-1/2"
                   onClick={handleVolumeChange}
                   onMouseDown={() => setIsVolumeDragging(true)}
                   onMouseUp={() => setIsVolumeDragging(false)}
@@ -510,6 +564,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Next Episode */}
+              {hasNextEpisode && onNextEpisode && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNextEpisodeOverlay(false);
+                    if (nextEpisodeCountdownRef.current) {
+                      clearInterval(nextEpisodeCountdownRef.current);
+                      nextEpisodeCountdownRef.current = null;
+                    }
+                    onNextEpisode();
+                  }}
+                  className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors"
+                  aria-label="Sonraki Bölüm"
+                >
+                  <SkipForward size={20} strokeWidth={2.5} />
+                </button>
+              )}
 
               {/* Fullscreen */}
               <button
