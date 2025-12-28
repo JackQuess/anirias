@@ -68,6 +68,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(10);
   const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
+  const durationSetRef = useRef(false); // Track if duration has been set to prevent multiple updates
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -93,9 +94,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // Reset metadata state when src changes (hide video, show placeholder)
     setIsMetadataLoaded(false);
+    durationSetRef.current = false; // Reset duration flag when src changes
 
     const handleLoadedMetadata = () => {
-      setDuration(video.duration);
+      // Set duration ONLY ONCE from loadedmetadata event
+      if (!durationSetRef.current && video.duration && isFinite(video.duration)) {
+        setDuration(video.duration);
+        durationSetRef.current = true;
+      }
       setIsMetadataLoaded(true); // Mark metadata as loaded - video can now be shown
       if (initialTime > 0) {
         video.currentTime = initialTime;
@@ -106,11 +112,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleTimeUpdate = () => {
       const time = video.currentTime;
       setCurrentTime(time);
-      onTimeUpdate?.(time, video.duration);
+      // Use video.duration directly (source of truth), NOT state
+      const videoDuration = video.duration || duration || 0;
+      onTimeUpdate?.(time, videoDuration);
       
       // Show next episode overlay in last 10 seconds
-      if (hasNextEpisode && onNextEpisode && video.duration > 0) {
-        const remaining = video.duration - time;
+      // Use video.duration directly, not state
+      if (hasNextEpisode && onNextEpisode && videoDuration > 0) {
+        const remaining = videoDuration - time;
         if (remaining <= 10 && remaining > 0 && !showNextEpisodeOverlay) {
           setShowNextEpisodeOverlay(true);
           setNextEpisodeCountdown(Math.ceil(remaining));
@@ -147,7 +156,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleProgress = () => {
       if (video.buffered.length > 0) {
         const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        setBuffered((bufferedEnd / video.duration) * 100);
+        // Use video.duration directly, not state
+        const videoDuration = video.duration || duration;
+        if (videoDuration > 0) {
+          setBuffered((bufferedEnd / videoDuration) * 100);
+        }
       }
     };
 
@@ -217,7 +230,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [src, initialTime, onTimeUpdate, onEnded, onError, hasNextEpisode, onNextEpisode, showNextEpisodeOverlay]);
+    // CRITICAL: Remove showNextEpisodeOverlay from dependencies to prevent re-initialization
+    // Only re-run when src or initialTime changes (episode change)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, initialTime]);
 
   // Fullscreen handling
   useEffect(() => {
