@@ -693,16 +693,17 @@ const Watch: React.FC = () => {
     setShowControls(true);
   };
 
+  // Redirect to slug-based URL if season param missing (MUST be before early returns)
+  useEffect(() => {
+    if (anime && !querySeasonNumber) {
+      const slug = anime.slug || anime.id;
+      navigate(`/watch/${slug}/1/1`, { replace: true });
+    }
+  }, [anime, querySeasonNumber, navigate]);
+
   // EARLY RETURNS - All hooks must be called before this point
   if (!anime) return <div className="pt-40 text-center"><LoadingSkeleton type="banner" /></div>;
   if (!querySeasonNumber) {
-    // Redirect to slug-based URL format
-    useEffect(() => {
-      if (anime?.slug) {
-        navigate(`/watch/${anime.slug}/1/1`, { replace: true });
-      }
-    }, [anime?.slug, navigate]);
-    
     return <div className="pt-40 text-center text-white font-black uppercase">Yönlendiriliyor...</div>;
   }
   if (!episodes) {
