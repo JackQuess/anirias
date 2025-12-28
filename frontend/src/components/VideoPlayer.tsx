@@ -67,6 +67,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showNextEpisodeOverlay, setShowNextEpisodeOverlay] = useState(false);
   const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(10);
   const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -89,6 +90,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
+      setIsMetadataLoaded(true); // Mark metadata as loaded - video can now be shown
       if (initialTime > 0) {
         video.currentTime = initialTime;
         setCurrentTime(initialTime);
@@ -395,10 +397,39 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }}
     >
+      {/* Static Placeholder Layer - Always visible until metadata loads */}
+      <div
+        className="absolute inset-0 w-full h-full bg-black transition-opacity duration-300"
+        style={{
+          opacity: isMetadataLoaded ? 0 : 1,
+          visibility: isMetadataLoaded ? 'hidden' : 'visible',
+          zIndex: 1,
+        }}
+      >
+        {poster && (
+          <img
+            src={poster}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Hide poster image on error, show black background
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        )}
+      </div>
+
+      {/* Video Element - Mounted once, hidden until metadata loads */}
+      {/* Note: src is set programmatically in useEffect for HLS compatibility */}
       <video
         ref={videoRef}
         poster={poster}
-        className="w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
+        style={{
+          opacity: isMetadataLoaded ? 1 : 0,
+          visibility: isMetadataLoaded ? 'visible' : 'hidden',
+          zIndex: 2,
+        }}
         playsInline
         onClick={handleVideoClick}
       />
