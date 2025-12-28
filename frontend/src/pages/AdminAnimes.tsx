@@ -59,7 +59,7 @@ const AdminAnimes: React.FC = () => {
       
       if (result.success) {
         alert(`Anime ve tüm ilgili veriler başarıyla silindi.\n\nSilinen:\n- Anime: 1\n- Sezonlar: ${result.deleted?.seasons || 0}\n- Bölümler: ${result.deleted?.episodes || 0}\n- İzleme listesi: ${result.deleted?.watchlist || 0}\n- İlerleme: ${result.deleted?.watch_progress || 0}\n- Geçmiş: ${result.deleted?.watch_history || 0}\n- Yorumlar: ${result.deleted?.comments || 0}`);
-        reload();
+      reload();
       } else {
         alert(`Silme hatası: ${result.error || 'Bilinmeyen hata'}`);
       }
@@ -99,13 +99,13 @@ const AdminAnimes: React.FC = () => {
 
       {/* Search Filter */}
       <div className="relative">
-        <input 
+         <input 
           type="text" 
           placeholder="ANİME ARA..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-brand-dark border border-brand-border rounded-2xl px-12 py-4 text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
-        />
+         />
         <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
@@ -127,61 +127,61 @@ const AdminAnimes: React.FC = () => {
               </p>
             </div>
           ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-brand-border bg-white/5">
-                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Anime Bilgisi</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Puan / Yıl</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">İzlenme</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-border">
-                {filteredAnimes.map((anime) => {
-                  const titleString = getDisplayTitle(anime.title);
-                  return (
-                    <tr key={anime.id} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-6">
-                          <div className="w-14 h-20 rounded-xl overflow-hidden border border-brand-border shadow-lg">
-                            <img
-                              src={proxyImage(anime.cover_image || '')}
-                              className="w-full h-full object-cover"
-                              alt={titleString}
-                              onError={(e) => {
-                                const fallback = anime.cover_image || '';
-                                if (fallback && (e.target as HTMLImageElement).src !== fallback) {
-                                  (e.target as HTMLImageElement).src = fallback;
-                                }
-                              }}
-                            />
-                          </div>
-                          <div>
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-brand-border bg-white/5">
+                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Anime Bilgisi</th>
+                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Puan / Yıl</th>
+                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">İzlenme</th>
+                <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-border">
+              {filteredAnimes.map((anime) => {
+                const titleString = getDisplayTitle(anime.title);
+                return (
+                  <tr key={anime.id} className="hover:bg-white/[0.03] transition-colors group">
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-6">
+                        <div className="w-14 h-20 rounded-xl overflow-hidden border border-brand-border shadow-lg">
+                          <img
+                            src={proxyImage(anime.cover_image || '')}
+                            className="w-full h-full object-cover"
+                            alt={titleString}
+                            onError={(e) => {
+                              const fallback = anime.cover_image || '';
+                              if (fallback && (e.target as HTMLImageElement).src !== fallback) {
+                                (e.target as HTMLImageElement).src = fallback;
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
                             <p className="text-white font-black text-base uppercase tracking-tight group-hover:text-brand-red transition-colors">
                               {titleString}
                             </p>
-                            <div className="flex gap-2 mt-1">
+                          <div className="flex gap-2 mt-1">
                               {Array.isArray(anime.genres) && anime.genres.slice(0, 2).map(g => (
                                 <span key={g} className="text-[9px] text-gray-600 font-black uppercase tracking-widest">
                                   {g}
                                 </span>
-                              ))}
-                            </div>
+                            ))}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-white font-black text-sm italic">{anime.year}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-brand-red text-xs font-black italic">★ {anime.score}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-white font-black text-sm">{anime.view_count?.toLocaleString() || 0}</p>
-                        <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">GÖRÜNTÜLENME</p>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <p className="text-white font-black text-sm italic">{anime.year}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                         <span className="text-brand-red text-xs font-black italic">★ {anime.score}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <p className="text-white font-black text-sm">{anime.view_count?.toLocaleString() || 0}</p>
+                      <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">GÖRÜNTÜLENME</p>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex items-center justify-end gap-3">
                           <Link 
                             to={`/admin/episodes/${anime.id}`} 
                             className="bg-white/5 hover:bg-white/10 text-[10px] font-black text-white px-4 py-2.5 rounded-xl border border-white/5 transition-all"
@@ -194,20 +194,20 @@ const AdminAnimes: React.FC = () => {
                           >
                             DÜZENLE
                           </Link>
-                          <button 
+                        <button 
                             onClick={() => handleDeleteClick(anime.id, titleString)}
-                            disabled={isDeleting === anime.id}
-                            className="bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white px-4 py-2.5 rounded-xl text-[10px] font-black transition-all disabled:opacity-20"
-                          >
-                            {isDeleting === anime.id ? '...' : 'SİL'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          disabled={isDeleting === anime.id}
+                          className="bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white px-4 py-2.5 rounded-xl text-[10px] font-black transition-all disabled:opacity-20"
+                        >
+                          {isDeleting === anime.id ? '...' : 'SİL'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           )}
         </div>
       )}
