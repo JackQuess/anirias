@@ -157,41 +157,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [src, initialTime, onTimeUpdate, onEnded, onError]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      const video = videoRef.current;
-      if (!video) return;
-
-      switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          skipTime(-5);
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          skipTime(5);
-          break;
-        case 'f':
-        case 'F':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, skipTime, toggleFullscreen]);
-
   // Fullscreen handling
   useEffect(() => {
     const handleFullscreenChange = () => {
