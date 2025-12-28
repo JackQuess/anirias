@@ -48,6 +48,7 @@ BEGIN
 END $$;
 
 -- Fix user_id column
+-- NOTE: Must drop RLS policies first if altering column type
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -59,8 +60,33 @@ BEGIN
     ALTER TABLE public.notifications ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL;
     RAISE NOTICE '✓ Added user_id column';
   ELSE
-    -- Ensure it's UUID type and has FK
-    ALTER TABLE public.notifications ALTER COLUMN user_id TYPE UUID USING user_id::uuid;
+    -- Check current data type
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+        AND table_name = 'notifications' 
+        AND column_name = 'user_id'
+        AND data_type != 'uuid'
+    ) THEN
+      -- Drop RLS policies that depend on user_id before altering
+      DROP POLICY IF EXISTS "Users can read own notifications" ON public.notifications;
+      DROP POLICY IF EXISTS "notifications_select_own" ON public.notifications;
+      DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
+      
+      -- Now alter the column type
+      ALTER TABLE public.notifications ALTER COLUMN user_id TYPE UUID USING user_id::uuid;
+      
+      -- Recreate the SELECT policy
+      CREATE POLICY "Users can read own notifications"
+      ON public.notifications
+      FOR SELECT
+      USING (user_id = auth.uid());
+      
+      RAISE NOTICE '✓ Altered user_id column type and recreated policies';
+    ELSE
+      RAISE NOTICE '✓ user_id column type is already UUID';
+    END IF;
+    
     -- Add FK if it doesn't exist
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.table_constraints
@@ -69,8 +95,8 @@ BEGIN
       ALTER TABLE public.notifications 
         ADD CONSTRAINT notifications_user_id_fkey 
         FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+      RAISE NOTICE '✓ Added user_id FK';
     END IF;
-    RAISE NOTICE '✓ Verified user_id column';
   END IF;
 END $$;
 
