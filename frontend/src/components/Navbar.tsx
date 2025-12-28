@@ -185,25 +185,42 @@ const Navbar: React.FC = () => {
                         <span className="text-[8px] font-bold text-gray-500">{unreadCount} YENİ</span>
                       </div>
                       <div className="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                        {notifications.map(n => (
-                          <Link 
-                            key={n.id} 
-                            to={n.link || '#'} 
-                            onClick={async () => {
-                              setIsNotifOpen(false);
-                              try {
-                                await db.markNotificationRead(n.id);
-                                setNotifications(prev => prev.map(p => p.id === n.id ? { ...p, is_read: true } : p));
-                              } catch (err) {
-                                console.error('Bildirim okundu işaretlenemedi', err);
-                              }
-                            }}
-                            className={`block p-4 rounded-2xl border transition-all ${n.is_read ? 'bg-transparent border-white/5 opacity-50' : 'bg-white/5 border-brand-red/20 hover:border-brand-red/50'}`}
-                          >
-                            <p className="text-[10px] font-black text-white mb-1 uppercase tracking-tight">{n.title}</p>
-                            <p className="text-[10px] text-gray-500 line-clamp-2">{n.body}</p>
-                          </Link>
-                        ))}
+                        {notifications.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                            Bildirim yok
+                          </div>
+                        ) : (
+                          notifications.map(n => {
+                            // Build link based on notification type
+                            let link = '#';
+                            if (n.type === 'new_episode' && n.anime_id) {
+                              // For new episode notifications, link to anime detail page
+                              link = `/anime/${n.anime_id}`;
+                            }
+                            
+                            return (
+                              <Link 
+                                key={n.id} 
+                                to={link}
+                                onClick={async () => {
+                                  setIsNotifOpen(false);
+                                  if (!n.is_read) {
+                                    try {
+                                      await db.markNotificationRead(n.id);
+                                      setNotifications(prev => prev.map(p => p.id === n.id ? { ...p, is_read: true } : p));
+                                    } catch (err) {
+                                      if (import.meta.env.DEV) console.error('Bildirim okundu işaretlenemedi', err);
+                                    }
+                                  }
+                                }}
+                                className={`block p-4 rounded-2xl border transition-all ${n.is_read ? 'bg-transparent border-white/5 opacity-50' : 'bg-white/5 border-brand-red/20 hover:border-brand-red/50'}`}
+                              >
+                                <p className="text-[10px] font-black text-white mb-1 uppercase tracking-tight">{n.title}</p>
+                                <p className="text-[10px] text-gray-500 line-clamp-2">{n.body}</p>
+                              </Link>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   )}
