@@ -368,6 +368,44 @@ export const db = {
     );
   },
 
+  bindAniListSeason: async (
+    seasonId: string,
+    anilistMediaId: number,
+    anilistMedia: {
+      id: number;
+      format: string;
+      episodes: number | null;
+      seasonYear: number | null;
+    },
+    adminToken?: string
+  ): Promise<Season> => {
+    // Admin operation - use backend API for transactional binding
+    try {
+      const data = await callBackendApi(
+        '/api/admin/anilist/bind-season',
+        'POST',
+        {
+          season_id: seasonId,
+          anilist_media_id: anilistMediaId,
+          anilist_media: anilistMedia,
+        },
+        adminToken
+      );
+
+      if (!data.success || !data.season) {
+        throw new Error(data?.error || 'Failed to bind season to AniList');
+      }
+
+      return data.season as Season;
+    } catch (error: any) {
+      // Re-throw with structured error information
+      const err: any = new Error(error?.message || 'Failed to bind season to AniList');
+      err.errorCode = error?.errorCode;
+      err.details = error?.details;
+      throw err;
+    }
+  },
+
   // Admin panel: Get episodes by season_id directly (for admin use only)
   getEpisodesBySeasonId: async (seasonId: string): Promise<Episode[]> => {
     if (!checkEnv()) return [];
