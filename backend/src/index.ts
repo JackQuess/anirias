@@ -5,6 +5,7 @@ import bunnyPatchRouter from './routes/admin/bunnyPatch.js';
 import hybridImportRouter from './routes/admin/hybridImport.js';
 import fixSeasonsRouter from './routes/admin/fixSeasons.js';
 import deleteAnimeRouter from './routes/admin/deleteAnime.js';
+import toggleFeaturedRouter from './routes/admin/toggleFeatured.js';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/admin', bunnyPatchRouter);
 app.use('/api/admin', hybridImportRouter);
 app.use('/api/admin', fixSeasonsRouter);
 app.use('/api/admin', deleteAnimeRouter);
+app.use('/api/admin', toggleFeaturedRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
