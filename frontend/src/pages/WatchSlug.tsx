@@ -264,7 +264,7 @@ const WatchSlug: React.FC = () => {
           {/* Main Player Area */}
           <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden">
             <VideoPlayer
-              src={playbackUrl}
+              src={playbackUrl || ''} // Empty string if undefined to prevent player flash
               poster={poster}
               title={playerTitle}
               animeSlug={anime.slug || undefined}
