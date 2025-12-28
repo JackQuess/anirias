@@ -183,6 +183,44 @@ export const db = {
     }
   },
 
+  getAnimeByIdOrSlug: async (identifier: string): Promise<Anime | null> => {
+    if (!checkEnv()) return null;
+    if (!identifier || identifier.trim() === '') {
+      if (import.meta.env.DEV) console.warn('[db.getAnimeByIdOrSlug] Empty identifier provided');
+      return null;
+    }
+
+    // Check if identifier is a UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    
+    try {
+      let query = supabase!.from('animes').select('*');
+      
+      if (isUUID) {
+        query = query.eq('id', identifier);
+      } else {
+        query = query.eq('slug', identifier);
+      }
+      
+      const { data, error } = await query.maybeSingle();
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error("[db.getAnimeByIdOrSlug] Query error:", error);
+        return null;
+      }
+      
+      if (!data) {
+        if (import.meta.env.DEV) console.warn(`[db.getAnimeByIdOrSlug] Anime not found for ${isUUID ? 'id' : 'slug'}:`, identifier);
+        return null;
+      }
+      
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getAnimeByIdOrSlug] Unexpected error:', err);
+      return null;
+    }
+  },
+
   getAnimeBySlug: async (slug: string): Promise<Anime | null> => {
     if (!checkEnv()) return null;
     if (!slug || slug.trim() === '') {

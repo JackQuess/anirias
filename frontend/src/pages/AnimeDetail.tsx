@@ -19,10 +19,21 @@ const AnimeDetail: React.FC = () => {
   const [userRating, setUserRating] = useState<number>(0);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   
-  const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(id!), [id]);
-  // Fetch ALL episodes - no season_id filter
-  const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(() => db.getEpisodes(id!), [id]);
-  const { data: similarAnimes } = useLoad(() => db.getSimilarAnimes(id!), [id]);
+  const { data: anime, loading: animeLoading, error: animeError } = useLoad(() => {
+    if (!id) throw new Error('Anime identifier required');
+    return db.getAnimeByIdOrSlug(id);
+  }, [id]);
+  
+  // Fetch ALL episodes - no season_id filter (only after anime is loaded)
+  const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(() => {
+    if (!anime?.id) throw new Error('Anime ID required');
+    return db.getEpisodes(anime.id);
+  }, [anime?.id]);
+  
+  const { data: similarAnimes } = useLoad(() => {
+    if (!anime?.id) throw new Error('Anime ID required');
+    return db.getSimilarAnimes(anime.id);
+  }, [anime?.id]);
   const { data: watchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
 
   // Group episodes by season_number
@@ -97,7 +108,23 @@ const AnimeDetail: React.FC = () => {
   const titleString = anime ? getDisplayTitle(anime.title) : '';
 
   if (animeLoading) return <div className="min-h-screen bg-brand-black pt-20"><LoadingSkeleton type="banner" /></div>;
-  if (!anime) return <div className="min-h-screen bg-brand-black flex items-center justify-center text-white font-black italic">ANİME BULUNAMADI</div>;
+  if (animeError || !anime) {
+    return (
+      <div className="min-h-screen bg-brand-black flex items-center justify-center text-white font-black italic">
+        <div className="text-center space-y-4">
+          <div className="text-6xl mb-4">404</div>
+          <div>ANİME BULUNAMADI</div>
+          {id && (
+            <div className="text-sm text-gray-500 mt-4 font-normal">
+              {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) 
+                ? `UUID: ${id}` 
+                : `Slug: ${id}`}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const statusLabels: Record<string, string> = {
     watching: 'İzliyorum',
