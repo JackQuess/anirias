@@ -21,7 +21,7 @@ const AnimeDetail: React.FC = () => {
   
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(id!), [id]);
   // Fetch ALL episodes - no season_id filter
-  const { data: allEpisodes, reload: reloadEpisodes } = useLoad(() => db.getEpisodes(id!), [id]);
+  const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(() => db.getEpisodes(id!), [id]);
   const { data: similarAnimes } = useLoad(() => db.getSimilarAnimes(id!), [id]);
   const { data: watchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
 
@@ -257,7 +257,11 @@ const AnimeDetail: React.FC = () => {
                </div>
 
                <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 min-w-0 w-full max-w-full">
-                  {visibleEpisodes.length > 0 ? (
+                  {episodesLoading ? (
+                    <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest py-8">
+                      Yükleniyor...
+                    </div>
+                  ) : visibleEpisodes.length > 0 ? (
                     visibleEpisodes.map(ep => {
                       const seasonNum = ep.season_number || selectedSeasonNumber || 1;
                       return (
@@ -277,11 +281,9 @@ const AnimeDetail: React.FC = () => {
                       );
                     })
                   ) : (
-                    allEpisodes && allEpisodes.length === 0 && (
-                      <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest">
-                        Yakında
-                      </div>
-                    )
+                    <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest py-8">
+                      Yakında
+                    </div>
                   )}
                </div>
             </section>
