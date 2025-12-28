@@ -6,18 +6,18 @@ import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2
 interface VideoPlayerProps {
   src: string;
   poster?: string;
-  title: string; // "JUJUTSU KAISEN – Sezon 2 • Bölüm 5"
-  animeSlug?: string; // Anime slug for title link
+  title: string;
+  animeSlug?: string;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
   initialTime?: number;
   onSeek?: (time: number) => void;
-  introStart?: number; // Intro start time in seconds
-  introEnd?: number; // Intro end time in seconds
-  onSkipIntro?: () => void; // Callback when intro is skipped
-  hasNextEpisode?: boolean; // Whether next episode exists
-  onNextEpisode?: () => void; // Callback when next episode is requested
+  introStart?: number;
+  introEnd?: number;
+  onSkipIntro?: () => void;
+  hasNextEpisode?: boolean;
+  onNextEpisode?: () => void;
 }
 
 const formatTime = (seconds: number): string => {
@@ -52,23 +52,44 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const volumeSliderRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // State management
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [buffered, setBuffered] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [showControls, setShowControls] = useState(false); // Hidden by default on initial load
+  const [showControls, setShowControls] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [introSkipped, setIntroSkipped] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showNextEpisodeOverlay, setShowNextEpisodeOverlay] = useState(false);
-  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(10);
+  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(90);
   const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
-  const durationSetRef = useRef(false); // Track if duration has been set to prevent multiple updates
+  const [showResumeCard, setShowResumeCard] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const durationSetRef = useRef(false);
+  const lastTimeUpdateRef = useRef(0); // Prevent time flickering
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Show resume card if initialTime > 0
+  useEffect(() => {
+    if (initialTime > 0 && isMetadataLoaded) {
+      setShowResumeCard(true);
+    }
+  }, [initialTime, isMetadataLoaded]);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -92,9 +113,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
 
-    // Reset metadata state when src changes (hide video, show placeholder)
+    // Reset metadata state when src changes
     setIsMetadataLoaded(false);
-    durationSetRef.current = false; // Reset duration flag when src changes
+    durationSetRef.current = false;
+    lastTimeUpdateRef.current = 0;
 
     const handleLoadedMetadata = () => {
       // Set duration ONLY ONCE from loadedmetadata event
@@ -102,25 +124,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setDuration(video.duration);
         durationSetRef.current = true;
       }
-      setIsMetadataLoaded(true); // Mark metadata as loaded - video can now be shown
-      if (initialTime > 0) {
-        video.currentTime = initialTime;
-        setCurrentTime(initialTime);
-      }
+      setIsMetadataLoaded(true);
+      // Don't set initialTime here - let resume card handle it
     };
 
     const handleTimeUpdate = () => {
       const time = video.currentTime;
-      setCurrentTime(time);
-      // Use video.duration directly (source of truth), NOT state
+      // Prevent flickering: only update if change is significant (>0.1s) or first update
+      if (Math.abs(time - lastTimeUpdateRef.current) > 0.1 || lastTimeUpdateRef.current === 0) {
+        setCurrentTime(time);
+        lastTimeUpdateRef.current = time;
+      }
+      
       const videoDuration = video.duration || duration || 0;
       onTimeUpdate?.(time, videoDuration);
       
-      // Show next episode overlay in last 10 seconds
-      // Use video.duration directly, not state
+      // Show next episode overlay 90 seconds before end
       if (hasNextEpisode && onNextEpisode && videoDuration > 0) {
         const remaining = videoDuration - time;
-        if (remaining <= 10 && remaining > 0 && !showNextEpisodeOverlay) {
+        if (remaining <= 90 && remaining > 0 && !showNextEpisodeOverlay) {
           setShowNextEpisodeOverlay(true);
           setNextEpisodeCountdown(Math.ceil(remaining));
           
@@ -135,20 +157,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   clearInterval(nextEpisodeCountdownRef.current);
                   nextEpisodeCountdownRef.current = null;
                 }
-                // Auto-play next episode
                 onNextEpisode();
                 return 0;
               }
               return prev - 1;
             });
           }, 1000);
-        } else if (remaining > 10 && showNextEpisodeOverlay) {
+        } else if (remaining > 90 && showNextEpisodeOverlay) {
           // Hide overlay if user seeks back
           setShowNextEpisodeOverlay(false);
           if (nextEpisodeCountdownRef.current) {
             clearInterval(nextEpisodeCountdownRef.current);
             nextEpisodeCountdownRef.current = null;
           }
+        } else if (showNextEpisodeOverlay && remaining > 0) {
+          // Update countdown
+          setNextEpisodeCountdown(Math.ceil(remaining));
         }
       }
     };
@@ -156,7 +180,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleProgress = () => {
       if (video.buffered.length > 0) {
         const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        // Use video.duration directly, not state
         const videoDuration = video.duration || duration;
         if (videoDuration > 0) {
           setBuffered((bufferedEnd / videoDuration) * 100);
@@ -229,11 +252,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener('error', handleError);
       hlsRef.current?.destroy();
       hlsRef.current = null;
+      if (nextEpisodeCountdownRef.current) {
+        clearInterval(nextEpisodeCountdownRef.current);
+        nextEpisodeCountdownRef.current = null;
+      }
     };
-    // CRITICAL: Remove showNextEpisodeOverlay from dependencies to prevent re-initialization
-    // Only re-run when src or initialTime changes (episode change)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, initialTime]);
+  }, [src, hasNextEpisode, onNextEpisode, showNextEpisodeOverlay, duration, onTimeUpdate, onEnded, onError]);
 
   // Fullscreen handling
   useEffect(() => {
@@ -265,38 +289,45 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
-    video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
+    video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
+    // Silent seek: don't show controls on keyboard seek
     if (!silent) {
       showControlsTemporary();
     }
   }, [showControlsTemporary]);
 
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     const bar = seekBarRef.current;
     if (!video || !bar) return;
 
-    // Use video.duration directly (source of truth), fallback to state
     const videoDuration = video.duration || duration || 0;
     if (videoDuration === 0) return;
 
     const rect = bar.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
+    const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+    if (!clientX) return;
+    
+    const percent = (clientX - rect.left) / rect.width;
     const newTime = percent * videoDuration;
 
     video.currentTime = newTime;
     setCurrentTime(newTime);
+    lastTimeUpdateRef.current = newTime;
     onSeek?.(newTime);
     showControlsTemporary();
   }, [duration, onSeek, showControlsTemporary]);
 
-  const handleVolumeChange = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleVolumeChange = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     const slider = volumeSliderRef.current;
     if (!video || !slider) return;
 
     const rect = slider.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+    if (!clientX) return;
+    
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 
     video.volume = percent;
     setVolume(percent);
@@ -336,15 +367,36 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [showControlsTemporary]);
 
   const handleMouseMove = useCallback(() => {
-    showControlsTemporary();
-  }, [showControlsTemporary]);
+    if (!isMobile) {
+      showControlsTemporary();
+    }
+  }, [isMobile, showControlsTemporary]);
 
   const handleVideoClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     togglePlay();
   }, [togglePlay]);
 
-  // Keyboard shortcuts (must be after callbacks are defined)
+  const handleResume = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || initialTime <= 0) return;
+    
+    video.currentTime = initialTime;
+    setCurrentTime(initialTime);
+    lastTimeUpdateRef.current = initialTime;
+    setShowResumeCard(false);
+    onSeek?.(initialTime);
+    video.play().then(() => {
+      setIsPlaying(true);
+      showControlsTemporary();
+    });
+  }, [initialTime, onSeek, showControlsTemporary]);
+
+  const handleResumeCancel = useCallback(() => {
+    setShowResumeCard(false);
+  }, []);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -361,11 +413,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          skipTime(-10, true); // Silent seek - no UI flash
+          skipTime(-10, true); // Silent - no UI flash
           break;
         case 'ArrowRight':
           e.preventDefault();
-          skipTime(10, true); // Silent seek - no UI flash
+          skipTime(10, true); // Silent - no UI flash
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -374,7 +426,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setVolume(video.volume);
             setIsMuted(false);
           }
-          // Don't show controls on keyboard volume changes (silent update)
           break;
         case 'ArrowDown':
           e.preventDefault();
@@ -383,7 +434,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setVolume(video.volume);
             if (video.volume === 0) setIsMuted(true);
           }
-          // Don't show controls on keyboard volume changes (silent update)
           break;
         case 'f':
         case 'F':
@@ -402,12 +452,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, skipTime, toggleFullscreen, toggleMute]);
 
-  // Cleanup countdown on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (nextEpisodeCountdownRef.current) {
         clearInterval(nextEpisodeCountdownRef.current);
         nextEpisodeCountdownRef.current = null;
+      }
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
       }
     };
   }, []);
@@ -415,21 +469,36 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full max-w-[1200px] mx-auto bg-black rounded-[16px] overflow-hidden shadow-2xl aspect-video"
+      className={`relative w-full bg-black overflow-hidden shadow-2xl ${
+        isMobile 
+          ? 'rounded-none' // Edge-to-edge on mobile
+          : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
+      }`}
+      style={{
+        // Fixed 16:9 aspect ratio - prevents flash
+        aspectRatio: '16 / 9',
+        minHeight: isMobile ? 'auto' : '0', // Let aspect-ratio handle height
+      }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
-        if (isPlaying) {
+        if (isPlaying && !isMobile) {
           setShowControls(false);
         }
       }}
+      onTouchStart={() => {
+        if (isMobile) {
+          showControlsTemporary();
+        }
+      }}
     >
-      {/* Static Placeholder Layer - Always visible until metadata loads */}
+      {/* Static Placeholder Layer - Fixed height, prevents flash */}
       <div
         className="absolute inset-0 w-full h-full bg-black transition-opacity duration-300"
         style={{
           opacity: isMetadataLoaded ? 0 : 1,
           visibility: isMetadataLoaded ? 'hidden' : 'visible',
           zIndex: 1,
+          aspectRatio: '16 / 9', // Maintain aspect ratio
         }}
       >
         {poster && (
@@ -438,7 +507,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             alt=""
             className="w-full h-full object-cover"
             onError={(e) => {
-              // Hide poster image on error, show black background
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
@@ -446,10 +514,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       </div>
 
       {/* Video Element - Mounted once, hidden until metadata loads */}
-      {/* Note: src is set programmatically in useEffect for HLS compatibility */}
       <video
         ref={videoRef}
-        poster={poster}
         className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
         style={{
           opacity: isMetadataLoaded ? 1 : 0,
@@ -460,25 +526,71 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onClick={handleVideoClick}
       />
 
+      {/* Resume Watching Card */}
+      {showResumeCard && initialTime > 0 && (
+        <div
+          className={`absolute inset-0 z-50 flex items-center justify-center ${
+            isMobile ? 'bg-black/95' : 'bg-black/80'
+          } backdrop-blur-sm transition-opacity duration-300`}
+          style={{
+            opacity: showResumeCard ? 1 : 0,
+          }}
+        >
+          <div
+            className={`bg-black/90 backdrop-blur-md rounded-lg border border-white/20 shadow-2xl ${
+              isMobile 
+                ? 'w-full mx-4 p-6' 
+                : 'min-w-[320px] p-6'
+            }`}
+          >
+            <div className="text-white mb-4">
+              <p className="text-lg font-semibold mb-2">İzlemeye Devam Et</p>
+              <p className="text-sm text-white/70">
+                {formatTime(initialTime)} konumundan devam et
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleResume}
+                className="flex-1 bg-[#e5193e] hover:bg-[#c41735] text-white px-4 py-3 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Play size={16} strokeWidth={2.5} />
+                <span>Devam Et</span>
+              </button>
+              <button
+                onClick={handleResumeCancel}
+                className="px-4 py-3 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors text-sm font-semibold"
+              >
+                Baştan Başla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Overlay - Title */}
       <div
         className={`absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 ${
           showControls || !hasInteracted ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div className="absolute top-5 left-5 md:top-6 md:left-6">
+        <div className={`absolute ${isMobile ? 'top-3 left-3' : 'top-5 left-5 md:top-6 md:left-6'}`}>
           {animeSlug ? (
             <Link
               to={`/anime/${animeSlug}`}
               className="group cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e5193e] transition-colors">
+              <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e5193e] transition-colors ${
+                isMobile ? 'text-sm' : 'text-base md:text-lg'
+              }`}>
                 {title}
               </h2>
             </Link>
           ) : (
-            <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+            <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] ${
+              isMobile ? 'text-sm' : 'text-base md:text-lg'
+            }`}>
               {title}
             </h2>
           )}
@@ -487,7 +599,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Intro Skip Button */}
       {introStart !== undefined && introEnd !== undefined && introStart < introEnd && !introSkipped && currentTime >= introStart && currentTime < introEnd && (
-        <div className="absolute bottom-24 right-6 z-40 pointer-events-auto">
+        <div className={`absolute ${isMobile ? 'bottom-20 right-3' : 'bottom-24 right-6'} z-40 pointer-events-auto`}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -497,7 +609,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 onSkipIntro?.();
               }
             }}
-            className="bg-black/80 hover:bg-black/90 backdrop-blur-md text-white px-5 py-2.5 rounded-lg font-semibold text-sm border border-white/20 hover:border-[#e5193e] transition-all shadow-lg flex items-center gap-2 group"
+            className="bg-black/80 hover:bg-black/90 backdrop-blur-md text-white px-4 py-2 rounded-lg font-semibold text-sm border border-white/20 hover:border-[#e5193e] transition-all shadow-lg flex items-center gap-2 group"
           >
             <span>Girişi Atla</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="group-hover:translate-x-0.5 transition-transform">
@@ -508,14 +620,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Next Episode Overlay (Netflix-style) */}
+      {/* Next Episode Overlay (90 seconds before end) */}
       {showNextEpisodeOverlay && hasNextEpisode && onNextEpisode && (
-        <div className="absolute bottom-6 right-6 z-40 pointer-events-auto">
-          <div className="bg-black/90 backdrop-blur-md rounded-lg p-4 border border-white/20 shadow-2xl min-w-[280px]">
+        <div
+          className={`absolute z-40 pointer-events-auto ${
+            isMobile
+              ? 'bottom-0 left-0 right-0 animate-slide-up'
+              : 'bottom-6 right-6'
+          }`}
+        >
+          <div
+            className={`bg-black/90 backdrop-blur-md rounded-lg border border-white/20 shadow-2xl ${
+              isMobile
+                ? 'w-full rounded-t-2xl rounded-b-none p-4'
+                : 'min-w-[320px] p-6'
+            }`}
+          >
             <div className="text-white mb-3">
-              <p className="text-sm font-semibold mb-1">Sonraki Bölüm</p>
-              <p className="text-xs text-white/70">
-                {nextEpisodeCountdown > 0 ? `${nextEpisodeCountdown} saniye sonra otomatik oynatılacak` : 'Oynatılıyor...'}
+              <p className={`font-semibold mb-1 ${isMobile ? 'text-sm' : 'text-base'}`}>Sonraki Bölüm</p>
+              <p className={`text-white/70 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                {nextEpisodeCountdown > 0 
+                  ? `${formatTime(nextEpisodeCountdown)} sonra otomatik oynatılacak` 
+                  : 'Oynatılıyor...'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -529,10 +655,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   }
                   onNextEpisode();
                 }}
-                className="flex-1 bg-[#e5193e] hover:bg-[#c41735] text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                className={`flex-1 bg-[#e5193e] hover:bg-[#c41735] text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
+                  isMobile ? 'py-3' : ''
+                }`}
               >
                 <Play size={16} strokeWidth={2.5} />
-                <span>Şimdi Oynat</span>
+                <span>Şimdi Geç</span>
               </button>
               <button
                 onClick={(e) => {
@@ -543,13 +671,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     nextEpisodeCountdownRef.current = null;
                   }
                 }}
-                className="w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
+                className={`text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors font-semibold text-sm ${
+                  isMobile ? 'px-4 py-3' : 'w-10 h-10 flex items-center justify-center'
+                }`}
                 aria-label="İptal"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                {isMobile ? 'İptal' : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
@@ -562,7 +694,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
-        <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-3">
+        <div className={`${isMobile ? 'px-3 pb-3' : 'px-4 md:px-6 pb-4 md:pb-6'} space-y-3`}>
           {/* Seek Bar */}
           <div
             ref={seekBarRef}
@@ -573,6 +705,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onMouseMove={(e) => {
               if (isDragging) {
                 handleSeek(e);
+              }
+            }}
+            onTouchStart={(e) => {
+              if (isMobile) {
+                setIsDragging(true);
+                handleSeek(e);
+              }
+            }}
+            onTouchMove={(e) => {
+              if (isMobile && isDragging) {
+                handleSeek(e);
+              }
+            }}
+            onTouchEnd={() => {
+              if (isMobile) {
+                setIsDragging(false);
               }
             }}
           >
@@ -587,10 +735,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
             />
             {/* Hover indicator */}
-            <div 
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2 shadow-lg"
-              style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-            />
+            {!isMobile && (
+              <div 
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2 shadow-lg"
+                style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              />
+            )}
           </div>
 
           {/* Controls Row */}
@@ -600,7 +750,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Play/Pause */}
               <button
                 onClick={togglePlay}
-                className="w-10 h-10 flex items-center justify-center text-white hover:text-white/90 transition-colors"
+                className={`flex items-center justify-center text-white hover:text-white/90 transition-colors ${
+                  isMobile ? 'w-10 h-10' : 'w-10 h-10'
+                }`}
                 aria-label={isPlaying ? 'Duraklat' : 'Oynat'}
               >
                 {isPlaying ? (
@@ -613,37 +765,60 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Skip -10s */}
               <button
                 onClick={() => skipTime(-10)}
-                className="w-9 h-9 flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors group"
+                className={`flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors ${
+                  isMobile ? 'w-8 h-8' : 'w-9 h-9'
+                }`}
                 aria-label="10 saniye geri"
               >
                 <Rewind size={18} strokeWidth={2.5} />
-                <span className="text-[9px] font-semibold mt-0.5 leading-none">10</span>
+                {!isMobile && <span className="text-[9px] font-semibold mt-0.5 leading-none">10</span>}
               </button>
 
               {/* Skip +10s */}
               <button
                 onClick={() => skipTime(10)}
-                className="w-9 h-9 flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors group"
+                className={`flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors ${
+                  isMobile ? 'w-8 h-8' : 'w-9 h-9'
+                }`}
                 aria-label="10 saniye ileri"
               >
                 <FastForward size={18} strokeWidth={2.5} />
-                <span className="text-[9px] font-semibold mt-0.5 leading-none">10</span>
+                {!isMobile && <span className="text-[9px] font-semibold mt-0.5 leading-none">10</span>}
               </button>
 
               {/* Time Display */}
-              <div className="text-white/90 text-sm font-medium tabular-nums">
+              <div className={`text-white/90 font-medium tabular-nums ${isMobile ? 'text-xs' : 'text-sm'}`}>
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
             </div>
 
             {/* Right: Volume, Next Episode, Fullscreen */}
             <div className="flex items-center gap-3">
-              {/* Volume - Slider slides left on hover */}
+              {/* Volume - Slider slides left on hover (desktop) or tap (mobile) */}
               <div className="flex items-center gap-2 group relative">
                 <button
                   onClick={toggleMute}
-                  className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors z-10"
+                  className={`flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors z-10 ${
+                    isMobile ? 'w-9 h-9' : 'w-9 h-9'
+                  }`}
                   aria-label={isMuted ? 'Sesi aç' : 'Sessize al'}
+                  onTouchStart={(e) => {
+                    if (isMobile) {
+                      e.stopPropagation();
+                      // Toggle volume slider on mobile tap
+                      const slider = volumeSliderRef.current;
+                      if (slider) {
+                        const isVisible = slider.classList.contains('opacity-100');
+                        if (isVisible) {
+                          slider.classList.remove('opacity-100', 'w-20');
+                          slider.classList.add('opacity-0', 'w-0');
+                        } else {
+                          slider.classList.remove('opacity-0', 'w-0');
+                          slider.classList.add('opacity-100', 'w-20');
+                        }
+                      }
+                    }
+                  }}
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX size={20} strokeWidth={2.5} />
@@ -653,13 +828,34 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </button>
                 <div
                   ref={volumeSliderRef}
-                  className="w-0 h-1 bg-white/20 rounded-full cursor-pointer opacity-0 group-hover:w-20 group-hover:opacity-100 transition-all duration-150 ease-out overflow-hidden absolute left-full ml-2 top-1/2 -translate-y-1/2"
+                  className={`h-1 bg-white/20 rounded-full cursor-pointer overflow-hidden absolute left-full ml-2 top-1/2 -translate-y-1/2 transition-all duration-200 ease-out ${
+                    isMobile 
+                      ? 'w-0 opacity-0' // Hidden by default on mobile, shown on tap
+                      : 'w-0 opacity-0 group-hover:w-20 group-hover:opacity-100' // Desktop: slide left on hover
+                  }`}
                   onClick={handleVolumeChange}
                   onMouseDown={() => setIsVolumeDragging(true)}
                   onMouseUp={() => setIsVolumeDragging(false)}
                   onMouseMove={(e) => {
                     if (isVolumeDragging) {
                       handleVolumeChange(e);
+                    }
+                  }}
+                  onTouchStart={(e) => {
+                    if (isMobile) {
+                      e.stopPropagation();
+                      setIsVolumeDragging(true);
+                      handleVolumeChange(e);
+                    }
+                  }}
+                  onTouchMove={(e) => {
+                    if (isMobile && isVolumeDragging) {
+                      handleVolumeChange(e);
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    if (isMobile) {
+                      setIsVolumeDragging(false);
                     }
                   }}
                 >
@@ -682,7 +878,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     }
                     onNextEpisode();
                   }}
-                  className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors"
+                  className={`flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors ${
+                    isMobile ? 'w-9 h-9' : 'w-9 h-9'
+                  }`}
                   aria-label="Sonraki Bölüm"
                 >
                   <SkipForward size={20} strokeWidth={2.5} />
@@ -692,7 +890,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors"
+                className={`flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors ${
+                  isMobile ? 'w-9 h-9' : 'w-9 h-9'
+                }`}
                 aria-label="Tam ekran"
               >
                 {isFullscreen ? (
@@ -710,4 +910,3 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 };
 
 export default VideoPlayer;
-
