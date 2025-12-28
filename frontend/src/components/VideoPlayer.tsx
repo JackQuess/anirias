@@ -86,7 +86,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Initialize video and HLS
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !src) return;
+    if (!video || !src) {
+      setIsMetadataLoaded(false);
+      return;
+    }
+
+    // Reset metadata state when src changes (hide video, show placeholder)
+    setIsMetadataLoaded(false);
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
