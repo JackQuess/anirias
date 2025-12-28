@@ -274,11 +274,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     const bar = seekBarRef.current;
-    if (!video || !bar || !duration) return;
+    if (!video || !bar) return;
+
+    // Use video.duration directly (source of truth), fallback to state
+    const videoDuration = video.duration || duration || 0;
+    if (videoDuration === 0) return;
 
     const rect = bar.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    const newTime = percent * duration;
+    const newTime = percent * videoDuration;
 
     video.currentTime = newTime;
     setCurrentTime(newTime);
