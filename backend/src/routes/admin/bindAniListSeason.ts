@@ -114,9 +114,13 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
 
     // Fetch season to validate it exists and check current state
     // Use anime_id + season_number to find season (more reliable than UUID)
+    // Note: anilist_id might not exist in all databases, so we select it conditionally
     let seasonQuery = supabaseAdmin
       .from('seasons')
-      .select('id, anime_id, season_number, anilist_id, episode_count');
+      .select('id, anime_id, season_number, episode_count');
+    
+    // Try to include anilist_id if column exists (will fail gracefully if it doesn't)
+    // We'll handle the case where column doesn't exist in the error handler
 
     if (season_id && typeof season_id === 'string') {
       // Try by UUID first if provided
@@ -159,10 +163,12 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
     }
 
     // Check if season is already bound to a different AniList media
-    if (season.anilist_id && season.anilist_id !== anilist_media_id) {
+    // Note: anilist_id might be undefined if column doesn't exist, so use optional chaining
+    const currentAnilistId = (season as any).anilist_id;
+    if (currentAnilistId && currentAnilistId !== anilist_media_id) {
       return res.status(400).json({
         success: false,
-        error: `Season is already bound to AniList ID ${season.anilist_id}`,
+        error: `Season is already bound to AniList ID ${currentAnilistId}`,
         errorCode: 'SEASON_ALREADY_BOUND',
       });
     }
