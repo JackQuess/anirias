@@ -11,15 +11,62 @@ import createSeasonRouter from './routes/admin/createSeason.js';
 
 const app = express();
 
+// CORS Configuration
 const allowedOrigin = process.env.CORS_ORIGIN || '*';
+const allowedOrigins = allowedOrigin === '*' 
+  ? '*' 
+  : allowedOrigin.split(',').map((o) => o.trim());
+
+// Default allowed origins (add Vercel and localhost for dev)
+const defaultOrigins = [
+  'https://anirias.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+];
+
+// Merge default origins with env origins (if not using wildcard)
+const finalOrigins = allowedOrigin === '*' 
+  ? '*' 
+  : [...new Set([...defaultOrigins, ...allowedOrigins])];
+
 app.use(
   cors({
-    origin: allowedOrigin === '*' ? '*' : allowedOrigin.split(',').map((o) => o.trim()),
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'X-ADMIN-TOKEN'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      // If wildcard is set, allow all
+      if (allowedOrigin === '*') return callback(null, true);
+      
+      // Check if origin is in allowed list
+      if (finalOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'X-ADMIN-TOKEN',
+      'X-Requested-With'
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200, // Some legacy browsers (IE11) choke on 204
   })
 );
-app.options('*', cors());
+
+// Explicit OPTIONS handler for all routes
+app.options('*', (req: Request, res: Response) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-ADMIN-TOKEN, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 app.use(express.json({ limit: '1mb' }));
 
