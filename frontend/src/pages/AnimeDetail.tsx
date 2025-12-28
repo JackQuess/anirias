@@ -19,72 +19,36 @@ const AnimeDetail: React.FC = () => {
   const [userRating, setUserRating] = useState<number>(0);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   
-  // Fetch guards to prevent infinite loops
-  const animeFetchedRef = useRef<string | null>(null);
-  const episodesFetchedRef = useRef<string | null>(null);
-  const similarFetchedRef = useRef<string | null>(null);
-  const watchlistFetchedRef = useRef<string | null>(null);
-  
   // Memoize fetcher functions to prevent recreation on every render
+  // These are stable references that only change when their dependencies change
   const fetchAnime = useCallback(async () => {
     if (!id) throw new Error('Anime identifier required');
-    // Guard: only fetch once per id
-    if (animeFetchedRef.current === id) {
-      return null; // Already fetched or fetching
-    }
-    animeFetchedRef.current = id;
     return db.getAnimeByIdOrSlug(id);
   }, [id]);
-  
-  const fetchEpisodes = useCallback(async () => {
-    // This will be called with anime.id from the dependency
-    // Guard is handled by dependency on animeId string
-    throw new Error('Anime ID required');
-  }, []);
-  
-  const fetchSimilar = useCallback(async () => {
-    // This will be called with anime.id from the dependency
-    // Guard is handled by dependency on animeId string
-    throw new Error('Anime ID required');
-  }, []);
-  
-  const fetchWatchlist = useCallback(async () => {
-    if (!user?.id) return [];
-    // Guard: only fetch once per userId
-    if (watchlistFetchedRef.current === user.id) {
-      return []; // Already fetched or fetching
-    }
-    watchlistFetchedRef.current = user.id;
-    return db.getWatchlist(user.id);
-  }, [user?.id]);
-  
-  // Fetch anime - only depends on id (primitive)
-  const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
   
   // Extract animeId as string to prevent object reference issues
   const animeId = anime?.id || null;
   
-  // Memoize episode fetcher with animeId
+  // Memoize episode fetcher with animeId - only recreates when animeId changes
   const fetchEpisodesWithId = useCallback(async () => {
     if (!animeId) throw new Error('Anime ID required');
-    // Guard: only fetch once per animeId
-    if (episodesFetchedRef.current === animeId) {
-      return []; // Already fetched or fetching
-    }
-    episodesFetchedRef.current = animeId;
     return db.getEpisodes(animeId);
   }, [animeId]);
   
-  // Memoize similar fetcher with animeId
+  // Memoize similar fetcher with animeId - only recreates when animeId changes
   const fetchSimilarWithId = useCallback(async () => {
     if (!animeId) throw new Error('Anime ID required');
-    // Guard: only fetch once per animeId
-    if (similarFetchedRef.current === animeId) {
-      return []; // Already fetched or fetching
-    }
-    similarFetchedRef.current = animeId;
     return db.getSimilarAnimes(animeId);
   }, [animeId]);
+  
+  // Memoize watchlist fetcher - only recreates when userId changes
+  const fetchWatchlist = useCallback(async () => {
+    if (!user?.id) return [];
+    return db.getWatchlist(user.id);
+  }, [user?.id]);
+  
+  // Fetch anime - only depends on id (primitive), fetcher is memoized
+  const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
   
   // Fetch episodes - only after anime is loaded, depends on animeId string
   const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(
