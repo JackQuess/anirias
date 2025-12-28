@@ -19,7 +19,16 @@ const Home: React.FC = () => {
   const { data: allAnimes } = useLoad(() => db.getAllAnimes('view_count'));
   const { data: latestEpisodes } = useLoad(() => db.getLatestEpisodes(12)); // Limit to 12 for home page
   const { data: myWatchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
-  const { data: newSeasons } = useLoad(() => db.getAllAnimes('created_at'));
+  
+  // Reuse allAnimes for newSeasons (no need for duplicate request)
+  const newSeasons = useMemo(() => {
+    if (!allAnimes) return [];
+    return [...allAnimes].sort((a, b) => {
+      const aDate = new Date(a.created_at).getTime();
+      const bDate = new Date(b.created_at).getTime();
+      return bDate - aDate;
+    });
+  }, [allAnimes]);
 
   // Hero Slider State
   const [currentSlide, setCurrentSlide] = useState(0);
