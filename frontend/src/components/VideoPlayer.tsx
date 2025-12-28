@@ -1,16 +1,21 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import Hls from 'hls.js';
 import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2 } from 'lucide-react';
 
 interface VideoPlayerProps {
   src: string;
   poster?: string;
-  title: string; // "JUJUTSU KAISEN – Sezon 2 · Bölüm 5"
+  title: string; // "JUJUTSU KAISEN – Sezon 2 • Bölüm 5"
+  animeSlug?: string; // Anime slug for title link
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
   initialTime?: number;
   onSeek?: (time: number) => void;
+  introStart?: number; // Intro start time in seconds
+  introEnd?: number; // Intro end time in seconds
+  onSkipIntro?: () => void; // Callback when intro is skipped
 }
 
 const formatTime = (seconds: number): string => {
@@ -26,11 +31,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
   poster,
   title,
+  animeSlug,
   onTimeUpdate,
   onEnded,
   onError,
   initialTime = 0,
   onSeek,
+  introStart,
+  introEnd,
+  onSkipIntro,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,13 +54,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [buffered, setBuffered] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false); // Hidden by default on initial load
   const [isDragging, setIsDragging] = useState(false);
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [introSkipped, setIntroSkipped] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
+    setHasInteracted(true);
     setShowControls(true);
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
@@ -260,6 +272,64 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     togglePlay();
   }, [togglePlay]);
 
+  // Keyboard shortcuts (must be after callbacks are defined)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          skipTime(-10); // ±10s as per requirements
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          skipTime(10);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (video.volume < 1) {
+            video.volume = Math.min(1, video.volume + 0.1);
+            setVolume(video.volume);
+            setIsMuted(false);
+          }
+          // Don't show controls on keyboard volume changes (silent update)
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          if (video.volume > 0) {
+            video.volume = Math.max(0, video.volume - 0.1);
+            setVolume(video.volume);
+            if (video.volume === 0) setIsMuted(true);
+          }
+          // Don't show controls on keyboard volume changes (silent update)
+          break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'm':
+        case 'M':
+          e.preventDefault();
+          toggleMute();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, skipTime, toggleFullscreen, toggleMute]);
+
   return (
     <div
       ref={containerRef}
@@ -282,15 +352,50 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {/* Top Overlay - Title */}
       <div
         className={`absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
+          showControls || !hasInteracted ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div className="absolute top-5 left-5 md:top-6 md:left-6">
-          <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-            {title}
-          </h2>
+          {animeSlug ? (
+            <Link
+              to={`/anime/${animeSlug}`}
+              className="group"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e5193e] transition-colors">
+                {title}
+              </h2>
+            </Link>
+          ) : (
+            <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+              {title}
+            </h2>
+          )}
         </div>
       </div>
+
+      {/* Intro Skip Button */}
+      {introStart !== undefined && introEnd !== undefined && introStart < introEnd && !introSkipped && currentTime >= introStart && currentTime < introEnd && (
+        <div className="absolute bottom-24 right-6 z-40 pointer-events-auto">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (videoRef.current && introEnd !== undefined) {
+                videoRef.current.currentTime = introEnd;
+                setIntroSkipped(true);
+                onSkipIntro?.();
+              }
+            }}
+            className="bg-black/80 hover:bg-black/90 backdrop-blur-md text-white px-5 py-2.5 rounded-lg font-semibold text-sm border border-white/20 hover:border-[#e5193e] transition-all shadow-lg flex items-center gap-2 group"
+          >
+            <span>Girişi Atla</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="group-hover:translate-x-0.5 transition-transform">
+              <polygon points="5 3 19 12 5 21 5 3" />
+              <line x1="19" y1="12" x2="5" y2="12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Bottom Controls */}
       <div
@@ -373,12 +478,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </div>
 
             {/* Right: Volume, Fullscreen */}
-            <div className="flex items-center gap-3 md:gap-4">
-              {/* Volume */}
-              <div className="flex items-center gap-2.5 group">
+            <div className="flex items-center gap-4">
+              {/* Volume - Slider slides left on hover */}
+              <div className="flex items-center gap-2 group relative">
                 <button
                   onClick={toggleMute}
-                  className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+                  className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors z-10"
                   aria-label={isMuted ? 'Sesi aç' : 'Sessize al'}
                 >
                   {isMuted || volume === 0 ? (
@@ -389,7 +494,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </button>
                 <div
                   ref={volumeSliderRef}
-                  className="w-20 h-1 bg-white/20 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="w-0 h-1 bg-white/20 rounded-full cursor-pointer opacity-0 group-hover:w-20 group-hover:opacity-100 transition-all duration-200 overflow-hidden"
                   onClick={handleVolumeChange}
                   onMouseDown={() => setIsVolumeDragging(true)}
                   onMouseUp={() => setIsVolumeDragging(false)}
@@ -409,7 +514,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+                className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors"
                 aria-label="Tam ekran"
               >
                 {isFullscreen ? (

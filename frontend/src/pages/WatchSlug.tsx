@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
 import { useAuth } from '../services/auth';
@@ -10,6 +10,7 @@ import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { WatchProgress } from '../types';
 import NotFound from './NotFound';
+import { parseSeasonSlug, generateSeasonSlug } from '@/utils/seasonSlug';
 
 const WatchSlug: React.FC = () => {
   const { animeSlug, seasonNumber, episodeNumber } = useParams<{
@@ -33,12 +34,23 @@ const WatchSlug: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Parse season slug to get anime slug
+  const seasonSlugInfo = useMemo(() => {
+    if (!animeSlug) return null;
+    const parsed = parseSeasonSlug(animeSlug);
+    if (!parsed) {
+      // If parsing fails, assume it's the base slug (season 1)
+      return { animeSlug: animeSlug, seasonNumber: 1 };
+    }
+    return parsed;
+  }, [animeSlug]);
+
   const { data: anime, loading: animeLoading, error: animeError } = useLoad(
     () => {
-      if (!animeSlug) throw new Error('Anime slug required');
-      return db.getAnimeBySlug(animeSlug);
+      if (!seasonSlugInfo) throw new Error('Invalid season slug');
+      return db.getAnimeBySlug(seasonSlugInfo.animeSlug);
     },
-    [animeSlug]
+    [seasonSlugInfo]
   );
 
   const { data: season, loading: seasonLoading, error: seasonError } = useLoad(
@@ -92,7 +104,8 @@ const WatchSlug: React.FC = () => {
 
   const navigateToEpisode = useCallback((targetSeasonNum: number, targetEpisodeNum: number) => {
     if (!anime?.slug) return;
-    navigate(`/watch/${anime.slug}/${targetSeasonNum}/${targetEpisodeNum}`);
+    const seasonSlug = generateSeasonSlug(anime.slug, targetSeasonNum);
+    navigate(`/watch/${seasonSlug}/${targetSeasonNum}/${targetEpisodeNum}`);
   }, [anime?.slug, navigate]);
 
   const progressMap = useMemo(() => {
@@ -189,9 +202,28 @@ const WatchSlug: React.FC = () => {
     setDuration(dur);
   }, []);
 
+  // Find next episode
+  const nextEpisode = useMemo(() => {
+    if (!episodes || !episodeNum) return null;
+    if (episodes.length > episodeNum) {
+      return { seasonNumber: seasonNum!, episodeNumber: episodeNum + 1 };
+    }
+    // Check if there's a next season
+    if (seasons && seasonNum) {
+      const nextSeason = seasons.find(s => s.season_number === seasonNum + 1);
+      if (nextSeason) {
+        return { seasonNumber: nextSeason.season_number, episodeNumber: 1 };
+      }
+    }
+    return null;
+  }, [episodes, episodeNum, seasonNum, seasons]);
+
   const handleEnded = useCallback(() => {
-    // Auto-play next episode could go here if needed
-  }, []);
+    // Auto-play next episode
+    if (nextEpisode) {
+      navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
+    }
+  }, [nextEpisode, navigateToEpisode]);
 
   const handleSeek = useCallback((time: number) => {
     setCurrentTime(time);
@@ -235,10 +267,16 @@ const WatchSlug: React.FC = () => {
               src={playbackUrl}
               poster={poster}
               title={playerTitle}
+              animeSlug={anime.slug || undefined}
               onTimeUpdate={handleTimeUpdate}
               onEnded={handleEnded}
               onSeek={handleSeek}
               initialTime={initialTime}
+              introStart={episode.intro_start || undefined}
+              introEnd={episode.intro_end || undefined}
+              onSkipIntro={() => {
+                // Intro skip handled internally by VideoPlayer
+              }}
             />
 
             {/* Comments */}

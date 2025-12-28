@@ -1,15 +1,24 @@
+import { generateSeasonSlug } from './seasonSlug';
+
 /**
- * Generate watch page URL using anime slug
- * Format: /watch/{slug}/{seasonNumber}/{episodeNumber}
+ * Generate watch page URL using anime slug with season-specific slugs
+ * Format: /watch/{season-slug}/{seasonNumber}/{episodeNumber}
+ * Strategy:
+ * - Season 1 → anime-slug
+ * - Season 2 → anime-slug-season-2
+ * - Season 3 → anime-slug-season-3
  */
 export function getWatchUrl(anime: { slug?: string | null; id?: string }, seasonNumber: number, episodeNumber: number): string {
   // Use slug if available, fallback to id (for backward compat during migration)
-  const identifier = anime.slug || anime.id;
-  if (!identifier) {
+  const baseSlug = anime.slug || anime.id;
+  if (!baseSlug) {
     console.warn('[getWatchUrl] No slug or id provided, using fallback');
     return `/watch/unknown/${seasonNumber}/${episodeNumber}`;
   }
-  return `/watch/${identifier}/${seasonNumber}/${episodeNumber}`;
+  
+  // Generate season-specific slug
+  const seasonSlug = generateSeasonSlug(baseSlug, seasonNumber);
+  return `/watch/${seasonSlug}/${seasonNumber}/${episodeNumber}`;
 }
 
 /**
