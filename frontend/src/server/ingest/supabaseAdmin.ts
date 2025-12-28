@@ -120,12 +120,37 @@ export async function upsertEpisodeVideo(
   };
 
   if (!existing) {
-    const { error } = await supabaseAdmin
+    const { data: inserted, error } = await supabaseAdmin
       .from('episodes')
-      .insert({ ...payload, duration_seconds: 0, created_at: new Date().toISOString() });
+      .insert({ ...payload, duration_seconds: 0, created_at: new Date().toISOString() })
+      .select('id')
+      .single();
     if (error) throw new Error(`Episode insert failed: ${error.message}`);
+    
+    // Create notifications for new episode
+    if (inserted?.id) {
+      const { error: notifyError } = await supabaseAdmin.rpc('create_episode_notifications', {
+        p_anime_id: animeId,
+        p_episode_id: inserted.id,
+        p_episode_number: episodeNumber,
+        p_season_number: season.season_number,
+      });
+      if (notifyError) {
+        console.error(`[upsertEpisodeVideo] Failed to create notifications for new episode ${inserted.id}:`, notifyError);
+      }
+    }
     return;
   }
+
+  // Check if episode was already ready
+  const { data: oldEpisode } = await supabaseAdmin
+    .from('episodes')
+    .select('status')
+    .eq('id', existing.id)
+    .single();
+  
+  const wasReady = oldEpisode?.status === 'ready';
+  const isNowReady = payload.status === 'ready';
 
   const { error: updateError } = await supabaseAdmin
     .from('episodes')
@@ -133,12 +158,37 @@ export async function upsertEpisodeVideo(
     .eq('id', existing.id);
 
   if (updateError) throw new Error(`Episode update failed: ${updateError.message}`);
+  
+  // Create notifications if episode just became ready
+  if (!wasReady && isNowReady) {
+    const { error: notifyError } = await supabaseAdmin.rpc('create_episode_notifications', {
+      p_anime_id: animeId,
+      p_episode_id: existing.id,
+      p_episode_number: episodeNumber,
+      p_season_number: season.season_number,
+    });
+    if (notifyError) {
+      console.error(`[upsertEpisodeVideo] Failed to create notifications for episode ${existing.id}:`, notifyError);
+    }
+  }
 }
 
 export async function updateEpisodeVideo(
   episodeId: string,
   cdnUrl: string,
 ): Promise<void> {
+  // Get episode details before updating
+  const { data: episode, error: fetchError } = await supabaseAdmin
+    .from('episodes')
+    .select('id, anime_id, season_id, episode_number, status, seasons(season_number)')
+    .eq('id', episodeId)
+    .single();
+
+  if (fetchError) throw new Error(`Episode fetch failed: ${fetchError.message}`);
+  if (!episode) throw new Error(`Episode not found: ${episodeId}`);
+
+  const wasReady = episode.status === 'ready';
+
   const { error } = await supabaseAdmin
     .from('episodes')
     .update({
@@ -150,6 +200,20 @@ export async function updateEpisodeVideo(
     .eq('id', episodeId);
 
   if (error) throw new Error(`Episode update failed: ${error.message}`);
+
+  // Create notifications if episode just became ready
+  if (!wasReady) {
+    const seasonNumber = (episode.seasons as any)?.season_number || 1;
+    const { error: notifyError } = await supabaseAdmin.rpc('create_episode_notifications', {
+      p_anime_id: episode.anime_id,
+      p_episode_id: episodeId,
+      p_episode_number: episode.episode_number,
+      p_season_number: seasonNumber,
+    });
+    if (notifyError) {
+      console.error(`[updateEpisodeVideo] Failed to create notifications for episode ${episodeId}:`, notifyError);
+    }
+  }
 }
 
 export async function getEpisodesForAnime(animeId: string): Promise<EpisodeRow[]> {

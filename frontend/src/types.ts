@@ -88,11 +88,12 @@ export interface WatchlistEntry {
 export interface Notification {
   id: string;
   user_id: string;
+  type: 'new_episode' | 'admin' | 'system';
   title: string;
-  message: string;
-  type: 'episode' | 'system' | 'social';
+  body: string;
+  anime_id?: string | null;
+  episode_id?: string | null;
   is_read: boolean;
-  link?: string;
   created_at: string;
 }
 

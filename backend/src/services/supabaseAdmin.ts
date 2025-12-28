@@ -146,11 +146,28 @@ export async function upsertEpisodeByKey(params: {
   };
 
   if (existing?.id) {
+    const wasReady = existing.status === 'ready';
+    const isNowReady = payload.status === 'ready' && cdnUrl;
+    
     const { error } = await supabaseAdmin
       .from('episodes')
       .update(payload)
       .eq('id', existing.id);
     if (error) throw new Error(`Episode update failed: ${error.message}`);
+    
+    // Create notifications if episode just became ready (wasn't ready before, now is ready)
+    if (!wasReady && isNowReady) {
+      const { error: notifyError } = await supabaseAdmin.rpc('create_episode_notifications', {
+        p_anime_id: animeId,
+        p_episode_id: existing.id,
+        p_episode_number: episodeNumber,
+        p_season_number: seasonNumber,
+      });
+      if (notifyError) {
+        console.error(`[upsertEpisodeByKey] Failed to create notifications for episode ${existing.id}:`, notifyError);
+      }
+    }
+    
     return existing.id;
   }
 
@@ -168,6 +185,20 @@ export async function upsertEpisodeByKey(params: {
     .select('id')
     .single();
   if (error || !data) throw new Error(`Episode insert failed: ${error?.message}`);
+  
+  // Create notifications if episode is inserted as ready
+  if (insertPayload.status === 'ready' && cdnUrl) {
+    const { error: notifyError } = await supabaseAdmin.rpc('create_episode_notifications', {
+      p_anime_id: animeId,
+      p_episode_id: data.id,
+      p_episode_number: episodeNumber,
+      p_season_number: seasonNumber,
+    });
+    if (notifyError) {
+      console.error(`[upsertEpisodeByKey] Failed to create notifications for new episode ${data.id}:`, notifyError);
+    }
+  }
+  
   return data.id;
 }
 
@@ -195,6 +226,17 @@ export function expectedCdn(slug: string, seasonNumber: number, episodeNumber: n
 }
 
 export async function updateEpisodePath(episodeId: string, cdnUrl: string) {
+  // First, get episode details before updating
+  const { data: episode, error: fetchError } = await supabaseAdmin
+    .from('episodes')
+    .select('id, anime_id, season_id, episode_number, seasons(season_number)')
+    .eq('id', episodeId)
+    .single();
+
+  if (fetchError) throw new Error(`Episode fetch failed: ${fetchError.message}`);
+  if (!episode) throw new Error(`Episode not found: ${episodeId}`);
+
+  // Update episode status to ready
   const { error } = await supabaseAdmin
     .from('episodes')
     .update({
@@ -204,5 +246,21 @@ export async function updateEpisodePath(episodeId: string, cdnUrl: string) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', episodeId);
+  
   if (error) throw new Error(`Episode update failed: ${error.message}`);
+
+  // Create notifications for users following this anime
+  // This uses the database function created in create_notification_system.sql
+  const seasonNumber = (episode.seasons as any)?.season_number || 1;
+  const { error: notifyError } = await supabaseAdmin.rpc('create_episode_notifications', {
+    p_anime_id: episode.anime_id,
+    p_episode_id: episodeId,
+    p_episode_number: episode.episode_number,
+    p_season_number: seasonNumber,
+  });
+
+  // Log notification creation errors but don't fail the episode update
+  if (notifyError) {
+    console.error(`[updateEpisodePath] Failed to create notifications for episode ${episodeId}:`, notifyError);
+  }
 }

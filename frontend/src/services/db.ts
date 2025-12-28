@@ -966,7 +966,7 @@ export const db = {
     try {
       const { data, error } = await supabase!
         .from('notifications')
-        .select('*')
+        .select('id, user_id, type, title, body, anime_id, episode_id, is_read, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       

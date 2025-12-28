@@ -7,6 +7,7 @@ import { Notification, Anime } from '../types';
 import { getAvatarSrc } from '@/utils/avatar';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { supabase } from '@/services/supabaseClient';
 
 const Navbar: React.FC = () => {
   const { user, profile, signOut } = useAuth();
@@ -35,16 +36,51 @@ const Navbar: React.FC = () => {
     setIsSearchOpen(false); // Close search on nav
   }, [location]);
 
+  // Load initial notifications and subscribe to Realtime updates
   useEffect(() => {
-    if (user) {
-      db.getNotifications(user.id)
-        .then(setNotifications)
-        .catch(() => {
-          // Silently fail - notifications might not be available
-          setNotifications([]);
-        });
+    if (!user) {
+      setNotifications([]);
+      return;
     }
-  }, [user]);
+
+    // Load initial notifications
+    db.getNotifications(user.id)
+      .then(setNotifications)
+      .catch(() => {
+        // Silently fail - notifications might not be available
+        setNotifications([]);
+      });
+
+    // Subscribe to Realtime notifications
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          // New notification received via Realtime
+          const newNotification = payload.new as Notification;
+          setNotifications((prev) => [newNotification, ...prev]);
+          
+          // Show toast notification (optional - can be enhanced with a toast library)
+          if (import.meta.env.DEV) {
+            console.log('[Navbar] New notification received:', newNotification);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   // Handle Search Input
   useEffect(() => {
@@ -165,7 +201,7 @@ const Navbar: React.FC = () => {
                             className={`block p-4 rounded-2xl border transition-all ${n.is_read ? 'bg-transparent border-white/5 opacity-50' : 'bg-white/5 border-brand-red/20 hover:border-brand-red/50'}`}
                           >
                             <p className="text-[10px] font-black text-white mb-1 uppercase tracking-tight">{n.title}</p>
-                            <p className="text-[10px] text-gray-500 line-clamp-2">{n.message}</p>
+                            <p className="text-[10px] text-gray-500 line-clamp-2">{n.body}</p>
                           </Link>
                         ))}
                       </div>
