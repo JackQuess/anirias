@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Hls from 'hls.js';
+import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2 } from 'lucide-react';
 
 interface VideoPlayerProps {
   src: string;
@@ -189,7 +190,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [togglePlay, skipTime, toggleFullscreen]);
 
   // Fullscreen handling
   useEffect(() => {
@@ -297,7 +298,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full max-w-[1200px] mx-auto bg-[#0a0a0a] rounded-[20px] overflow-hidden shadow-2xl"
+      className="relative w-full max-w-[1200px] mx-auto bg-black rounded-[16px] overflow-hidden shadow-2xl"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
         if (isPlaying) {
@@ -319,8 +320,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           showControls ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div className="absolute top-6 left-6">
-          <h2 className="text-white font-bold text-lg md:text-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+        <div className="absolute top-5 left-5 md:top-6 md:left-6">
+          <h2 className="text-white font-semibold text-base md:text-lg tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
             {title}
           </h2>
         </div>
@@ -328,7 +329,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Bottom Controls */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 via-black/60 to-transparent transition-opacity duration-300 ${
+        className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -336,7 +337,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Seek Bar */}
           <div
             ref={seekBarRef}
-            className="relative h-1 bg-white/20 rounded-full cursor-pointer group"
+            className="relative h-1.5 bg-white/20 rounded-full cursor-pointer group"
             onClick={handleSeek}
             onMouseDown={() => setIsDragging(true)}
             onMouseUp={() => setIsDragging(false)}
@@ -348,17 +349,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           >
             {/* Buffered */}
             <div
-              className="absolute top-0 left-0 h-full bg-white/30 rounded-full"
+              className="absolute top-0 left-0 h-full bg-white/25 rounded-full"
               style={{ width: `${buffered}%` }}
             />
             {/* Progress */}
             <div
               className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all"
-              style={{ width: `${(currentTime / duration) * 100}%` }}
+              style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
             />
             {/* Hover indicator */}
-            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2"
-              style={{ left: `${(currentTime / duration) * 100}%` }}
+            <div 
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2 shadow-lg"
+              style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
             />
           </div>
 
@@ -369,49 +371,38 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Play/Pause */}
               <button
                 onClick={togglePlay}
-                className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-white hover:scale-110 transition-transform"
+                className="w-10 h-10 flex items-center justify-center text-white hover:text-white/90 transition-colors"
                 aria-label={isPlaying ? 'Duraklat' : 'Oynat'}
               >
                 {isPlaying ? (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="4" width="4" height="16" />
-                    <rect x="14" y="4" width="4" height="16" />
-                  </svg>
+                  <Pause size={22} strokeWidth={2.5} />
                 ) : (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <Play size={22} strokeWidth={2.5} className="ml-0.5" />
                 )}
               </button>
 
               {/* Skip -10s */}
               <button
                 onClick={() => skipTime(-10)}
-                className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white hover:scale-110 transition-all"
+                className="w-9 h-9 flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors group"
                 aria-label="10 saniye geri"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="11 19 2 12 11 5 11 19" />
-                  <polygon points="22 19 13 12 22 5 22 19" />
-                </svg>
-                <span className="text-[8px] font-bold ml-0.5">10</span>
+                <Rewind size={18} strokeWidth={2.5} />
+                <span className="text-[9px] font-semibold mt-0.5 leading-none">10</span>
               </button>
 
               {/* Skip +10s */}
               <button
                 onClick={() => skipTime(10)}
-                className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white hover:scale-110 transition-all"
+                className="w-9 h-9 flex flex-col items-center justify-center text-white/70 hover:text-white transition-colors group"
                 aria-label="10 saniye ileri"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="13 19 22 12 13 5 13 19" />
-                  <polygon points="2 19 11 12 2 5 2 19" />
-                </svg>
-                <span className="text-[8px] font-bold ml-0.5">10</span>
+                <FastForward size={18} strokeWidth={2.5} />
+                <span className="text-[9px] font-semibold mt-0.5 leading-none">10</span>
               </button>
 
               {/* Time Display */}
-              <div className="text-white text-sm font-medium tabular-nums">
+              <div className="text-white/90 text-sm font-medium tabular-nums">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
             </div>
@@ -419,29 +410,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             {/* Right: Volume, Fullscreen */}
             <div className="flex items-center gap-3 md:gap-4">
               {/* Volume */}
-              <div className="flex items-center gap-2 group">
+              <div className="flex items-center gap-2.5 group">
                 <button
                   onClick={toggleMute}
-                  className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white transition-all"
+                  className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
                   aria-label={isMuted ? 'Sesi aç' : 'Sessize al'}
                 >
                   {isMuted || volume === 0 ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                      <line x1="23" y1="9" x2="17" y2="15" />
-                      <line x1="17" y1="9" x2="23" y2="15" />
-                    </svg>
-                  ) : volume < 0.5 ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-                    </svg>
+                    <VolumeX size={20} strokeWidth={2.5} />
                   ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-                      <line x1="2" y1="2" x2="22" y2="22" />
-                    </svg>
+                    <Volume2 size={20} strokeWidth={2.5} />
                   )}
                 </button>
                 <div
@@ -466,17 +444,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white hover:scale-110 transition-all"
+                className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
                 aria-label="Tam ekran"
               >
                 {isFullscreen ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-                  </svg>
+                  <Minimize2 size={20} strokeWidth={2.5} />
                 ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                  </svg>
+                  <Maximize size={20} strokeWidth={2.5} />
                 )}
               </button>
             </div>

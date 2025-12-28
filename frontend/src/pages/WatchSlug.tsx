@@ -219,7 +219,7 @@ const WatchSlug: React.FC = () => {
   }
 
   const titleString = getDisplayTitle(anime.title);
-  const playerTitle = `${titleString.toUpperCase()} – Sezon ${seasonNum} · Bölüm ${episode.episode_number}`;
+  const playerTitle = `${titleString.toUpperCase()} – Sezon ${seasonNum} • Bölüm ${episode.episode_number}`;
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
@@ -249,16 +249,16 @@ const WatchSlug: React.FC = () => {
 
           {/* Episode List Sidebar */}
           <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-[20px] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10 flex-shrink-0">
-                <h3 className="text-xs font-bold text-white uppercase tracking-widest border-l-4 border-red-500 pl-3">
+            <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
                   BÖLÜM LİSTESİ
                 </h3>
-                <span className="text-[9px] font-bold text-gray-500 uppercase">
+                <span className="text-[9px] font-black text-gray-500 uppercase">
                   {episodes?.length || 0} BÖLÜM
                 </span>
               </div>
-              <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 space-y-1.5 min-h-0 w-full">
+              <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
                 {episodes?.map((ep) => {
                   const isCurrent = ep.episode_number === episodeNum;
                   const progress = progressMap.get(ep.id);
@@ -268,17 +268,17 @@ const WatchSlug: React.FC = () => {
                       onClick={() => navigateToEpisode(seasonNum!, ep.episode_number)}
                       className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
                         isCurrent
-                          ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
+                          ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
                           : 'hover:bg-white/5 text-gray-400 hover:text-white'
                       }`}
                     >
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
                         isCurrent ? 'bg-black/20' : 'bg-white/5'
                       }`}>
                         {ep.episode_number}
                       </div>
                       <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-[9px] font-bold uppercase truncate leading-tight">
+                        <p className="text-[9px] font-black uppercase truncate leading-tight">
                           {ep.title || `Bölüm ${ep.episode_number}`}
                         </p>
                         <p className={`text-[7px] font-bold uppercase mt-0.5 ${
@@ -304,7 +304,7 @@ const WatchSlug: React.FC = () => {
             </div>
 
             {/* Now Watching Card */}
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-[20px] p-6 flex gap-4 items-center">
+            <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 flex gap-4 items-center">
               <img
                 src={poster}
                 onError={(e) => {
