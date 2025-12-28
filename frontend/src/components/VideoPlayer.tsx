@@ -451,6 +451,54 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
+      {/* Next Episode Overlay (Netflix-style) */}
+      {showNextEpisodeOverlay && hasNextEpisode && onNextEpisode && (
+        <div className="absolute bottom-6 right-6 z-40 pointer-events-auto">
+          <div className="bg-black/90 backdrop-blur-md rounded-lg p-4 border border-white/20 shadow-2xl min-w-[280px]">
+            <div className="text-white mb-3">
+              <p className="text-sm font-semibold mb-1">Sonraki Bölüm</p>
+              <p className="text-xs text-white/70">
+                {nextEpisodeCountdown > 0 ? `${nextEpisodeCountdown} saniye sonra otomatik oynatılacak` : 'Oynatılıyor...'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNextEpisodeOverlay(false);
+                  if (nextEpisodeCountdownRef.current) {
+                    clearInterval(nextEpisodeCountdownRef.current);
+                    nextEpisodeCountdownRef.current = null;
+                  }
+                  onNextEpisode();
+                }}
+                className="flex-1 bg-[#e5193e] hover:bg-[#c41735] text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Play size={16} strokeWidth={2.5} />
+                <span>Şimdi Oynat</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNextEpisodeOverlay(false);
+                  if (nextEpisodeCountdownRef.current) {
+                    clearInterval(nextEpisodeCountdownRef.current);
+                    nextEpisodeCountdownRef.current = null;
+                  }
+                }}
+                className="w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
+                aria-label="İptal"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Controls */}
       <div
         className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${
