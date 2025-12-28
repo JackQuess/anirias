@@ -26,7 +26,16 @@ const AnimeDetail: React.FC = () => {
     return db.getAnimeByIdOrSlug(id);
   }, [id]);
   
-  // Extract animeId as string to prevent object reference issues
+  // Memoize watchlist fetcher - only recreates when userId changes
+  const fetchWatchlist = useCallback(async () => {
+    if (!user?.id) return [];
+    return db.getWatchlist(user.id);
+  }, [user?.id]);
+  
+  // Fetch anime - only depends on id (primitive), fetcher is memoized
+  const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
+  
+  // Extract animeId as string to prevent object reference issues (after anime is fetched)
   const animeId = anime?.id || null;
   
   // Memoize episode fetcher with animeId - only recreates when animeId changes
@@ -40,15 +49,6 @@ const AnimeDetail: React.FC = () => {
     if (!animeId) throw new Error('Anime ID required');
     return db.getSimilarAnimes(animeId);
   }, [animeId]);
-  
-  // Memoize watchlist fetcher - only recreates when userId changes
-  const fetchWatchlist = useCallback(async () => {
-    if (!user?.id) return [];
-    return db.getWatchlist(user.id);
-  }, [user?.id]);
-  
-  // Fetch anime - only depends on id (primitive), fetcher is memoized
-  const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
   
   // Fetch episodes - only after anime is loaded, depends on animeId string
   const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(
