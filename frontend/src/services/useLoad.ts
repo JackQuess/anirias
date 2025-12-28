@@ -82,12 +82,12 @@ export function useLoad<T>(
       clearTimeout(timeoutId);
       abortControllerRef.current = null;
     };
-    // CRITICAL: Include both fetcher and dependencies
-    // - fetcher: ensures useEffect re-runs when fetcher function reference changes
+    // CRITICAL: Only include dependencies, NOT fetcher function
+    // - fetcher function should be memoized with useCallback by caller
+    // - Including fetcher causes infinite loops if fetcher is recreated
     // - safeDependencies: ensures useEffect re-runs when explicit dependencies change
-    // Note: For inline arrow functions, prefer memoizing with useCallback to prevent infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher, retryCount, ...safeDependencies]);
+  }, [retryCount, ...safeDependencies]);
 
   return { data, loading, error, reload };
 }

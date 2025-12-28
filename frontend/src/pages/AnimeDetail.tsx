@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
@@ -19,22 +19,84 @@ const AnimeDetail: React.FC = () => {
   const [userRating, setUserRating] = useState<number>(0);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   
-  const { data: anime, loading: animeLoading, error: animeError } = useLoad(() => {
+  // Fetch guards to prevent infinite loops
+  const animeFetchedRef = useRef<string | null>(null);
+  const episodesFetchedRef = useRef<string | null>(null);
+  const similarFetchedRef = useRef<string | null>(null);
+  const watchlistFetchedRef = useRef<string | null>(null);
+  
+  // Memoize fetcher functions to prevent recreation on every render
+  const fetchAnime = useCallback(async () => {
     if (!id) throw new Error('Anime identifier required');
+    // Guard: only fetch once per id
+    if (animeFetchedRef.current === id) {
+      return null; // Already fetched or fetching
+    }
+    animeFetchedRef.current = id;
     return db.getAnimeByIdOrSlug(id);
   }, [id]);
   
-  // Fetch ALL episodes - no season_id filter (only after anime is loaded)
-  const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(() => {
-    if (!anime?.id) throw new Error('Anime ID required');
-    return db.getEpisodes(anime.id);
-  }, [anime?.id]);
+  const fetchEpisodes = useCallback(async () => {
+    // This will be called with anime.id from the dependency
+    // Guard is handled by dependency on animeId string
+    throw new Error('Anime ID required');
+  }, []);
   
-  const { data: similarAnimes } = useLoad(() => {
-    if (!anime?.id) throw new Error('Anime ID required');
-    return db.getSimilarAnimes(anime.id);
-  }, [anime?.id]);
-  const { data: watchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
+  const fetchSimilar = useCallback(async () => {
+    // This will be called with anime.id from the dependency
+    // Guard is handled by dependency on animeId string
+    throw new Error('Anime ID required');
+  }, []);
+  
+  const fetchWatchlist = useCallback(async () => {
+    if (!user?.id) return [];
+    // Guard: only fetch once per userId
+    if (watchlistFetchedRef.current === user.id) {
+      return []; // Already fetched or fetching
+    }
+    watchlistFetchedRef.current = user.id;
+    return db.getWatchlist(user.id);
+  }, [user?.id]);
+  
+  // Fetch anime - only depends on id (primitive)
+  const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
+  
+  // Extract animeId as string to prevent object reference issues
+  const animeId = anime?.id || null;
+  
+  // Memoize episode fetcher with animeId
+  const fetchEpisodesWithId = useCallback(async () => {
+    if (!animeId) throw new Error('Anime ID required');
+    // Guard: only fetch once per animeId
+    if (episodesFetchedRef.current === animeId) {
+      return []; // Already fetched or fetching
+    }
+    episodesFetchedRef.current = animeId;
+    return db.getEpisodes(animeId);
+  }, [animeId]);
+  
+  // Memoize similar fetcher with animeId
+  const fetchSimilarWithId = useCallback(async () => {
+    if (!animeId) throw new Error('Anime ID required');
+    // Guard: only fetch once per animeId
+    if (similarFetchedRef.current === animeId) {
+      return []; // Already fetched or fetching
+    }
+    similarFetchedRef.current = animeId;
+    return db.getSimilarAnimes(animeId);
+  }, [animeId]);
+  
+  // Fetch episodes - only after anime is loaded, depends on animeId string
+  const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(
+    fetchEpisodesWithId,
+    [animeId]
+  );
+  
+  // Fetch similar animes - only after anime is loaded, depends on animeId string
+  const { data: similarAnimes } = useLoad(fetchSimilarWithId, [animeId]);
+  
+  // Fetch watchlist - only depends on userId (primitive), completely separate from anime
+  const { data: watchlist } = useLoad(fetchWatchlist, [user?.id]);
 
   // Group episodes by season_number
   const episodesBySeason = React.useMemo(() => {
@@ -91,10 +153,14 @@ const AnimeDetail: React.FC = () => {
     return episodesBySeason[selectedSeasonNumber] || [];
   }, [selectedSeasonNumber, episodesBySeason]);
 
+  // Update watchlist status - only when watchlist data changes, not on every render
   useEffect(() => {
-    if (watchlist && id) {
-      const entry = watchlist.find(w => w.anime_id === id);
-      if (entry) setWatchlistStatus(entry.status);
+    if (!watchlist || !id) return;
+    const entry = watchlist.find(w => w.anime_id === id);
+    if (entry) {
+      setWatchlistStatus(entry.status);
+    } else {
+      setWatchlistStatus('none');
     }
   }, [watchlist, id]);
 
