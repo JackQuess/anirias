@@ -340,14 +340,44 @@ export const db = {
   },
 
   createSeason: async (season: Partial<Season>, adminToken?: string): Promise<Season> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    // For now, throw error with helpful message
-    throw new Error(
-      'createSeason: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: POST /api/admin/create-season\n' +
-      'Or use direct Supabase call with service role key in backend only.'
-    );
+    // Admin operation - use backend API
+    const apiBase = getApiBase();
+    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    if (!token) {
+      throw new Error('Admin token is required');
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/admin/create-season`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token,
+        },
+        body: JSON.stringify({
+          anime_id: season.anime_id,
+          season_number: season.season_number,
+          title: season.title,
+          anilist_id: season.anilist_id || null,
+          episode_count: season.episode_count || null,
+          expected_episode_count: (season as any).expected_episode_count || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Failed to create season`);
+      }
+
+      if (!data.success || !data.season) {
+        throw new Error(data?.error || 'Failed to create season');
+      }
+
+      return data.season as Season;
+    } catch (error: any) {
+      throw new Error(`Failed to create season: ${error?.message || 'Unknown error'}`);
+    }
   },
 
   updateSeason: async (id: string, updates: Partial<Season>, adminToken?: string): Promise<void> => {
