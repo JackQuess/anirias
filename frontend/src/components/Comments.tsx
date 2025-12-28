@@ -12,15 +12,26 @@ const Comments: React.FC<{ animeId: string; episodeId: string }> = ({ animeId, e
   const [commentText, setCommentText] = useState('');
   
   // Load comments from DB - CRITICAL: Only fetch when both IDs are valid
+  // Hard guard: never fetch with null/undefined/"all"
+  const shouldFetch = animeId && 
+                      episodeId && 
+                      typeof animeId === 'string' && 
+                      typeof episodeId === 'string' &&
+                      animeId !== 'all' && 
+                      episodeId !== 'all' &&
+                      animeId.trim() !== '' && 
+                      episodeId.trim() !== '';
+  
   const { data: comments, loading, reload } = useLoad(
     () => {
-      // Strict guard: never call with undefined/null
-      if (!animeId || !episodeId || typeof animeId !== 'string' || typeof episodeId !== 'string') {
+      // Strict guard: never call with invalid IDs
+      if (!shouldFetch) {
         return Promise.resolve([]);
       }
-      return db.getComments(animeId, episodeId);
+      // Wrap in try/catch for fail-safe
+      return db.getComments(animeId, episodeId).catch(() => []);
     }, 
-    [animeId, episodeId]
+    [animeId, episodeId, shouldFetch]
   );
 
   const handleSend = async () => {

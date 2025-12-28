@@ -22,7 +22,7 @@ export function useLoad<T>(
   useEffect(() => {
     let isMounted = true;
     
-    // Abort previous request if still pending
+    // Abort previous request if still pending (prevent duplicate parallel requests)
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -38,7 +38,7 @@ export function useLoad<T>(
     // setData(null); // REMOVED: Causes UI to flash empty
 
     const timeoutId = setTimeout(() => {
-      if (isMounted && loading && !controller.signal.aborted) {
+      if (isMounted && !controller.signal.aborted) {
         controller.abort();
         setError(new Error('İstek zaman aşımına uğradı. Lütfen bağlantınızı kontrol edin.'));
         setLoading(false);

@@ -829,18 +829,24 @@ export const db = {
   getComments: async (animeId: string, episodeId: string): Promise<Comment[]> => {
     if (!checkEnv()) return [];
     
-    // CRITICAL: Never query with undefined/null IDs
-    if (!animeId || !episodeId || typeof animeId !== 'string' || typeof episodeId !== 'string') {
+    // CRITICAL: Never query with undefined/null/"all" IDs
+    if (!animeId || !episodeId || 
+        typeof animeId !== 'string' || typeof episodeId !== 'string' ||
+        animeId === 'all' || episodeId === 'all' ||
+        animeId.trim() === '' || episodeId.trim() === '') {
       if (import.meta.env.DEV) console.warn('[db.getComments] Invalid IDs provided:', { animeId, episodeId });
       return [];
     }
     
     try {
+      // Use .match() instead of .eq() to avoid RLS/nullable column issues
       const { data, error } = await supabase!
         .from('comments')
         .select('*, profiles:profiles(username,avatar_id)')
-        .eq('anime_id', animeId)
-        .eq('episode_id', episodeId)
+        .match({
+          anime_id: animeId,
+          episode_id: episodeId,
+        })
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -849,6 +855,7 @@ export const db = {
       }
       return Array.isArray(data) ? data : [];
     } catch (err: any) {
+      // CRITICAL: Never throw - always return empty array on error
       if (import.meta.env.DEV) console.error('[db.getComments] Unexpected error:', err);
       return [];
     }

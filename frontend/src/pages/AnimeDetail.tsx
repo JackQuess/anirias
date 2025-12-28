@@ -21,15 +21,26 @@ const AnimeDetail: React.FC = () => {
   
   // Memoize fetcher functions to prevent recreation on every render
   // These are stable references that only change when their dependencies change
+  // CRITICAL: All fetchers wrapped in try/catch for fail-safe rendering
   const fetchAnime = useCallback(async () => {
-    if (!id) throw new Error('Anime identifier required');
-    return db.getAnimeByIdOrSlug(id);
+    if (!id) return null;
+    try {
+      return await db.getAnimeByIdOrSlug(id);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[AnimeDetail] Anime fetch error:', err);
+      return null; // Fail-safe: return null instead of throwing
+    }
   }, [id]);
   
   // Memoize watchlist fetcher - only recreates when userId changes
   const fetchWatchlist = useCallback(async () => {
     if (!user?.id) return [];
-    return db.getWatchlist(user.id);
+    try {
+      return await db.getWatchlist(user.id);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[AnimeDetail] Watchlist fetch error:', err);
+      return []; // Fail-safe: return empty array
+    }
   }, [user?.id]);
   
   // Fetch anime - only depends on id (primitive), fetcher is memoized
@@ -40,14 +51,24 @@ const AnimeDetail: React.FC = () => {
   
   // Memoize episode fetcher with animeId - only recreates when animeId changes
   const fetchEpisodesWithId = useCallback(async () => {
-    if (!animeId) throw new Error('Anime ID required');
-    return db.getEpisodes(animeId);
+    if (!animeId) return [];
+    try {
+      return await db.getEpisodes(animeId);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[AnimeDetail] Episodes fetch error:', err);
+      return []; // Fail-safe: return empty array
+    }
   }, [animeId]);
   
   // Memoize similar fetcher with animeId - only recreates when animeId changes
   const fetchSimilarWithId = useCallback(async () => {
-    if (!animeId) throw new Error('Anime ID required');
-    return db.getSimilarAnimes(animeId);
+    if (!animeId) return [];
+    try {
+      return await db.getSimilarAnimes(animeId);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[AnimeDetail] Similar animes fetch error:', err);
+      return []; // Fail-safe: return empty array
+    }
   }, [animeId]);
   
   // Fetch episodes - only after anime is loaded, depends on animeId string
