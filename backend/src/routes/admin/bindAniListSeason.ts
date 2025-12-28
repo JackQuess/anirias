@@ -50,13 +50,30 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
     // No authentication required - uses service role key for DB operations
 
     // Validate request body
-    const { season_id, anilist_media_id, anilist_media } = req.body || {};
+    const { season_id, anime_id, season_number, anilist_media_id, anilist_media } = req.body || {};
 
-    if (!season_id || typeof season_id !== 'string' || season_id.trim() === '') {
+    // Accept either season_id (UUID) OR anime_id + season_number
+    if (!season_id && (!anime_id || !season_number)) {
       return res.status(400).json({
         success: false,
-        error: 'season_id is required and must be a non-empty string',
+        error: 'Either season_id (UUID) or both anime_id and season_number are required',
         errorCode: 'INVALID_SEASON_ID',
+      });
+    }
+
+    if (anime_id && typeof anime_id !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'anime_id must be a string (UUID)',
+        errorCode: 'INVALID_ANIME_ID',
+      });
+    }
+
+    if (season_number && (typeof season_number !== 'number' || season_number < 1)) {
+      return res.status(400).json({
+        success: false,
+        error: 'season_number must be a positive number',
+        errorCode: 'INVALID_SEASON_NUMBER',
       });
     }
 
@@ -96,18 +113,48 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
     }
 
     // Fetch season to validate it exists and check current state
-    const { data: season, error: seasonError } = await supabaseAdmin
+    // Use anime_id + season_number to find season (more reliable than UUID)
+    let seasonQuery = supabaseAdmin
       .from('seasons')
-      .select('id, anime_id, season_number, anilist_id, episode_count')
-      .eq('id', season_id)
-      .single();
+      .select('id, anime_id, season_number, anilist_id, episode_count');
 
-    if (seasonError || !season) {
+    if (season_id && typeof season_id === 'string') {
+      // Try by UUID first if provided
+      seasonQuery = seasonQuery.eq('id', season_id);
+    } else if (anime_id && season_number) {
+      // Find by anime_id + season_number (correct method)
+      seasonQuery = seasonQuery
+        .eq('anime_id', anime_id)
+        .eq('season_number', season_number);
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Must provide either season_id (UUID) or both anime_id and season_number',
+        errorCode: 'INVALID_SEASON_ID',
+      });
+    }
+
+    const { data: season, error: seasonError } = await seasonQuery.maybeSingle();
+
+    if (seasonError) {
       console.error('[bindAniListSeason] Season fetch error:', seasonError);
+      return res.status(500).json({
+        success: false,
+        error: 'Database error while fetching season',
+        errorCode: 'DB_FETCH_ERROR',
+        details: seasonError.message,
+      });
+    }
+
+    if (!season) {
+      console.error('[bindAniListSeason] Season not found:', { season_id, anime_id, season_number });
       return res.status(404).json({
         success: false,
         error: 'Season not found',
         errorCode: 'SEASON_NOT_FOUND',
+        details: season_id 
+          ? `No season found with id: ${season_id}`
+          : `No season found with anime_id: ${anime_id}, season_number: ${season_number}`,
       });
     }
 

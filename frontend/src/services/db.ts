@@ -444,7 +444,9 @@ export const db = {
       format: string;
       episodes: number | null;
       seasonYear: number | null;
-    }
+    },
+    animeId?: string,
+    seasonNumber?: number
   ): Promise<Season> => {
     // Use backend API for transactional binding
     // No authentication required - backend uses service role key
@@ -458,6 +460,8 @@ export const db = {
         },
         body: JSON.stringify({
           season_id: seasonId,
+          anime_id: animeId, // Include for reliable lookup
+          season_number: seasonNumber, // Include for reliable lookup
           anilist_media_id: anilistMediaId,
           anilist_media: anilistMedia,
         }),

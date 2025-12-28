@@ -689,7 +689,9 @@ const AdminEpisodes: React.FC = () => {
           format: media.format || 'TV',
           episodes: media.episodes || null,
           seasonYear: media.seasonYear || null,
-        }
+        },
+        animeId, // Pass anime_id for reliable lookup
+        bindingSeason.season_number // Pass season_number for reliable lookup
       );
 
       // Success - update UI state
