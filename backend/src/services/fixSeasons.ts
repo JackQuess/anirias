@@ -39,6 +39,32 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
   let episodesReassigned = 0;
 
   try {
+    // STEP 0: Verify anime exists
+    const { data: anime, error: animeError } = await supabaseAdmin
+      .from('animes')
+      .select('id, slug')
+      .eq('id', animeId)
+      .maybeSingle();
+
+    if (animeError) {
+      throw new Error(`Failed to fetch anime: ${animeError.message}`);
+    }
+
+    if (!anime) {
+      return {
+        success: false,
+        seasonsFixed: 0,
+        seasonsRemoved: 0,
+        episodesReassigned: 0,
+        errors: [`Anime not found: ${animeId}`],
+      };
+    }
+
+    // Log warning if slug is missing (non-critical)
+    if (!anime.slug) {
+      console.warn(`[FixSeasons] Anime ${animeId} has no slug - using ID as fallback`);
+    }
+
     // STEP 1: Fetch all episodes for this anime
     const { data: allEpisodes, error: episodesError } = await supabaseAdmin
       .from('episodes')
@@ -160,6 +186,12 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       const newSeasonNumber = i + 1;
       const episodes = episodesBySeason[oldSeasonNumber];
 
+      // Safety check: episodes must exist
+      if (!episodes || !Array.isArray(episodes) || episodes.length === 0) {
+        errors.push(`No episodes found for season ${oldSeasonNumber} - skipping`);
+        continue;
+      }
+
       // Find or create season with new season_number
       let seasonId: string;
 
@@ -236,6 +268,12 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       const newSeasonNumber = sortedSeasonNumbers.indexOf(seasonNum) + 1;
       const seasonId = seasonIdMap[seasonNum];
 
+      // Safety check: episodes must exist and be an array
+      if (!episodes || !Array.isArray(episodes) || episodes.length === 0) {
+        errors.push(`No episodes found for season ${seasonNum} - skipping update`);
+        continue;
+      }
+
       if (!seasonId) {
         errors.push(`No season ID found for season ${seasonNum}`);
         continue;
@@ -264,16 +302,28 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
     for (let i = 0; i < sortedSeasonNumbers.length; i++) {
       const newSeasonNumber = i + 1;
       const seasonId = seasonIdMap[sortedSeasonNumbers[i]];
-      const episodeCount = episodesBySeason[sortedSeasonNumbers[i]].length;
+      const episodes = episodesBySeason[sortedSeasonNumbers[i]];
+
+      // Safety check: episodes must exist
+      if (!episodes || !Array.isArray(episodes)) {
+        errors.push(`No episodes found for season ${sortedSeasonNumbers[i]} - skipping episode_count update`);
+        continue;
+      }
+
+      const episodeCount = episodes.length;
 
       if (seasonId) {
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from('seasons')
           .update({
             episode_count: episodeCount,
             updated_at: new Date().toISOString(),
           })
           .eq('id', seasonId);
+
+        if (updateError) {
+          errors.push(`Failed to update episode_count for season ${newSeasonNumber}: ${updateError.message}`);
+        }
       }
     }
 
@@ -285,13 +335,19 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       errors,
     };
   } catch (error: any) {
-    console.error('[FixSeasons] Error:', error);
+    // Log full error with stack trace for debugging
+    console.error('[FixSeasons] CRITICAL ERROR:', {
+      message: error?.message || 'Unknown error',
+      stack: error?.stack,
+      animeId,
+      errorsSoFar: errors,
+    });
     return {
       success: false,
       seasonsFixed,
       seasonsRemoved,
       episodesReassigned,
-      errors: [...errors, error.message || 'Unknown error'],
+      errors: [...errors, error?.message || 'Unknown error', error?.stack || 'No stack trace'],
     };
   }
 }

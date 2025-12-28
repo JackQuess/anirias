@@ -37,10 +37,32 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
 
     const result = await fixSeasonsForAnime(animeId);
 
-    if (!result.success) {
+    // Return 200 even if no seasons/episodes found (successful operation, just nothing to fix)
+    // Only return 500 if there were actual errors during processing
+    if (!result.success && result.errors.length > 0) {
+      // Check if it's a "not found" case (should be 200, not 500)
+      const isNotFound = result.errors.some(e => 
+        e.includes('not found') || 
+        e.includes('No episodes found') ||
+        e.includes('Anime not found')
+      );
+
+      if (isNotFound) {
+        return res.status(200).json({
+          success: true,
+          seasonsFixed: result.seasonsFixed,
+          seasonsRemoved: result.seasonsRemoved,
+          episodesReassigned: result.episodesReassigned,
+          message: result.errors.join(', '),
+          warnings: result.errors,
+        });
+      }
+
+      // Real errors - return 500 with detailed error info
       return res.status(500).json({
         success: false,
-        error: result.errors.join(', ') || 'Fix seasons failed',
+        error: result.errors.join(' | '),
+        errors: result.errors,
         seasonsFixed: result.seasonsFixed,
         seasonsRemoved: result.seasonsRemoved,
         episodesReassigned: result.episodesReassigned,
@@ -55,8 +77,17 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
       message: 'Sezonlar başarıyla düzeltildi',
     });
   } catch (err: any) {
-    console.error('[FixSeasons] API error:', err);
-    return res.status(500).json({ success: false, error: err?.message || 'Fix seasons failed' });
+    // Log full error with stack trace
+    console.error('[FixSeasons] API CRITICAL ERROR:', {
+      message: err?.message || 'Unknown error',
+      stack: err?.stack,
+      body: req.body,
+    });
+    return res.status(500).json({ 
+      success: false, 
+      error: err?.message || 'Fix seasons failed',
+      stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
+    });
   }
 });
 
