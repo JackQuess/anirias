@@ -301,6 +301,7 @@ END $$;
 -- ============================================================================
 -- STEP 5: VERIFY COLUMN STRUCTURE
 -- ============================================================================
+-- Check all columns (including 'read' if it hasn't been renamed yet)
 SELECT 
   column_name,
   data_type,
@@ -309,7 +310,7 @@ SELECT
 FROM information_schema.columns
 WHERE table_schema = 'public' 
   AND table_name = 'notifications'
-  AND column_name IN ('id', 'user_id', 'type', 'title', 'body', 'anime_id', 'episode_id', 'is_read', 'created_at')
+  AND column_name IN ('id', 'user_id', 'type', 'title', 'body', 'anime_id', 'episode_id', 'read', 'is_read', 'created_at')
 ORDER BY 
   CASE column_name
     WHEN 'id' THEN 1
@@ -319,6 +320,7 @@ ORDER BY
     WHEN 'body' THEN 5
     WHEN 'anime_id' THEN 6
     WHEN 'episode_id' THEN 7
+    WHEN 'read' THEN 8
     WHEN 'is_read' THEN 8
     WHEN 'created_at' THEN 9
   END;
