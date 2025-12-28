@@ -670,24 +670,94 @@ const AdminEpisodes: React.FC = () => {
 
   const handleSelectAniList = async (media: any) => {
     if (!bindingSeason || !animeId) return;
-    const alreadyBound = Array.isArray(seasons) ? seasons.some((s) => s.anilist_id === media.id) : false;
+
+    // Client-side validation: Check if already bound to another season
+    const alreadyBound = Array.isArray(seasons) 
+      ? seasons.some((s) => s.id !== bindingSeason.id && s.anilist_id === media.id) 
+      : false;
+    
     if (alreadyBound) {
       alert('Bu AniList ID zaten başka bir sezona bağlı.');
       return;
     }
-    try {
-      await db.updateSeason(bindingSeason.id, {
-        anilist_id: media.id,
-        episode_count: media.episodes || 0,
-        year: media.seasonYear || null
-      });
 
-      alert(`Sezon ${bindingSeason.season_number} AniList'e bağlandı.`);
+    // Show loading state
+    setAnilistLoading(true);
+    setAnilistError(null);
+
+    try {
+      // Get admin token (you may want to store this in state or context)
+      const adminToken = window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+      if (!adminToken) {
+        setAnilistError('Admin token gerekli.');
+        setAnilistLoading(false);
+        return;
+      }
+
+      // Call backend API for transactional binding
+      const updatedSeason = await db.bindAniListSeason(
+        bindingSeason.id,
+        media.id,
+        {
+          id: media.id,
+          format: media.format || 'TV',
+          episodes: media.episodes || null,
+          seasonYear: media.seasonYear || null,
+        },
+        adminToken
+      );
+
+      // Success - update UI state
+      alert(`Sezon ${bindingSeason.season_number} AniList'e başarıyla bağlandı.`);
       setIsAniListModalOpen(false);
       setBindingSeason(null);
-      reloadSeasons();
-    } catch (err) {
-      alert('AniList bağlama başarısız.');
+      setAnilistSearch('');
+      setAnilistResults([]);
+      
+      // Reload seasons to reflect the update
+      await reloadSeasons();
+    } catch (err: any) {
+      // Handle structured errors with specific messages
+      let errorMessage = 'AniList bağlama başarısız.';
+      
+      switch (err?.errorCode) {
+        case 'ANILIST_MEDIA_NOT_FOUND':
+          errorMessage = 'AniList medya bulunamadı. Lütfen geçerli bir medya seçin.';
+          break;
+        case 'EPISODE_COUNT_MISMATCH':
+          errorMessage = `Bölüm sayısı uyuşmuyor. Sezon: ${bindingSeason.episode_count || 'bilinmiyor'}, AniList: ${media.episodes || 'bilinmiyor'}`;
+          break;
+        case 'INVALID_MEDIA_TYPE':
+          errorMessage = `Geçersiz medya tipi: ${media.format}. Sadece TV, TV_SHORT, OVA, ONA veya MOVIE desteklenir.`;
+          break;
+        case 'SEASON_NOT_FOUND':
+          errorMessage = 'Sezon bulunamadı. Sayfayı yenileyip tekrar deneyin.';
+          break;
+        case 'SEASON_ALREADY_BOUND':
+          errorMessage = `Bu sezon zaten AniList ID ${err?.details || 'bilinmeyen'} ile bağlı.`;
+          break;
+        case 'DB_UPDATE_FAILED':
+          errorMessage = 'Veritabanı güncelleme hatası. Lütfen tekrar deneyin.';
+          break;
+        case 'UNAUTHORIZED':
+          errorMessage = 'Yetkisiz erişim. Admin token geçersiz.';
+          break;
+        default:
+          if (err?.message) {
+            errorMessage = err.message;
+          } else if (err?.details) {
+            errorMessage = `Hata: ${err.details}`;
+          }
+      }
+
+      setAnilistError(errorMessage);
+      console.error('[handleSelectAniList] Binding error:', {
+        errorCode: err?.errorCode,
+        message: err?.message,
+        details: err?.details,
+      });
+    } finally {
+      setAnilistLoading(false);
     }
   };
 

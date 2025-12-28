@@ -6,6 +6,7 @@ import hybridImportRouter from './routes/admin/hybridImport.js';
 import fixSeasonsRouter from './routes/admin/fixSeasons.js';
 import deleteAnimeRouter from './routes/admin/deleteAnime.js';
 import toggleFeaturedRouter from './routes/admin/toggleFeatured.js';
+import bindAniListSeasonRouter from './routes/admin/bindAniListSeason.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/admin', hybridImportRouter);
 app.use('/api/admin', fixSeasonsRouter);
 app.use('/api/admin', deleteAnimeRouter);
 app.use('/api/admin', toggleFeaturedRouter);
+app.use('/api/admin', bindAniListSeasonRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {

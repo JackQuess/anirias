@@ -46,7 +46,12 @@ const callBackendApi = async (
   const data = await res.json();
   
   if (!res.ok) {
-    throw new Error(data?.error || `HTTP ${res.status}: ${data?.message || 'Unknown error'}`);
+    // Create error with structured information
+    const error: any = new Error(data?.error || `HTTP ${res.status}: ${data?.message || 'Unknown error'}`);
+    error.errorCode = data?.errorCode;
+    error.details = data?.details;
+    error.status = res.status;
+    throw error;
   }
 
   return data;
