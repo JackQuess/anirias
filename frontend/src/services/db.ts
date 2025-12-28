@@ -250,12 +250,42 @@ export const db = {
   },
 
   toggleFeatured: async (animeId: string, status: boolean, adminToken?: string): Promise<Anime> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'toggleFeatured: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: POST /api/admin/toggle-featured'
-    );
+    // Admin operation - use backend API
+    const apiBase = getApiBase();
+    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    if (!token) {
+      throw new Error('Admin token is required');
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/admin/toggle-featured`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token,
+        },
+        body: JSON.stringify({
+          anime_id: animeId,
+          featured: status,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Failed to toggle featured status`);
+      }
+
+      // Fetch updated anime to return
+      const updatedAnime = await db.getAnimeById(animeId);
+      if (!updatedAnime) {
+        throw new Error('Anime not found after update');
+      }
+
+      return updatedAnime;
+    } catch (error: any) {
+      throw new Error(`Failed to toggle featured status: ${error?.message || 'Unknown error'}`);
+    }
   },
 
   // --- SEASONS & EPISODES ---
