@@ -725,7 +725,10 @@ const AdminEpisodes: React.FC = () => {
           errorMessage = 'Veritabanı güncelleme hatası. Lütfen tekrar deneyin.';
           break;
         case 'UNAUTHORIZED':
-          errorMessage = 'Yetkisiz erişim. Admin token geçersiz.';
+          errorMessage = 'Yetkisiz erişim. Lütfen giriş yapın.';
+          break;
+        case 'FORBIDDEN':
+          errorMessage = 'Admin yetkisi gerekli.';
           break;
         default:
           if (err?.message) {

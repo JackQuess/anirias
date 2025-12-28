@@ -1,16 +1,57 @@
 import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
+import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
 
 router.use((req, res, next) => {
   const origin = process.env.CORS_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
+
+// Helper to verify Supabase Auth session and check admin role
+async function verifyAdminSession(authToken: string | undefined): Promise<{ userId: string; isAdmin: boolean }> {
+  if (!authToken) {
+    throw new Error('No authentication token provided');
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase configuration missing');
+  }
+
+  // Create Supabase client with anon key to verify user token
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+  // Verify the session token
+  const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
+
+  if (authError || !user) {
+    throw new Error('Invalid authentication token');
+  }
+
+  // Check user role from profiles table
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error('[verifyAdminSession] Profile fetch error:', profileError);
+    throw new Error('Failed to verify admin role');
+  }
+
+  const isAdmin = profile?.role === 'admin';
+
+  return { userId: user.id, isAdmin };
+}
 
 /**
  * POST /api/admin/anilist/bind-season
@@ -18,7 +59,8 @@ router.use((req, res, next) => {
  * Bind a season to an AniList media entry
  * 
  * SECURITY:
- * - Admin-only endpoint (requires X-ADMIN-TOKEN header)
+ * - Admin-only endpoint (requires Supabase Auth session)
+ * - Verifies user role from profiles table
  * - Uses Supabase Service Role Key (backend only)
  * 
  * Body:
