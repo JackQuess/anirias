@@ -23,6 +23,7 @@ import AdminAutoImport from './pages/AdminAutoImport';
 import AdminCalendar from './pages/AdminCalendar';
 import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
+import WatchSlug from './pages/WatchSlug';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
@@ -50,6 +51,7 @@ const App: React.FC = () => {
             <Route path="/new-episodes" element={<NewEpisodes />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/anime/:id" element={<AnimeDetail />} />
+            <Route path="/watch/:animeSlug/:seasonNumber/:episodeNumber" element={<WatchSlug />} />
             <Route path="/watch/:animeId" element={<Watch />} />
             <Route path="/watch/:animeId/:episodeId" element={<Watch />} />
             <Route path="/profile" element={<Profile />} />

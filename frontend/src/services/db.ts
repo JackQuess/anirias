@@ -106,6 +106,29 @@ export const db = {
     return data;
   },
 
+  getAnimeBySlug: async (slug: string): Promise<Anime | null> => {
+    if (!checkEnv()) return null;
+    if (!slug) return null;
+    
+    const { data, error } = await supabase!
+      .from('animes')
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle();
+    
+    if (error) {
+      if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Query error:", error);
+      return null;
+    }
+    
+    if (!data) {
+      if (import.meta.env.DEV) console.error("[db.getAnimeBySlug] Anime not found for slug:", slug);
+      return null;
+    }
+    
+    return data;
+  },
+
   // --- ANIME WRITE METHODS (ADMIN) ---
   createAnime: async (anime: Partial<Anime>) => {
     if (!checkEnv()) throw new Error("Backend connection failed");
@@ -174,6 +197,25 @@ export const db = {
     return data || [];
   },
 
+  getSeasonByAnimeAndNumber: async (animeId: string, seasonNumber: number): Promise<Season | null> => {
+    if (!checkEnv()) return null;
+    if (!animeId || !seasonNumber) return null;
+    
+    const { data, error } = await supabase!
+      .from('seasons')
+      .select('*')
+      .eq('anime_id', animeId)
+      .eq('season_number', seasonNumber)
+      .maybeSingle();
+    
+    if (error) {
+      if (import.meta.env.DEV) console.error("[db.getSeasonByAnimeAndNumber] Query error:", error);
+      return null;
+    }
+    
+    return data;
+  },
+
   createSeason: async (season: Partial<Season>) => {
     if (!checkEnv()) throw new Error("Backend connection failed");
     const { data, error } = await supabase!.from('seasons').insert([season]).select().single();
@@ -217,6 +259,30 @@ export const db = {
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getEpisodesBySeasonId] Unexpected error:', err);
       return [];
+    }
+  },
+
+  getEpisodeBySeasonAndNumber: async (seasonId: string, episodeNumber: number): Promise<Episode | null> => {
+    if (!checkEnv()) return null;
+    if (!seasonId || !episodeNumber) return null;
+    
+    try {
+      const { data, error } = await supabase!
+        .from('episodes')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+        .eq('season_id', seasonId)
+        .eq('episode_number', episodeNumber)
+        .maybeSingle();
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getEpisodeBySeasonAndNumber] Query error:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getEpisodeBySeasonAndNumber] Unexpected error:', err);
+      return null;
     }
   },
 
