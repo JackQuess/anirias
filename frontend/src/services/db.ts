@@ -1,6 +1,6 @@
 
 import { supabase, hasSupabaseEnv } from './supabaseClient';
-import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog } from '../types';
+import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback } from '../types';
 
 // Helper to ensure Supabase is configured
 const checkEnv = () => {
@@ -1232,5 +1232,33 @@ export const db = {
     if (!checkEnv()) return;
     const { error } = await supabase!.from('notifications').update({ is_read: true }).eq('id', id);
     if (error) throw error;
+  },
+
+  // --- FEEDBACK SYSTEM ---
+  getFeedback: async (): Promise<Feedback[]> => {
+    if (!checkEnv()) return [];
+    
+    try {
+      const { data, error } = await supabase!
+        .from('feedback')
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            username,
+            role
+          )
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getFeedback] Query error:', error);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getFeedback] Unexpected error:', err);
+      return [];
+    }
   }
 };

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
+import EmailVerificationCard from '@/components/EmailVerificationCard';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
   
   // Forgot Password State
   const [showForgot, setShowForgot] = useState(false);
@@ -19,7 +22,15 @@ const Login: React.FC = () => {
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'AUTHENTICATED' && user) navigate('/');
+    if (status === 'AUTHENTICATED' && user) {
+      // Check if email is verified
+      if (!user.email_confirmed_at) {
+        setVerificationEmail(user.email || '');
+        setShowEmailVerification(true);
+      } else {
+        navigate('/');
+      }
+    }
   }, [user, status, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,7 +46,15 @@ const Login: React.FC = () => {
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
-      if (data.user) navigate('/');
+      if (data.user) {
+        // Check if email is verified
+        if (!data.user.email_confirmed_at) {
+          setVerificationEmail(data.user.email || '');
+          setShowEmailVerification(true);
+        } else {
+          navigate('/');
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.');
     } finally {
@@ -61,6 +80,44 @@ const Login: React.FC = () => {
       setResetLoading(false);
     }
   };
+
+  // Show email verification card if needed
+  if (showEmailVerification && verificationEmail) {
+    return (
+      <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Decorative Blur Backgrounds */}
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-10">
+            <Link to="/" className="text-5xl font-black text-brand-red italic tracking-tighter drop-shadow-[0_0_15px_rgba(229,9,20,0.4)]">
+              ANIRIAS
+            </Link>
+            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4">Premium Streaming Experience</p>
+          </div>
+          <EmailVerificationCard
+            email={verificationEmail}
+            onVerified={() => {
+              setShowEmailVerification(false);
+              navigate('/');
+            }}
+          />
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setShowEmailVerification(false);
+                if (supabase) supabase.auth.signOut();
+              }}
+              className="text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+            >
+              ← Giriş Sayfasına Dön
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">

@@ -39,6 +39,35 @@
   animation: slide-up 0.3s ease-out;
 }
 
+/* Fade-in animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
 @layer utilities {
   .text-glow {
     text-shadow: 0 0 20px rgba(229, 9, 20, 0.6);

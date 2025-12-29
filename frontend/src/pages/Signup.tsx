@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
+import EmailVerificationCard from '@/components/EmailVerificationCard';
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -12,9 +13,18 @@ const Signup: React.FC = () => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [signedUpEmail, setSignedUpEmail] = useState('');
 
   useEffect(() => {
-    if (status === 'AUTHENTICATED' && user) navigate('/');
+    if (status === 'AUTHENTICATED' && user) {
+      if (!user.email_confirmed_at) {
+        setSignedUpEmail(user.email || '');
+        setShowEmailVerification(true);
+      } else {
+        navigate('/');
+      }
+    }
   }, [user, status, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,14 +48,56 @@ const Signup: React.FC = () => {
 
       if (authError) throw authError;
       
-      alert('Kayıt başarılı! Lütfen giriş yapın.');
-      navigate('/login');
+      // Check if email confirmation is required
+      if (data.user && !data.user.email_confirmed_at) {
+        setSignedUpEmail(data.user.email || '');
+        setShowEmailVerification(true);
+      } else {
+        alert('Kayıt başarılı! Lütfen giriş yapın.');
+        navigate('/login');
+      }
     } catch (err: any) {
       setError(err.message || 'Kayıt sırasında bir hata oluştu.');
     } finally {
       setLoading(false);
     }
   };
+
+  // Show email verification card if needed
+  if (showEmailVerification && signedUpEmail) {
+    return (
+      <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Decorative Blur Backgrounds */}
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-10">
+            <Link to="/" className="text-5xl font-black text-brand-red italic tracking-tighter drop-shadow-[0_0_15px_rgba(229,9,20,0.4)]">
+              ANIRIAS
+            </Link>
+          </div>
+          <EmailVerificationCard
+            email={signedUpEmail}
+            onVerified={() => {
+              setShowEmailVerification(false);
+              navigate('/login');
+            }}
+          />
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setShowEmailVerification(false);
+                if (supabase) supabase.auth.signOut();
+              }}
+              className="text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+            >
+              ← Kayıt Sayfasına Dön
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">

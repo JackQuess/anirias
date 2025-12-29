@@ -5,6 +5,8 @@ import { AuthProvider } from './services/auth';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import GlobalLoader from './components/GlobalLoader';
+import FeedbackModal from './components/FeedbackModal';
+import { ToastProvider } from './components/ToastProvider';
 
 // Pages
 import Home from './pages/Home';
@@ -21,6 +23,7 @@ import AdminAnalytics from './pages/AdminAnalytics';
 import AdminUsers from './pages/AdminUsers';
 import AdminAutoImport from './pages/AdminAutoImport';
 import AdminCalendar from './pages/AdminCalendar';
+import AdminFeedback from './pages/AdminFeedback';
 import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
@@ -44,7 +47,9 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <AuthProvider>
-        <Routes>
+        <ToastProvider>
+          <FeedbackModal />
+          <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
             <Route path="/browse" element={<Browse />} />
@@ -76,11 +81,13 @@ const App: React.FC = () => {
             <Route path="users" element={<AdminUsers />} />
             <Route path="import" element={<AdminAutoImport />} />
             <Route path="calendar" element={<AdminCalendar />} />
+            <Route path="feedback" element={<AdminFeedback />} />
           </Route>
 
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ToastProvider>
       </AuthProvider>
     </HashRouter>
   );

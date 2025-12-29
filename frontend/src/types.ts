@@ -164,3 +164,14 @@ export interface LoadState<T> {
   error: Error | null;
   reload: () => void;
 }
+
+export interface Feedback {
+  id: string;
+  user_id: string | null;
+  message: string;
+  rating: number | null;
+  page_url: string | null;
+  user_agent: string | null;
+  created_at: string;
+  profiles?: Profile | null;
+}
