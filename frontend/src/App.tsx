@@ -8,6 +8,7 @@ import GlobalLoader from './components/GlobalLoader';
 import WelcomeModal from './components/WelcomeModal';
 import FeedbackCard from './components/FeedbackCard';
 import FeedbackFloatingButton from './components/FeedbackFloatingButton';
+import AnnouncementBanner from './components/AnnouncementBanner';
 import { ToastProvider } from './components/ToastProvider';
 
 // Pages
@@ -27,6 +28,8 @@ import AdminAutoImport from './pages/AdminAutoImport';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminFeedback from './pages/AdminFeedback';
 import AdminMascotSettings from './pages/AdminMascotSettings';
+import AdminAnnouncement from './pages/AdminAnnouncement';
+import AdminErrors from './pages/AdminErrors';
 import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
@@ -52,6 +55,7 @@ const App: React.FC = () => {
     <HashRouter>
       <AuthProvider>
         <ToastProvider>
+          <AnnouncementBanner />
           <WelcomeModal />
           <FeedbackCard />
           <FeedbackFloatingButton />
@@ -90,6 +94,8 @@ const App: React.FC = () => {
             <Route path="calendar" element={<AdminCalendar />} />
             <Route path="feedback" element={<AdminFeedback />} />
             <Route path="site-settings/mascots" element={<AdminMascotSettings />} />
+            <Route path="announcement" element={<AdminAnnouncement />} />
+            <Route path="errors" element={<AdminErrors />} />
           </Route>
 
           {/* 404 Route */}

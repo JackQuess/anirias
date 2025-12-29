@@ -175,3 +175,24 @@ export interface Feedback {
   created_at: string;
   profiles?: Profile | null;
 }
+
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ErrorLog {
+  id: string;
+  user_id: string | null;
+  message: string;
+  stack: string | null;
+  page_url: string;
+  user_agent: string | null;
+  is_resolved: boolean;
+  created_at: string;
+  profiles?: Profile | null;
+}

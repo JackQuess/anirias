@@ -1335,5 +1335,184 @@ export const db = {
       if (import.meta.env.DEV) console.error(`[db.updateSiteSetting] Unexpected error for ${key}:`, err);
       return false;
     }
+  },
+
+  /**
+   * Get active announcement
+   */
+  async getActiveAnnouncement(): Promise<any | null> {
+    if (!checkEnv()) return null;
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        // No active announcement is not an error
+        if (error.code === 'PGRST116') return null;
+        if (import.meta.env.DEV) console.error('[db.getActiveAnnouncement] Error:', error);
+        return null;
+      }
+
+      return data;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getActiveAnnouncement] Unexpected error:', err);
+      return null;
+    }
+  },
+
+  /**
+   * Get all announcements (admin only)
+   */
+  async getAllAnnouncements(): Promise<any[]> {
+    if (!checkEnv()) return [];
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getAllAnnouncements] Error:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getAllAnnouncements] Unexpected error:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Create or update announcement (admin only)
+   */
+  async saveAnnouncement(announcement: {
+    id?: string;
+    title: string;
+    message: string;
+    is_active: boolean;
+  }): Promise<boolean> {
+    if (!checkEnv()) return false;
+    try {
+      const payload: any = {
+        title: announcement.title,
+        message: announcement.message,
+        is_active: announcement.is_active,
+      };
+
+      if (announcement.id) {
+        payload.id = announcement.id;
+      }
+
+      const { error } = await supabase
+        .from('announcements')
+        .upsert(payload, {
+          onConflict: 'id'
+        });
+
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.saveAnnouncement] Error:', error);
+        return false;
+      }
+
+      return true;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.saveAnnouncement] Unexpected error:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Log error to database
+   */
+  async logError(errorData: {
+    message: string;
+    stack?: string;
+    page_url: string;
+    user_agent?: string;
+  }): Promise<void> {
+    if (!checkEnv()) return;
+    
+    try {
+      // Get current user if available
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('error_logs')
+        .insert({
+          user_id: user?.id || null,
+          message: errorData.message,
+          stack: errorData.stack || null,
+          page_url: errorData.page_url,
+          user_agent: errorData.user_agent || navigator.userAgent,
+        });
+
+      if (error && import.meta.env.DEV) {
+        console.error('[db.logError] Failed to log error:', error);
+      }
+    } catch (err: any) {
+      // Silent fail - don't break app if error logging fails
+      if (import.meta.env.DEV) {
+        console.error('[db.logError] Unexpected error:', err);
+      }
+    }
+  },
+
+  /**
+   * Get error logs (admin only)
+   */
+  async getErrorLogs(limit: number = 100): Promise<any[]> {
+    if (!checkEnv()) return [];
+    try {
+      const { data, error } = await supabase
+        .from('error_logs')
+        .select(`
+          *,
+          profiles:user_id (
+            username,
+            role
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getErrorLogs] Error:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getErrorLogs] Unexpected error:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Mark error as resolved (admin only)
+   */
+  async markErrorResolved(errorId: string): Promise<boolean> {
+    if (!checkEnv()) return false;
+    try {
+      const { error } = await supabase
+        .from('error_logs')
+        .update({ is_resolved: true })
+        .eq('id', errorId);
+
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.markErrorResolved] Error:', error);
+        return false;
+      }
+
+      return true;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.markErrorResolved] Unexpected error:', err);
+      return false;
+    }
   }
 };
