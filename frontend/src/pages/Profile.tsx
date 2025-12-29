@@ -8,6 +8,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import AnimeCard from '../components/AnimeCard';
 import { AVATARS, AvatarItem, getAvatarSrc } from '@/utils/avatar';
 import { BANNERS, getBannerSrc } from '@/utils/banner';
+import { validateUsername } from '@/utils/usernameValidation';
 
 type BannerItem = { id: string; src: string; name?: string };
 

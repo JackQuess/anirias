@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
+import { validateUsername } from '@/utils/usernameValidation';
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Signup: React.FC = () => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [signedUpEmail, setSignedUpEmail] = useState('');
 
@@ -38,6 +40,14 @@ const Signup: React.FC = () => {
     setError(null);
 
     try {
+      // Username validation
+      const usernameValidation = validateUsername(username);
+      if (!usernameValidation.isValid) {
+        setError(usernameValidation.error || 'Kullanıcı adı geçersiz.');
+        setLoading(false);
+        return;
+      }
+
       // Production domain için email doğrulama redirect URL'i
       // HashRouter kullanıldığı için /#/auth/callback formatında
       const emailRedirectTo = 'https://anirias.vercel.app/#/auth/callback';
@@ -46,7 +56,7 @@ const Signup: React.FC = () => {
         email,
         password,
         options: {
-          data: { username, role: 'user' },
+          data: { username: username.trim(), role: 'user' },
           emailRedirectTo: emailRedirectTo
         }
       });
@@ -128,10 +138,38 @@ const Signup: React.FC = () => {
                 type="text"
                 required
                 placeholder="anirias_fan"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700"
+                className={`w-full bg-white/5 border rounded-2xl px-6 py-4 text-white outline-none transition-all placeholder:text-gray-700 ${
+                  usernameError 
+                    ? 'border-red-500/50 focus:border-red-500' 
+                    : 'border-white/10 focus:border-brand-red'
+                }`}
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  const newUsername = e.target.value;
+                  setUsername(newUsername);
+                  
+                  // Real-time validation
+                  if (newUsername.length > 0) {
+                    const validation = validateUsername(newUsername);
+                    setUsernameError(validation.isValid ? null : validation.error || null);
+                  } else {
+                    setUsernameError(null);
+                  }
+                }}
+                onBlur={() => {
+                  // Blur'da tekrar kontrol et
+                  if (username.length > 0) {
+                    const validation = validateUsername(username);
+                    setUsernameError(validation.isValid ? null : validation.error || null);
+                  }
+                }}
               />
+              {usernameError && (
+                <p className="text-red-400 text-[9px] font-bold ml-2">{usernameError}</p>
+              )}
+              {!usernameError && username.length > 0 && (
+                <p className="text-green-400 text-[9px] font-bold ml-2">✓ Kullanıcı adı uygun</p>
+              )}
             </div>
 
             <div className="space-y-2">

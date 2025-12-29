@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
+import { useAuth } from '@/services/auth';
 import { showToast } from './ToastProvider';
 
 interface EmailVerificationCardProps {
@@ -8,6 +9,7 @@ interface EmailVerificationCardProps {
 }
 
 const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({ email, onVerified }) => {
+  const { refreshProfile } = useAuth();
   const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -55,10 +57,49 @@ const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({ email, on
         throw new Error('Supabase bağlantısı yapılandırılamadı.');
       }
 
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
+      // Önce mevcut session'ı kontrol et
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      // Eğer session varsa, session'ı refresh et (email doğrulandıysa güncel bilgiyi almak için)
+      if (currentSession) {
+        try {
+          await supabase.auth.refreshSession();
+        } catch (refreshErr) {
+          // Refresh hatası önemli değil, devam et
+          console.log('[EmailVerificationCard] Session refresh skipped:', refreshErr);
+        }
+      }
+      
+      // En güncel user bilgisini al (getUser() her zaman en güncel bilgiyi verir)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        // User bilgisi alınamazsa, session'dan kontrol et
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user;
+        
+        if (currentUser?.email_confirmed_at) {
+          showToast('E-posta doğrulandı! Giriş yapabilirsiniz. ✅', 'success');
+          if (onVerified) {
+            setTimeout(() => {
+              onVerified();
+            }, 1000);
+          }
+        } else {
+          showToast('E-posta henüz doğrulanmamış. Lütfen e-postanızı kontrol edin ve email linkine tıklayın.', 'info');
+        }
+        return;
+      }
 
-      if (session?.user?.email_confirmed_at) {
+      // User bilgisi başarıyla alındı
+      if (user?.email_confirmed_at) {
+        // Auth context'i güncelle (profil bilgilerini yenile)
+        try {
+          await refreshProfile();
+        } catch (refreshErr) {
+          console.log('[EmailVerificationCard] Profile refresh skipped:', refreshErr);
+        }
+        
         showToast('E-posta doğrulandı! Giriş yapabilirsiniz. ✅', 'success');
         if (onVerified) {
           setTimeout(() => {
@@ -66,7 +107,7 @@ const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({ email, on
           }, 1000);
         }
       } else {
-        showToast('E-posta henüz doğrulanmamış. Lütfen e-postanızı kontrol edin.', 'info');
+        showToast('E-posta henüz doğrulanmamış. Lütfen e-postanızı kontrol edin ve email linkine tıklayın.', 'info');
       }
     } catch (err: any) {
       console.error('[EmailVerificationCard] Check error:', err);
