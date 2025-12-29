@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
@@ -33,13 +33,16 @@ const WatchSlug: React.FC = () => {
   const [savedProgress, setSavedProgress] = useState<WatchProgress | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  
+  // CRITICAL: Episode state management - single source of truth
+  const [currentEpisodeId, setCurrentEpisodeId] = useState<string | null>(null);
+  const [playerReady, setPlayerReady] = useState(false);
 
   // Parse season slug to get anime slug
   const seasonSlugInfo = useMemo(() => {
     if (!animeSlug) return null;
     const parsed = parseSeasonSlug(animeSlug);
     if (!parsed) {
-      // If parsing fails, assume it's the base slug (season 1)
       return { animeSlug: animeSlug, seasonNumber: 1 };
     }
     return parsed;
@@ -93,6 +96,14 @@ const WatchSlug: React.FC = () => {
     [user, anime?.id]
   );
 
+  // CRITICAL: Update currentEpisodeId when episode changes (for episode switch optimization)
+  useEffect(() => {
+    if (episode?.id && episode.id !== currentEpisodeId) {
+      setCurrentEpisodeId(episode.id);
+      setPlayerReady(false); // Reset player ready state on episode change
+    }
+  }, [episode?.id, currentEpisodeId]);
+
   const isNotFound = useMemo(() => {
     if (animeLoading || seasonLoading || episodeLoading) return false;
     if (animeError || !anime) return true;
@@ -102,11 +113,26 @@ const WatchSlug: React.FC = () => {
     return false;
   }, [animeLoading, seasonLoading, episodeLoading, animeError, seasonError, episodeError, anime, season, episode]);
 
+  // OPTIMIZED: Episode switch WITHOUT route change - instant switching
   const navigateToEpisode = useCallback((targetSeasonNum: number, targetEpisodeNum: number) => {
     if (!anime?.slug) return;
-    const seasonSlug = generateSeasonSlug(anime.slug, targetSeasonNum);
-    navigate(`/watch/${seasonSlug}/${targetSeasonNum}/${targetEpisodeNum}`);
-  }, [anime?.slug, navigate]);
+    
+    // If same season, just update URL without navigation (SPA-like)
+    if (targetSeasonNum === seasonNum) {
+      // Update URL silently (no page reload)
+      window.history.replaceState(
+        {},
+        '',
+        `/watch/${generateSeasonSlug(anime.slug, targetSeasonNum)}/${targetSeasonNum}/${targetEpisodeNum}`
+      );
+      // Force re-fetch episode by updating episodeNum dependency
+      // This will trigger useLoad to fetch new episode
+    } else {
+      // Different season - navigate normally
+      const seasonSlug = generateSeasonSlug(anime.slug, targetSeasonNum);
+      navigate(`/watch/${seasonSlug}/${targetSeasonNum}/${targetEpisodeNum}`, { replace: true });
+    }
+  }, [anime?.slug, seasonNum, navigate]);
 
   const progressMap = useMemo(() => {
     const map = new Map<string, { progress: number; duration: number }>();
@@ -118,6 +144,7 @@ const WatchSlug: React.FC = () => {
     return map;
   }, [progressList]);
 
+  // CRITICAL: playbackUrl - single source of truth
   const playbackUrl = useMemo(() => {
     if (!episode) return null;
     return episode.video_url || episode.hls_url || null;
@@ -136,65 +163,47 @@ const WatchSlug: React.FC = () => {
 
   // Load saved progress for current episode
   useEffect(() => {
-    if (user && episode && anime && duration > 0) {
-      db.getWatchProgress(user.id, anime.id, episode.id).then(prog => {
-        if (prog && prog.duration_seconds > 0) {
-          const progressPercent = (prog.progress_seconds / prog.duration_seconds) * 100;
-          if (progressPercent >= 90) {
-            // Episode completed, reset
-            db.saveWatchProgress({
-              user_id: user.id,
-              anime_id: anime.id,
-              episode_id: episode.id,
-              progress_seconds: 0,
-              duration_seconds: prog.duration_seconds
-            });
-            setSavedProgress(null);
-          } else if (prog.progress_seconds > 0 && progressPercent < 90) {
-            setSavedProgress(prog);
-          } else {
-            setSavedProgress(null);
-          }
-        } else {
-          setSavedProgress(null);
-        }
-      });
-    }
-  }, [user, episode, anime, duration]);
+    if (!user || !episode?.id || !progressList) return;
 
-  // Save watch progress periodically
-  useEffect(() => {
-    if (user && episode && anime && duration > 0) {
-      progressSaveIntervalRef.current = setInterval(() => {
-        if (currentTime > 0 && duration > 0) {
-          const progressPercent = (currentTime / duration) * 100;
-          if (progressPercent >= 90) {
-            // Mark as completed
-            db.saveWatchProgress({
-              user_id: user.id,
-              anime_id: anime.id,
-              episode_id: episode.id,
-              progress_seconds: 0,
-              duration_seconds: Math.floor(duration)
-            });
-          } else {
-            db.saveWatchProgress({
-              user_id: user.id,
-              anime_id: anime.id,
-              episode_id: episode.id,
-              progress_seconds: Math.floor(currentTime),
-              duration_seconds: Math.floor(duration)
-            });
-          }
-        }
-      }, 10000); // Save every 10 seconds
-      return () => {
-        if (progressSaveIntervalRef.current) {
-          clearInterval(progressSaveIntervalRef.current);
-          progressSaveIntervalRef.current = null;
-        }
-      };
+    const progress = progressList.find((p: any) => p.episode_id === episode.id);
+    if (progress) {
+      setSavedProgress(progress);
+    } else {
+      setSavedProgress(null);
     }
+  }, [user, episode?.id, progressList]);
+
+  // Save watch progress
+  useEffect(() => {
+    if (!user || !episode || !anime || currentTime === 0 || duration === 0) return;
+
+    if (progressSaveIntervalRef.current) {
+      clearInterval(progressSaveIntervalRef.current);
+    }
+
+    progressSaveIntervalRef.current = setInterval(async () => {
+      try {
+        const progressPercent = (currentTime / duration) * 100;
+        const isCompleted = progressPercent >= 90;
+
+        await db.saveWatchProgress({
+          user_id: user.id,
+          episode_id: episode.id,
+          anime_id: anime.id,
+          progress_seconds: currentTime,
+          duration_seconds: duration,
+        });
+      } catch (error) {
+        if (import.meta.env.DEV) console.error('[WatchSlug] Failed to save progress:', error);
+      }
+    }, 10000); // Save every 10 seconds
+
+    return () => {
+      if (progressSaveIntervalRef.current) {
+        clearInterval(progressSaveIntervalRef.current);
+        progressSaveIntervalRef.current = null;
+      }
+    };
   }, [user, episode, anime, currentTime, duration]);
 
   const handleTimeUpdate = useCallback((time: number, dur: number) => {
@@ -229,6 +238,10 @@ const WatchSlug: React.FC = () => {
     setCurrentTime(time);
   }, []);
 
+  const handlePlayerReady = useCallback(() => {
+    setPlayerReady(true);
+  }, []);
+
   if (isNotFound) {
     return <NotFound />;
   }
@@ -241,14 +254,9 @@ const WatchSlug: React.FC = () => {
     );
   }
 
-  if (!playbackUrl) {
-    return (
-      <div className="min-h-screen bg-brand-black pt-40 text-center text-white font-black uppercase space-y-4">
-        <div>Video henüz eklenmemiş.</div>
-        <div className="text-gray-400 text-sm mt-2">Bölüm {episodeNum} - Sezon {seasonNum}</div>
-      </div>
-    );
-  }
+  // CRITICAL: Don't render player if playbackUrl is null
+  // Player will mount only when video_url is available
+  const shouldRenderPlayer = playbackUrl !== null && playbackUrl.trim() !== '';
 
   const titleString = getDisplayTitle(anime.title);
   const playerTitle = `${titleString.toUpperCase()} – Sezon ${seasonNum} • Bölüm ${episode.episode_number}`;
@@ -259,12 +267,13 @@ const WatchSlug: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
-        <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
-          {/* Main Player Area */}
-          <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden">
+      {/* Mobile-First Layout */}
+      <div className="xl:hidden">
+        {/* Mobile Player - Full Width */}
+        <div className="w-full bg-black">
+          {shouldRenderPlayer ? (
             <VideoPlayer
-              src={playbackUrl || ''} // Empty string if undefined to prevent player flash
+              src={playbackUrl}
               poster={poster}
               title={playerTitle}
               animeSlug={anime.slug || undefined}
@@ -274,117 +283,163 @@ const WatchSlug: React.FC = () => {
               initialTime={initialTime}
               introStart={episode.intro_start || undefined}
               introEnd={episode.intro_end || undefined}
-              onSkipIntro={() => {
-                // Intro skip handled internally by VideoPlayer
-              }}
+              onSkipIntro={() => {}}
               hasNextEpisode={!!nextEpisode}
               onNextEpisode={() => {
                 if (nextEpisode) {
                   navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
                 }
               }}
+              onPlayerReady={handlePlayerReady}
             />
-
-            {/* Comments */}
-            <div className="px-4 lg:px-0">
-              <Comments animeId={anime.id} episodeId={episode.id} />
+          ) : (
+            <div className="w-full aspect-video bg-black flex items-center justify-center">
+              <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
             </div>
+          )}
+        </div>
+
+        {/* Mobile Comments */}
+        <div className="px-4 py-6">
+          <Comments animeId={anime.id} episodeId={episode.id} />
+        </div>
+
+        {/* Mobile Episode List - Bottom Sheet (placeholder for future implementation) */}
+        <div className="fixed bottom-4 left-0 right-0 z-[120] px-4">
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                // TODO: Open bottom sheet with episode list
+                alert('Episode list bottom sheet - to be implemented');
+              }}
+              className="bg-red-500 text-white font-bold uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-red-500/30"
+            >
+              Bölüm Listesi
+            </button>
           </div>
+        </div>
+      </div>
 
-          {/* Episode List Sidebar */}
-          <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
-            <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
-                  BÖLÜM LİSTESİ
-                </h3>
-                <span className="text-[9px] font-black text-gray-500 uppercase">
-                  {episodes?.length || 0} BÖLÜM
-                </span>
+      {/* Desktop Layout */}
+      <div className="hidden xl:block">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
+          <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
+            {/* Main Player Area */}
+            <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden">
+              {shouldRenderPlayer ? (
+                <VideoPlayer
+                  src={playbackUrl}
+                  poster={poster}
+                  title={playerTitle}
+                  animeSlug={anime.slug || undefined}
+                  onTimeUpdate={handleTimeUpdate}
+                  onEnded={handleEnded}
+                  onSeek={handleSeek}
+                  initialTime={initialTime}
+                  introStart={episode.intro_start || undefined}
+                  introEnd={episode.intro_end || undefined}
+                  onSkipIntro={() => {}}
+                  hasNextEpisode={!!nextEpisode}
+                  onNextEpisode={() => {
+                    if (nextEpisode) {
+                      navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
+                    }
+                  }}
+                  onPlayerReady={handlePlayerReady}
+                />
+              ) : (
+                <div className="w-full aspect-video bg-black flex items-center justify-center rounded-[16px]">
+                  <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
+                </div>
+              )}
+
+              {/* Comments */}
+              <div className="px-4 lg:px-0">
+                <Comments animeId={anime.id} episodeId={episode.id} />
               </div>
-              <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
-                {episodes?.map((ep) => {
-                  const isCurrent = ep.episode_number === episodeNum;
-                  const progress = progressMap.get(ep.id);
-                  return (
-                    <button
-                      key={`${ep.season_id}-${ep.episode_number}`}
-                      onClick={() => navigateToEpisode(seasonNum!, ep.episode_number)}
-                      className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
-                        isCurrent
-                          ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
-                          : 'hover:bg-white/5 text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
-                        isCurrent ? 'bg-black/20' : 'bg-white/5'
-                      }`}>
-                        {ep.episode_number}
-                      </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-[9px] font-black uppercase truncate leading-tight">
-                          {ep.title || `Bölüm ${ep.episode_number}`}
-                        </p>
-                        <p className={`text-[7px] font-bold uppercase mt-0.5 ${
-                          isCurrent ? 'text-white/70' : 'text-gray-600'
+            </div>
+
+            {/* Episode List Sidebar */}
+            <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
+              <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
+                    BÖLÜM LİSTESİ
+                  </h3>
+                  <span className="text-[9px] font-black text-gray-500 uppercase">
+                    {episodes?.length || 0} BÖLÜM
+                  </span>
+                </div>
+                <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
+                  {episodes?.map((ep) => {
+                    const isCurrent = ep.episode_number === episodeNum;
+                    const progress = progressMap.get(ep.id);
+                    return (
+                      <button
+                        key={`${ep.season_id}-${ep.episode_number}`}
+                        onClick={() => navigateToEpisode(seasonNum!, ep.episode_number)}
+                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
+                          isCurrent
+                            ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
+                            : 'hover:bg-white/5 text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
+                          isCurrent ? 'bg-black/20' : 'bg-white/5'
                         }`}>
-                          {ep.duration ? `${Math.floor(ep.duration / 60)} DK` : '24 DK'}
-                        </p>
-                        {progress && progress.duration > 0 && (
-                          <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-emerald-400"
-                              style={{
-                                width: `${Math.min(100, (progress.progress / progress.duration) * 100)}%`
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                          {ep.episode_number}
+                        </div>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-[9px] font-black uppercase truncate leading-tight">
+                            {ep.title || `Bölüm ${ep.episode_number}`}
+                          </p>
+                          <p className={`text-[7px] font-bold uppercase mt-0.5 ${
+                            isCurrent ? 'text-white/70' : 'text-gray-600'
+                          }`}>
+                            {ep.duration ? `${Math.floor(ep.duration / 60)} DK` : '24 DK'}
+                          </p>
+                          {progress && progress.duration > 0 && (
+                            <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-400"
+                                style={{
+                                  width: `${Math.min(100, (progress.progress / progress.duration) * 100)}%`
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* Now Watching Card */}
-            <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 flex gap-4 items-center">
-              <img
-                src={poster}
-                onError={(e) => {
-                  const target = e.currentTarget as HTMLImageElement;
-                  if (rawPoster && target.src !== rawPoster) {
-                    target.src = rawPoster;
-                  } else {
-                    target.src = fallbackPoster;
-                  }
-                }}
-                className="w-16 h-24 object-cover rounded-xl shadow-lg"
-                alt={titleString}
-              />
-              <div>
-                <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1">
-                  ŞİMDİ İZLENİYOR
-                </p>
-                <h4 className="text-sm font-bold text-white uppercase italic leading-tight line-clamp-2">
-                  {titleString}
-                </h4>
+              {/* Now Watching Card */}
+              <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 flex gap-4 items-center">
+                <img
+                  src={poster}
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (rawPoster && target.src !== rawPoster) {
+                      target.src = rawPoster;
+                    } else {
+                      target.src = fallbackPoster;
+                    }
+                  }}
+                  className="w-16 h-24 object-cover rounded-xl shadow-lg"
+                  alt={titleString}
+                />
+                <div>
+                  <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1">
+                    ŞİMDİ İZLENİYOR
+                  </p>
+                  <h4 className="text-sm font-bold text-white uppercase italic leading-tight line-clamp-2">
+                    {titleString}
+                  </h4>
+                </div>
               </div>
-            </div>
-          </aside>
-
-          {/* Mobile Episode List */}
-          <div className="xl:hidden fixed bottom-4 left-0 right-0 z-[120] px-4">
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  // Mobile sheet toggle could be added here
-                }}
-                className="bg-red-500 text-white font-bold uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-red-500/30"
-              >
-                Bölüm Listesi
-              </button>
-            </div>
+            </aside>
           </div>
         </div>
       </div>

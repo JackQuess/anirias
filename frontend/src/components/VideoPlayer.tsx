@@ -18,6 +18,7 @@ interface VideoPlayerProps {
   onSkipIntro?: () => void;
   hasNextEpisode?: boolean;
   onNextEpisode?: () => void;
+  onPlayerReady?: () => void; // NEW: Called when video is ready to play
 }
 
 type PlayerBootState = 'IDLE' | 'LOADING' | 'READY' | 'PLAYING';
@@ -46,6 +47,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onSkipIntro,
   hasNextEpisode = false,
   onNextEpisode,
+  onPlayerReady,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -240,6 +242,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleCanPlay = () => {
       if (bootState === 'LOADING') {
         setBootState('READY');
+        onPlayerReady?.(); // Notify parent that player is ready
       }
     };
 
@@ -341,7 +344,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Only cleanup HLS on unmount, not on src change
       // HLS instance is reused for episode switching
     };
-  }, [src, hasNextEpisode, onNextEpisode, duration, onTimeUpdate, onEnded, onError, initialTime, bootState]);
+  }, [src, hasNextEpisode, onNextEpisode, duration, onTimeUpdate, onEnded, onError, initialTime, bootState, onPlayerReady]);
 
   // Cleanup HLS only on component unmount
   useEffect(() => {
@@ -664,9 +667,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }}
       onTouchStart={handleVideoTouch}
     >
-      {/* Loading Skeleton - Only on first load or invalid src */}
+      {/* Loading Overlay - Only shown until canplay event fires */}
       {bootState === 'LOADING' && isValidSrc && (
-        <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10">
+        <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10 transition-opacity duration-200">
           <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
         </div>
       )}
@@ -705,7 +708,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             visibility: isMetadataLoaded ? 'visible' : 'hidden',
             zIndex: 2,
           }}
+          preload="auto"
           playsInline
+          webkit-playsinline="true"
+          disablePictureInPicture
           onClick={handleVideoClick}
         />
       )}
