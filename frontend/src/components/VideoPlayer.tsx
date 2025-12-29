@@ -91,6 +91,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isEpisodeSwitchingRef = useRef(false); // Prevent state reset during episode switch
   const listenersAddedRef = useRef(false); // Track if event listeners are already added
   const lastTapRef = useRef<number>(0); // Track last tap time for double tap detection
+  const originalMutedStateRef = useRef<boolean | null>(null); // Store original muted state before pause
 
   // Detect mobile
   useEffect(() => {
@@ -384,6 +385,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, []);
 
   const handlePlay = useCallback(() => {
+    const video = videoRef.current;
+    
+    // CRITICAL: Restore original muted state when play event fires
+    // This ensures audio is restored if it was muted during pause
+    if (video && originalMutedStateRef.current !== null) {
+      video.muted = originalMutedStateRef.current;
+      setIsMuted(originalMutedStateRef.current);
+      originalMutedStateRef.current = null; // Clear after restore
+    }
+    
     setBootState('PLAYING');
     setIsPlaying(true);
   }, []);
@@ -391,6 +402,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handlePause = useCallback(() => {
     const video = videoRef.current;
     if (video) {
+      // CRITICAL: Store original muted state BEFORE muting (only if not already stored)
+      // This ensures we can restore it when play is called
+      if (originalMutedStateRef.current === null) {
+        originalMutedStateRef.current = video.muted;
+      }
+      
       // CRITICAL: Hard stop - ensure video is paused and audio stops COMPLETELY
       if (!video.paused) {
         video.pause();
@@ -406,7 +423,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         video.pause();
       }
       
-      // Update state to reflect muted status
+      // Update state to reflect muted status (will be restored on play)
       setIsMuted(true);
       
       // Restore volume after audio buffer clears, but keep muted
@@ -418,7 +435,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }, 50);
       
       if (import.meta.env.DEV) {
-        console.log('[VideoPlayer] Pause event fired, audio completely stopped');
+        console.log('[VideoPlayer] Pause event fired, audio completely stopped', {
+          originalMuted: originalMutedStateRef.current,
+        });
       }
     }
     setIsPlaying(false);
@@ -761,11 +780,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     if (video.paused) {
       // CRITICAL: Restore audio before playing
-      // If we muted during pause, restore the original muted state
-      if (video.muted && !isMuted) {
-        video.muted = false;
-        setIsMuted(false);
+      // Restore the original muted state that was saved before pause
+      if (originalMutedStateRef.current !== null) {
+        video.muted = originalMutedStateRef.current;
+        setIsMuted(originalMutedStateRef.current);
+        originalMutedStateRef.current = null; // Clear after restore
+      } else {
+        // Fallback: If we muted during pause, restore based on current state
+        if (video.muted && !isMuted) {
+          video.muted = false;
+          setIsMuted(false);
+        }
       }
+      
       // Restore volume if it was set to 0 during pause
       if (video.volume === 0 && volume > 0) {
         video.volume = volume;
@@ -786,21 +813,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     } else {
       // CRITICAL: Hard stop - ensure video and audio stop COMPLETELY
-      // Step 1: Pause video immediately (synchronous, no async)
+      // Step 1: Store original muted state BEFORE muting (for restore on play)
+      originalMutedStateRef.current = video.muted;
+      
+      // Step 2: Pause video immediately (synchronous, no async)
       video.pause();
       
-      // Step 2: CRITICAL - Mute audio IMMEDIATELY and PERMANENTLY until play
+      // Step 3: CRITICAL - Mute audio IMMEDIATELY and PERMANENTLY until play
       // This ensures audio stream is completely stopped
-      const wasMutedBeforePause = video.muted;
       video.muted = true;
       video.volume = 0; // Also set volume to 0 for extra safety
       
-      // Step 3: Force pause again to ensure it's really paused
+      // Step 4: Force pause again to ensure it's really paused
       if (!video.paused) {
         video.pause();
       }
       
-      // Step 4: Clear any pending play promises
+      // Step 5: Clear any pending play promises
       // This prevents audio from continuing if play() was called
       try {
         const playPromise = video.play();
@@ -814,26 +843,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         // Ignore errors
       }
       
-      // Step 5: Update state
+      // Step 6: Update state
       setIsPlaying(false);
-      setIsMuted(true); // Update muted state to reflect reality
+      setIsMuted(true); // Update muted state to reflect reality (will be restored on play)
       setShowControls(true);
       
-      // Step 6: Store original muted state to restore on play
-      // We'll restore it when play is called
       if (import.meta.env.DEV) {
         console.log('[VideoPlayer] Video paused, audio completely stopped', {
-          wasMuted: wasMutedBeforePause,
+          originalMuted: originalMutedStateRef.current,
           currentMuted: video.muted,
           currentVolume: video.volume,
         });
       }
       
-      // Step 7: Restore volume and muted state after a short delay
+      // Step 7: Restore volume after a short delay (but keep muted until play)
       // This allows audio buffer to clear, but keeps it muted until play
       setTimeout(() => {
         if (video && video.paused) {
-          // Restore volume but keep muted
+          // Restore volume but keep muted (will be restored on play)
           video.volume = volume; // Restore to previous volume level
           video.muted = true; // Keep muted until play
         }
@@ -933,28 +960,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     );
 
     if (!isCurrentlyFullscreen) {
-      // Enter fullscreen - try iOS Safari first, then standard API
-      if (video && (video as any).webkitEnterFullscreen) {
-        // iOS Safari native fullscreen
-        (video as any).webkitEnterFullscreen();
-        setIsFullscreen(true);
-      } else if (video && video.requestFullscreen) {
-        // Standard video fullscreen
-        video.requestFullscreen().then(() => {
+      // CRITICAL: Always use container.requestFullscreen() for proper fullscreen
+      // This ensures the entire player container goes fullscreen, not just the video element
+      if (container && container.requestFullscreen) {
+        // Container fullscreen (preferred - hides all other page elements)
+        container.requestFullscreen().then(() => {
           setIsFullscreen(true);
         }).catch(() => {
-          // Fallback to container fullscreen
-          if (container && container.requestFullscreen) {
-            container.requestFullscreen().then(() => {
+          // Fallback to video fullscreen if container fails
+          if (video && video.requestFullscreen) {
+            video.requestFullscreen().then(() => {
               setIsFullscreen(true);
             }).catch(() => {
               // Fullscreen failed
             });
+          } else if (video && (video as any).webkitEnterFullscreen) {
+            // iOS Safari native fullscreen (last resort)
+            (video as any).webkitEnterFullscreen();
+            setIsFullscreen(true);
           }
         });
-      } else if (container && container.requestFullscreen) {
-        // Container fullscreen fallback
-        container.requestFullscreen().then(() => {
+      } else if (video && (video as any).webkitEnterFullscreen) {
+        // iOS Safari native fullscreen
+        (video as any).webkitEnterFullscreen();
+        setIsFullscreen(true);
+      } else if (video && video.requestFullscreen) {
+        // Video fullscreen fallback
+        video.requestFullscreen().then(() => {
           setIsFullscreen(true);
         }).catch(() => {
           // Fullscreen failed
@@ -1255,10 +1287,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`bg-black overflow-hidden shadow-2xl ${
+      className={`bg-black overflow-hidden ${
         isFullscreen
-          ? 'fixed inset-0 w-screen h-screen max-w-none mx-0 rounded-none z-[9999]'
-          : `relative w-full ${
+          ? 'w-screen h-screen max-w-none mx-0 rounded-none'
+          : `relative w-full shadow-2xl ${
               isMobile 
                 ? 'rounded-none' 
                 : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
@@ -1266,16 +1298,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }`}
       style={{
         ...(isFullscreen ? {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          // CRITICAL: When using Fullscreen API, container is already fullscreen element
+          // Don't use fixed positioning - let the Fullscreen API handle it
+          // Just ensure it takes full viewport
           width: '100vw',
           height: '100vh',
           aspectRatio: 'auto',
           minHeight: '100vh',
-          zIndex: 9999,
+          maxWidth: '100vw',
+          maxHeight: '100vh',
         } : {
           aspectRatio: '16 / 9',
           minHeight: isMobile ? 'auto' : '0',
