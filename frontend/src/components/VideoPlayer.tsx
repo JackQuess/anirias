@@ -49,12 +49,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onNextEpisode,
   onPlayerReady,
 }) => {
-  console.log('[VideoPlayer] Component rendered:', {
-    src: src?.substring(0, 50) + '...',
-    hasSrc: !!src,
-    title,
-  });
-  
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,12 +98,29 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, []);
 
   useEffect(() => {
-    console.log('[VideoPlayer] bootState changed:', {
-      previous: bootStateRef.current,
-      current: bootState,
-    });
     bootStateRef.current = bootState;
   }, [bootState]);
+
+  // Store callbacks in refs to avoid re-creating handlers
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  const onEndedRef = useRef(onEnded);
+  const onErrorRef = useRef(onError);
+  const onNextEpisodeRef = useRef(onNextEpisode);
+  const onPlayerReadyRef = useRef(onPlayerReady);
+  const hasNextEpisodeRef = useRef(hasNextEpisode);
+  const initialTimeRef = useRef(initialTime);
+  const durationRef = useRef(duration);
+
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+    onEndedRef.current = onEnded;
+    onErrorRef.current = onError;
+    onNextEpisodeRef.current = onNextEpisode;
+    onPlayerReadyRef.current = onPlayerReady;
+    hasNextEpisodeRef.current = hasNextEpisode;
+    initialTimeRef.current = initialTime;
+    durationRef.current = duration;
+  }, [onTimeUpdate, onEnded, onError, onNextEpisode, onPlayerReady, hasNextEpisode, initialTime, duration]);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -124,6 +135,214 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }, 2000);
   }, [isPlaying]);
+
+  // Memoized event handlers using refs to avoid re-creating
+  const handleLoadedMetadata = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    console.log('[VideoPlayer] handleLoadedMetadata fired:', {
+      duration: currentVideo.duration,
+      readyState: currentVideo.readyState,
+      currentBootState: bootStateRef.current,
+    });
+    if (!durationSetRef.current && currentVideo.duration && isFinite(currentVideo.duration)) {
+      setDuration(currentVideo.duration);
+      durationSetRef.current = true;
+      durationRef.current = currentVideo.duration;
+    }
+    setBootState('READY');
+    isEpisodeSwitchingRef.current = false;
+    console.log('[VideoPlayer] handleLoadedMetadata: bootState set to READY');
+  }, []);
+
+  const handleTimeUpdate = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    const time = currentVideo.currentTime;
+    if (Math.abs(time - lastTimeUpdateRef.current) > 0.1 || lastTimeUpdateRef.current === 0) {
+      setCurrentTime(time);
+      lastTimeUpdateRef.current = time;
+    }
+    
+    const videoDuration = currentVideo.duration || durationRef.current || 0;
+    onTimeUpdateRef.current?.(time, videoDuration);
+    
+    // Show resume card 90 seconds before end (only once)
+    if (initialTimeRef.current > 0 && !resumeCardShownRef.current && videoDuration > 0) {
+      const remaining = videoDuration - time;
+      if (remaining <= 90 && remaining > 0) {
+        resumeCardShownRef.current = true;
+        setShowResumeCard(true);
+      }
+    }
+    
+    // Show next episode overlay 10 seconds before end
+    if (hasNextEpisodeRef.current && onNextEpisodeRef.current && videoDuration > 0) {
+      const remaining = videoDuration - time;
+      if (remaining <= 10 && remaining > 0) {
+        setShowNextEpisodeOverlay((prev) => {
+          if (!prev) {
+            setNextEpisodeCountdown(Math.ceil(remaining));
+            if (nextEpisodeCountdownRef.current) {
+              clearInterval(nextEpisodeCountdownRef.current);
+            }
+            nextEpisodeCountdownRef.current = setInterval(() => {
+              setNextEpisodeCountdown((prevCount) => {
+                if (prevCount <= 1) {
+                  if (nextEpisodeCountdownRef.current) {
+                    clearInterval(nextEpisodeCountdownRef.current);
+                    nextEpisodeCountdownRef.current = null;
+                  }
+                  onNextEpisodeRef.current?.();
+                  return 0;
+                }
+                return prevCount - 1;
+              });
+            }, 1000);
+            return true;
+          }
+          return prev;
+        });
+        setNextEpisodeCountdown(Math.ceil(remaining));
+      } else if (remaining > 10) {
+        setShowNextEpisodeOverlay((prev) => {
+          if (prev) {
+            if (nextEpisodeCountdownRef.current) {
+              clearInterval(nextEpisodeCountdownRef.current);
+              nextEpisodeCountdownRef.current = null;
+            }
+            return false;
+          }
+          return prev;
+        });
+      } else {
+        setNextEpisodeCountdown(Math.ceil(remaining));
+      }
+    }
+  }, []);
+
+  const handleProgress = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    if (currentVideo.buffered.length > 0) {
+      const bufferedEnd = currentVideo.buffered.end(currentVideo.buffered.length - 1);
+      const videoDuration = currentVideo.duration || durationRef.current;
+      if (videoDuration > 0) {
+        setBuffered((bufferedEnd / videoDuration) * 100);
+      }
+    }
+  }, []);
+
+  const handleEnded = useCallback(() => {
+    setIsPlaying(false);
+    setBootState('READY');
+    onEndedRef.current?.();
+  }, []);
+
+  const handleError = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    console.error('[VideoPlayer] handleError fired:', {
+      error: currentVideo.error,
+      errorCode: currentVideo.error?.code,
+      errorMessage: currentVideo.error?.message,
+      readyState: currentVideo.readyState,
+      videoSrc: currentVideo.src?.substring(0, 50) + '...',
+    });
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    setBootState('IDLE');
+    isEpisodeSwitchingRef.current = false;
+    onErrorRef.current?.('Video oynatılamadı.');
+  }, []);
+
+  const handleCanPlay = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    console.log('[VideoPlayer] handleCanPlay fired:', {
+      currentBootState: bootStateRef.current,
+      readyState: currentVideo.readyState,
+      videoSrc: currentVideo.src?.substring(0, 50) + '...',
+    });
+    if (bootStateRef.current === 'LOADING') {
+      if (loadingTimeoutRef.current) {
+        console.log('[VideoPlayer] handleCanPlay: Clearing loading timeout');
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      setBootState('READY');
+      onPlayerReadyRef.current?.();
+      console.log('[VideoPlayer] handleCanPlay: bootState set to READY');
+    }
+  }, []);
+
+  const handleLoadedData = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    console.log('[VideoPlayer] handleLoadedData fired:', {
+      currentBootState: bootStateRef.current,
+      readyState: currentVideo.readyState,
+      videoSrc: currentVideo.src?.substring(0, 50) + '...',
+    });
+    if (bootStateRef.current === 'LOADING') {
+      if (loadingTimeoutRef.current) {
+        console.log('[VideoPlayer] handleLoadedData: Clearing loading timeout');
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      setBootState('READY');
+      onPlayerReadyRef.current?.();
+      console.log('[VideoPlayer] handleLoadedData: bootState set to READY');
+    }
+  }, []);
+
+  const handlePlay = useCallback(() => {
+    setBootState('PLAYING');
+    setIsPlaying(true);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setIsPlaying(false);
+  }, []);
+
+  // Add event listeners once when video element is mounted
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || listenersAddedRef.current) return;
+
+    console.log('[VideoPlayer] Adding event listeners to video element');
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('progress', handleProgress);
+    video.addEventListener('ended', handleEnded);
+    video.addEventListener('error', handleError);
+    listenersAddedRef.current = true;
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('progress', handleProgress);
+      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('error', handleError);
+      listenersAddedRef.current = false;
+    };
+  }, [handleLoadedMetadata, handleCanPlay, handleLoadedData, handlePlay, handlePause, handleTimeUpdate, handleProgress, handleEnded, handleError]);
 
   // CRITICAL: Episode switching - update video src without remounting
   useEffect(() => {
@@ -153,7 +372,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // If src hasn't changed and we're not in IDLE state, don't do anything
     if (!srcChanged && bootStateRef.current !== 'IDLE') {
-      console.log('[VideoPlayer] Src unchanged and not IDLE, skipping');
       return;
     }
 
@@ -217,210 +435,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
       loadingTimeoutRef.current = setTimeout(() => {
         console.log('[VideoPlayer] Loading timeout fired:', {
-          currentBootState: bootState,
+          currentBootState: bootStateRef.current,
           previousSrc: previousSrcRef.current?.substring(0, 50) + '...',
           currentSrc: src?.substring(0, 50) + '...',
         });
         setBootState((prev) => {
           if (prev === 'LOADING' && previousSrcRef.current === src) {
             console.log('[VideoPlayer] Timeout: Setting bootState to READY');
-            onPlayerReady?.();
+            onPlayerReadyRef.current?.();
             return 'READY';
           }
           return prev;
         });
         loadingTimeoutRef.current = null;
       }, 10000); // 10 second timeout
-    }
-
-    // Handler functions - these will be added to video element
-    // Using bootStateRef to get current state value in closures
-    const handleLoadedMetadata = () => {
-      const currentVideo = videoRef.current;
-      if (!currentVideo) return;
-      
-      console.log('[VideoPlayer] handleLoadedMetadata fired:', {
-        duration: currentVideo.duration,
-        readyState: currentVideo.readyState,
-        currentBootState: bootStateRef.current,
-      });
-      if (!durationSetRef.current && currentVideo.duration && isFinite(currentVideo.duration)) {
-        setDuration(currentVideo.duration);
-        durationSetRef.current = true;
-      }
-      setBootState('READY');
-      isEpisodeSwitchingRef.current = false;
-      console.log('[VideoPlayer] handleLoadedMetadata: bootState set to READY');
-    };
-
-    const handleTimeUpdate = () => {
-      const currentVideo = videoRef.current;
-      if (!currentVideo) return;
-      
-      const time = currentVideo.currentTime;
-      if (Math.abs(time - lastTimeUpdateRef.current) > 0.1 || lastTimeUpdateRef.current === 0) {
-        setCurrentTime(time);
-        lastTimeUpdateRef.current = time;
-      }
-      
-      const videoDuration = currentVideo.duration || duration || 0;
-      onTimeUpdate?.(time, videoDuration);
-      
-      // Show resume card 90 seconds before end
-      if (initialTime > 0 && !resumeCardShownRef.current && videoDuration > 0) {
-        const remaining = videoDuration - time;
-        if (remaining <= 90 && remaining > 0) {
-          resumeCardShownRef.current = true;
-          setShowResumeCard(true);
-        }
-      }
-      
-      // Show next episode overlay 10 seconds before end
-      if (hasNextEpisode && onNextEpisode && videoDuration > 0) {
-        const remaining = videoDuration - time;
-        if (remaining <= 10 && remaining > 0 && !showNextEpisodeOverlay) {
-          setShowNextEpisodeOverlay(true);
-          setNextEpisodeCountdown(Math.ceil(remaining));
-          
-          if (nextEpisodeCountdownRef.current) {
-            clearInterval(nextEpisodeCountdownRef.current);
-          }
-          nextEpisodeCountdownRef.current = setInterval(() => {
-            setNextEpisodeCountdown((prev) => {
-              if (prev <= 1) {
-                if (nextEpisodeCountdownRef.current) {
-                  clearInterval(nextEpisodeCountdownRef.current);
-                  nextEpisodeCountdownRef.current = null;
-                }
-                onNextEpisode();
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-        } else if (remaining > 10 && showNextEpisodeOverlay) {
-          setShowNextEpisodeOverlay(false);
-          if (nextEpisodeCountdownRef.current) {
-            clearInterval(nextEpisodeCountdownRef.current);
-            nextEpisodeCountdownRef.current = null;
-          }
-        } else if (showNextEpisodeOverlay && remaining > 0) {
-          setNextEpisodeCountdown(Math.ceil(remaining));
-        }
-      }
-    };
-
-    const handleProgress = () => {
-      const currentVideo = videoRef.current;
-      if (!currentVideo) return;
-      
-      if (currentVideo.buffered.length > 0) {
-        const bufferedEnd = currentVideo.buffered.end(currentVideo.buffered.length - 1);
-        const videoDuration = currentVideo.duration || duration;
-        if (videoDuration > 0) {
-          setBuffered((bufferedEnd / videoDuration) * 100);
-        }
-      }
-    };
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-      setBootState('READY');
-      onEnded?.();
-    };
-
-    const handleError = () => {
-      const currentVideo = videoRef.current;
-      if (!currentVideo) return;
-      
-      console.error('[VideoPlayer] handleError fired:', {
-        error: currentVideo.error,
-        errorCode: currentVideo.error?.code,
-        errorMessage: currentVideo.error?.message,
-        readyState: currentVideo.readyState,
-        videoSrc: currentVideo.src?.substring(0, 50) + '...',
-      });
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-      }
-      setBootState('IDLE');
-      isEpisodeSwitchingRef.current = false;
-      onError?.('Video oynatılamadı.');
-    };
-
-    const handleCanPlay = () => {
-      const currentVideo = videoRef.current;
-      if (!currentVideo) return;
-      
-      console.log('[VideoPlayer] handleCanPlay fired:', {
-        currentBootState: bootStateRef.current,
-        readyState: currentVideo.readyState,
-        videoSrc: currentVideo.src?.substring(0, 50) + '...',
-      });
-      if (bootStateRef.current === 'LOADING') {
-        if (loadingTimeoutRef.current) {
-          console.log('[VideoPlayer] handleCanPlay: Clearing loading timeout');
-          clearTimeout(loadingTimeoutRef.current);
-          loadingTimeoutRef.current = null;
-        }
-        setBootState('READY');
-        onPlayerReady?.(); // Notify parent that player is ready
-        console.log('[VideoPlayer] handleCanPlay: bootState set to READY');
-      } else {
-        console.log('[VideoPlayer] handleCanPlay: bootState is not LOADING, ignoring');
-      }
-    };
-
-    const handleLoadedData = () => {
-      // CRITICAL: This event fires when video data is loaded and ready to play
-      // This ensures loading overlay closes even if canplay doesn't fire immediately
-      const currentVideo = videoRef.current;
-      if (!currentVideo) return;
-      
-      console.log('[VideoPlayer] handleLoadedData fired:', {
-        currentBootState: bootStateRef.current,
-        readyState: currentVideo.readyState,
-        videoSrc: currentVideo.src?.substring(0, 50) + '...',
-      });
-      if (bootStateRef.current === 'LOADING') {
-        if (loadingTimeoutRef.current) {
-          console.log('[VideoPlayer] handleLoadedData: Clearing loading timeout');
-          clearTimeout(loadingTimeoutRef.current);
-          loadingTimeoutRef.current = null;
-        }
-        setBootState('READY');
-        onPlayerReady?.();
-        console.log('[VideoPlayer] handleLoadedData: bootState set to READY');
-      } else {
-        console.log('[VideoPlayer] handleLoadedData: bootState is not LOADING, ignoring');
-      }
-    };
-
-    const handlePlay = () => {
-      setBootState('PLAYING');
-      setIsPlaying(true);
-    };
-
-    const handlePause = () => {
-      setIsPlaying(false);
-    };
-
-    // Add event listeners ONLY if not already added
-    if (!listenersAddedRef.current) {
-      console.log('[VideoPlayer] Adding event listeners to video element (first time)');
-      video.addEventListener('loadedmetadata', handleLoadedMetadata);
-      video.addEventListener('canplay', handleCanPlay);
-      video.addEventListener('loadeddata', handleLoadedData);
-      video.addEventListener('play', handlePlay);
-      video.addEventListener('pause', handlePause);
-      video.addEventListener('timeupdate', handleTimeUpdate);
-      video.addEventListener('progress', handleProgress);
-      video.addEventListener('ended', handleEnded);
-      video.addEventListener('error', handleError);
-      listenersAddedRef.current = true;
-    } else {
-      console.log('[VideoPlayer] Event listeners already added, skipping');
     }
 
     // Handle video source change
@@ -545,7 +573,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     return () => {
-      // DO NOT remove event listeners here - they should persist for the lifetime of the video element
       // Only cleanup loading timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
@@ -555,7 +582,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Only cleanup HLS on unmount, not on src change
       // HLS instance is reused for episode switching
     };
-  }, [src, hasNextEpisode, onNextEpisode, duration, onTimeUpdate, onEnded, onError, initialTime, onPlayerReady]);
+  }, [src]); // Only depend on src - callbacks are stored in refs
 
   // Cleanup HLS only on component unmount
   useEffect(() => {
