@@ -75,6 +75,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showResumeCard, setShowResumeCard] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Persistent flags (useRef to prevent re-triggering)
   const durationSetRef = useRef(false);
@@ -152,6 +153,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         clearInterval(nextEpisodeCountdownRef.current);
         nextEpisodeCountdownRef.current = null;
       }
+      // CRITICAL: Set timeout to close loading overlay if video doesn't load within 10 seconds
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      loadingTimeoutRef.current = setTimeout(() => {
+        if (bootState === 'LOADING') {
+          setBootState('READY');
+          onPlayerReady?.();
+        }
+        loadingTimeoutRef.current = null;
+      }, 10000); // 10 second timeout
     }
 
     const handleLoadedMetadata = () => {
@@ -234,6 +246,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleError = () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       setBootState('IDLE');
       isEpisodeSwitchingRef.current = false;
       onError?.('Video oynatılamadı.');
@@ -241,6 +257,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     const handleCanPlay = () => {
       if (bootState === 'LOADING') {
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
         setBootState('READY');
         onPlayerReady?.(); // Notify parent that player is ready
       }
@@ -250,6 +270,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // CRITICAL: This event fires when video data is loaded and ready to play
       // This ensures loading overlay closes even if canplay doesn't fire immediately
       if (bootState === 'LOADING') {
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
         setBootState('READY');
         onPlayerReady?.();
       }
@@ -312,6 +336,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         if (hlsRef.current) {
           // If HLS instance exists and src changed, update source
           if (hlsRef.current.media === video) {
+            // Same instance, same media - update source
+            // CRITICAL: Re-attach event listeners for MANIFEST_PARSED
+            hlsRef.current.off(Hls.Events.MANIFEST_PARSED);
+            hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
+              handleLoadedMetadata();
+              handleLoadedData();
+            });
             hlsRef.current.loadSource(src);
           } else {
             hlsRef.current.destroy();
@@ -327,6 +358,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             });
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
               handleLoadedMetadata();
+              // CRITICAL: Also trigger loadedData handler for HLS
+              handleLoadedData();
             });
             hls.loadSource(src);
             hls.attachMedia(video);
@@ -345,6 +378,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           });
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             handleLoadedMetadata();
+            // CRITICAL: Also trigger loadedData handler for HLS
+            handleLoadedData();
           });
           hls.loadSource(src);
           hls.attachMedia(video);
@@ -366,6 +401,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
       
+      // Cleanup loading timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      
       // Only cleanup HLS on unmount, not on src change
       // HLS instance is reused for episode switching
     };
@@ -385,6 +426,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
         controlsTimeoutRef.current = null;
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
     };
   }, []);

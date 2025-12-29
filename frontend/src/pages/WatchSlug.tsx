@@ -113,26 +113,15 @@ const WatchSlug: React.FC = () => {
     return false;
   }, [animeLoading, seasonLoading, episodeLoading, animeError, seasonError, episodeError, anime, season, episode]);
 
-  // OPTIMIZED: Episode switch WITHOUT route change - instant switching
+  // OPTIMIZED: Episode switch - instant switching with React Router
   const navigateToEpisode = useCallback((targetSeasonNum: number, targetEpisodeNum: number) => {
     if (!anime?.slug) return;
     
-    // If same season, just update URL without navigation (SPA-like)
-    if (targetSeasonNum === seasonNum) {
-      // Update URL silently (no page reload)
-      window.history.replaceState(
-        {},
-        '',
-        `/watch/${generateSeasonSlug(anime.slug, targetSeasonNum)}/${targetSeasonNum}/${targetEpisodeNum}`
-      );
-      // Force re-fetch episode by updating episodeNum dependency
-      // This will trigger useLoad to fetch new episode
-    } else {
-      // Different season - navigate normally
-      const seasonSlug = generateSeasonSlug(anime.slug, targetSeasonNum);
-      navigate(`/watch/${seasonSlug}/${targetSeasonNum}/${targetEpisodeNum}`, { replace: true });
-    }
-  }, [anime?.slug, seasonNum, navigate]);
+    // Always use navigate with replace: true for instant switching
+    // This ensures React Router updates useParams and triggers useLoad
+    const seasonSlug = generateSeasonSlug(anime.slug, targetSeasonNum);
+    navigate(`/watch/${seasonSlug}/${targetSeasonNum}/${targetEpisodeNum}`, { replace: true });
+  }, [anime?.slug, navigate]);
 
   const progressMap = useMemo(() => {
     const map = new Map<string, { progress: number; duration: number }>();
