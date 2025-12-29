@@ -272,7 +272,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           errorCodeName = 'MEDIA_ERR_DECODE';
           break;
         case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: // 4
-          errorMsg = 'Video formatı desteklenmiyor.';
+          // This usually means: video file not found (404), CORS issue, or unsupported format
+          errorMsg = 'Video dosyası bulunamadı veya erişilemiyor. Lütfen daha sonra tekrar deneyin.';
           errorCodeName = 'MEDIA_ERR_SRC_NOT_SUPPORTED';
           break;
         default:
@@ -282,12 +283,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     
     // CRITICAL: Always log detailed error information, never "Object"
+    const fullVideoSrc = currentVideo.src || currentVideo.currentSrc || 'No src';
     console.error('[VideoPlayer] Video error:', {
       code: error?.code,
       codeName: errorCodeName,
       message: error?.message || 'No error message',
       readyState: currentVideo.readyState,
-      videoSrc: currentVideo.src?.substring(0, 100) || 'No src',
+      videoSrc: fullVideoSrc,
+      videoSrcLength: fullVideoSrc.length,
+      // Additional debugging info
+      networkState: currentVideo.networkState,
+      canPlayType: currentVideo.canPlayType('video/mp4') ? 'supported' : 'not supported',
     });
     
     if (loadingTimeoutRef.current) {
