@@ -91,6 +91,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const resumeCardTriggeredRef = useRef(false);
   const previousSrcRef = useRef<string>(''); // Track src changes for smooth episode switching
   const isEpisodeSwitchingRef = useRef(false); // Prevent state reset during episode switch
+  const listenersAddedRef = useRef(false); // Track if event listeners are already added
 
   // Detect mobile
   useEffect(() => {
@@ -151,7 +152,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     // If src hasn't changed and we're not in IDLE state, don't do anything
-    if (!srcChanged && bootState !== 'IDLE') {
+    if (!srcChanged && bootStateRef.current !== 'IDLE') {
       console.log('[VideoPlayer] Src unchanged and not IDLE, skipping');
       return;
     }
@@ -189,7 +190,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     // Episode switch detected - preserve UI state
-    if (srcChanged && previousSrcRef.current && bootState !== 'IDLE') {
+    if (srcChanged && previousSrcRef.current && bootStateRef.current !== 'IDLE') {
       isEpisodeSwitchingRef.current = true;
     }
 
@@ -232,14 +233,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }, 10000); // 10 second timeout
     }
 
+    // Handler functions - these will be added to video element
+    // Using bootStateRef to get current state value in closures
     const handleLoadedMetadata = () => {
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
       console.log('[VideoPlayer] handleLoadedMetadata fired:', {
-        duration: video.duration,
-        readyState: video.readyState,
-        currentBootState: bootState,
+        duration: currentVideo.duration,
+        readyState: currentVideo.readyState,
+        currentBootState: bootStateRef.current,
       });
-      if (!durationSetRef.current && video.duration && isFinite(video.duration)) {
-        setDuration(video.duration);
+      if (!durationSetRef.current && currentVideo.duration && isFinite(currentVideo.duration)) {
+        setDuration(currentVideo.duration);
         durationSetRef.current = true;
       }
       setBootState('READY');
@@ -248,13 +254,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleTimeUpdate = () => {
-      const time = video.currentTime;
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
+      const time = currentVideo.currentTime;
       if (Math.abs(time - lastTimeUpdateRef.current) > 0.1 || lastTimeUpdateRef.current === 0) {
         setCurrentTime(time);
         lastTimeUpdateRef.current = time;
       }
       
-      const videoDuration = video.duration || duration || 0;
+      const videoDuration = currentVideo.duration || duration || 0;
       onTimeUpdate?.(time, videoDuration);
       
       // Show resume card 90 seconds before end
@@ -302,9 +311,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleProgress = () => {
-      if (video.buffered.length > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        const videoDuration = video.duration || duration;
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
+      if (currentVideo.buffered.length > 0) {
+        const bufferedEnd = currentVideo.buffered.end(currentVideo.buffered.length - 1);
+        const videoDuration = currentVideo.duration || duration;
         if (videoDuration > 0) {
           setBuffered((bufferedEnd / videoDuration) * 100);
         }
@@ -318,12 +330,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleError = () => {
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
       console.error('[VideoPlayer] handleError fired:', {
-        error: video.error,
-        errorCode: video.error?.code,
-        errorMessage: video.error?.message,
-        readyState: video.readyState,
-        videoSrc: video.src?.substring(0, 50) + '...',
+        error: currentVideo.error,
+        errorCode: currentVideo.error?.code,
+        errorMessage: currentVideo.error?.message,
+        readyState: currentVideo.readyState,
+        videoSrc: currentVideo.src?.substring(0, 50) + '...',
       });
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
@@ -335,12 +350,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleCanPlay = () => {
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
       console.log('[VideoPlayer] handleCanPlay fired:', {
-        currentBootState: bootState,
-        readyState: video.readyState,
-        videoSrc: video.src?.substring(0, 50) + '...',
+        currentBootState: bootStateRef.current,
+        readyState: currentVideo.readyState,
+        videoSrc: currentVideo.src?.substring(0, 50) + '...',
       });
-      if (bootState === 'LOADING') {
+      if (bootStateRef.current === 'LOADING') {
         if (loadingTimeoutRef.current) {
           console.log('[VideoPlayer] handleCanPlay: Clearing loading timeout');
           clearTimeout(loadingTimeoutRef.current);
@@ -357,12 +375,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleLoadedData = () => {
       // CRITICAL: This event fires when video data is loaded and ready to play
       // This ensures loading overlay closes even if canplay doesn't fire immediately
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
       console.log('[VideoPlayer] handleLoadedData fired:', {
-        currentBootState: bootState,
-        readyState: video.readyState,
-        videoSrc: video.src?.substring(0, 50) + '...',
+        currentBootState: bootStateRef.current,
+        readyState: currentVideo.readyState,
+        videoSrc: currentVideo.src?.substring(0, 50) + '...',
       });
-      if (bootState === 'LOADING') {
+      if (bootStateRef.current === 'LOADING') {
         if (loadingTimeoutRef.current) {
           console.log('[VideoPlayer] handleLoadedData: Clearing loading timeout');
           clearTimeout(loadingTimeoutRef.current);
@@ -385,17 +406,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsPlaying(false);
     };
 
-    // Add event listeners (only once, not on every src change)
-    console.log('[VideoPlayer] Adding event listeners to video element');
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('loadeddata', handleLoadedData);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('progress', handleProgress);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('error', handleError);
+    // Add event listeners ONLY if not already added
+    if (!listenersAddedRef.current) {
+      console.log('[VideoPlayer] Adding event listeners to video element (first time)');
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      video.addEventListener('canplay', handleCanPlay);
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('play', handlePlay);
+      video.addEventListener('pause', handlePause);
+      video.addEventListener('timeupdate', handleTimeUpdate);
+      video.addEventListener('progress', handleProgress);
+      video.addEventListener('ended', handleEnded);
+      video.addEventListener('error', handleError);
+      listenersAddedRef.current = true;
+    } else {
+      console.log('[VideoPlayer] Event listeners already added, skipping');
+    }
 
     // Handle video source change
     const isHls = /\.m3u8($|[?#])/i.test(src);
@@ -519,19 +545,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     return () => {
-      if (video) {
-        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        video.removeEventListener('canplay', handleCanPlay);
-        video.removeEventListener('loadeddata', handleLoadedData);
-        video.removeEventListener('play', handlePlay);
-        video.removeEventListener('pause', handlePause);
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-        video.removeEventListener('progress', handleProgress);
-        video.removeEventListener('ended', handleEnded);
-        video.removeEventListener('error', handleError);
-      }
-      
-      // Cleanup loading timeout
+      // DO NOT remove event listeners here - they should persist for the lifetime of the video element
+      // Only cleanup loading timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
@@ -540,7 +555,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Only cleanup HLS on unmount, not on src change
       // HLS instance is reused for episode switching
     };
-  }, [src, hasNextEpisode, onNextEpisode, duration, onTimeUpdate, onEnded, onError, initialTime, bootState, onPlayerReady]);
+  }, [src, hasNextEpisode, onNextEpisode, duration, onTimeUpdate, onEnded, onError, initialTime, onPlayerReady]);
 
   // Cleanup HLS only on component unmount
   useEffect(() => {
