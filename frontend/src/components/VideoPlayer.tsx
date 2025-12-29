@@ -246,6 +246,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
 
+    const handleLoadedData = () => {
+      // CRITICAL: This event fires when video data is loaded and ready to play
+      // This ensures loading overlay closes even if canplay doesn't fire immediately
+      if (bootState === 'LOADING') {
+        setBootState('READY');
+        onPlayerReady?.();
+      }
+    };
+
     const handlePlay = () => {
       setBootState('PLAYING');
       setIsPlaying(true);
@@ -258,6 +267,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     // Add event listeners (only once, not on every src change)
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('timeupdate', handleTimeUpdate);
@@ -270,18 +280,32 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     if (!isHls) {
       // Direct MP4 or other formats
-      if (video.src !== src) {
+      if (video.src !== src || srcChanged) {
         hlsRef.current?.destroy();
         video.src = src;
+        // CRITICAL: Always call load() on episode change to ensure events fire
         video.load();
+        // Try to play if autoPlay is desired (muted for autoplay policy)
+        if (video.muted) {
+          video.play().catch(() => {
+            // Ignore autoplay errors
+          });
+        }
       }
     } else {
       // HLS handling
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native HLS (Safari)
-        if (video.src !== src) {
+        if (video.src !== src || srcChanged) {
           video.src = src;
+          // CRITICAL: Always call load() on episode change
           video.load();
+          // Try to play if autoPlay is desired (muted for autoplay policy)
+          if (video.muted) {
+            video.play().catch(() => {
+              // Ignore autoplay errors
+            });
+          }
         }
       } else if (Hls.isSupported()) {
         // HLS.js for other browsers
@@ -334,6 +358,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -658,6 +683,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       style={{
         aspectRatio: '16 / 9',
         minHeight: isMobile ? 'auto' : '0',
+        zIndex: 10, // Ensure player is below episode list (z-20)
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
@@ -667,9 +693,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }}
       onTouchStart={handleVideoTouch}
     >
-      {/* Loading Overlay - Only shown until canplay event fires */}
+      {/* Loading Overlay - Only shown until canplay/loadeddata event fires */}
       {bootState === 'LOADING' && isValidSrc && (
-        <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10 transition-opacity duration-200">
+        <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10 transition-opacity duration-200 pointer-events-none">
           <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
         </div>
       )}
@@ -757,7 +783,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Top Overlay - Title */}
       <div
-        className={`absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 ${
+        className={`absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 pointer-events-none ${
           showControls || !hasInteracted ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -765,7 +791,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {animeSlug ? (
             <Link
               to={`/anime/${animeSlug}`}
-              className="group cursor-pointer"
+              className="group cursor-pointer pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e5193e] transition-colors ${

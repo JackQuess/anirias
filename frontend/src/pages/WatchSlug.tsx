@@ -325,7 +325,7 @@ const WatchSlug: React.FC = () => {
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
           <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
             {/* Main Player Area */}
-            <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden">
+            <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10">
               {shouldRenderPlayer ? (
                 <VideoPlayer
                   src={playbackUrl}
@@ -360,7 +360,7 @@ const WatchSlug: React.FC = () => {
             </div>
 
             {/* Episode List Sidebar */}
-            <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
+            <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8 relative z-20">
               <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
                   <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
@@ -377,12 +377,16 @@ const WatchSlug: React.FC = () => {
                     return (
                       <button
                         key={`${ep.season_id}-${ep.episode_number}`}
-                        onClick={() => navigateToEpisode(seasonNum!, ep.episode_number)}
-                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!ep.video_url && !ep.hls_url) return;
+                          navigateToEpisode(seasonNum!, ep.episode_number);
+                        }}
+                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto relative z-30 ${
                           isCurrent
                             ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
-                        }`}
+                        } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
                           isCurrent ? 'bg-black/20' : 'bg-white/5'
