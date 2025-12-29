@@ -184,6 +184,31 @@ video::-webkit-media-text-track-display {
   animation: slow-zoom 20s ease-in-out infinite alternate;
 }
 
+/* Video Player Loading Animation */
+@keyframes player-loading-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes player-loading-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+@keyframes player-loading-dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+.animate-player-loading-spin {
+  animation: player-loading-spin 1s linear infinite;
+}
+
+.animate-player-loading-pulse {
+  animation: player-loading-pulse 1.5s ease-in-out infinite;
+}
+
 /* Helpers */
 .line-clamp-1 {
   display: -webkit-box;

@@ -19,6 +19,7 @@ interface VideoPlayerProps {
   hasNextEpisode?: boolean;
   onNextEpisode?: () => void;
   onPlayerReady?: () => void; // NEW: Called when video is ready to play
+  externalPause?: boolean; // NEW: External pause control (e.g., when bottom sheet opens)
 }
 
 type PlayerBootState = 'IDLE' | 'LOADING' | 'READY' | 'PLAYING';
@@ -48,6 +49,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   hasNextEpisode = false,
   onNextEpisode,
   onPlayerReady,
+  externalPause = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -389,32 +391,38 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handlePause = useCallback(() => {
     const video = videoRef.current;
     if (video) {
-      // CRITICAL: Hard stop - ensure video is paused and audio stops
+      // CRITICAL: Hard stop - ensure video is paused and audio stops COMPLETELY
       if (!video.paused) {
         video.pause();
       }
       
-      // CRITICAL: Stop audio stream by temporarily muting
-      // This ensures audio buffer is cleared when video is paused
-      const wasMuted = video.muted;
+      // CRITICAL: Mute audio IMMEDIATELY and PERMANENTLY
+      // This ensures audio stream is completely stopped
       video.muted = true;
-      setTimeout(() => {
-        if (video) {
-          video.muted = wasMuted;
-        }
-      }, 10);
+      video.volume = 0; // Also set volume to 0 for extra safety
       
       // Safety guard: Force pause if video thinks it's playing
       if (video.readyState >= 2 && !video.paused) {
         video.pause();
       }
       
+      // Update state to reflect muted status
+      setIsMuted(true);
+      
+      // Restore volume after audio buffer clears, but keep muted
+      setTimeout(() => {
+        if (video && video.paused) {
+          video.volume = volume; // Restore volume
+          video.muted = true; // Keep muted until play
+        }
+      }, 50);
+      
       if (import.meta.env.DEV) {
-        console.log('[VideoPlayer] Pause event fired, audio stopped');
+        console.log('[VideoPlayer] Pause event fired, audio completely stopped');
       }
     }
     setIsPlaying(false);
-  }, []);
+  }, [volume]);
 
   // Add event listeners once when video element is mounted
   useEffect(() => {
@@ -752,6 +760,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
     if (video.paused) {
+      // CRITICAL: Restore audio before playing
+      // If we muted during pause, restore the original muted state
+      if (video.muted && !isMuted) {
+        video.muted = false;
+        setIsMuted(false);
+      }
+      // Restore volume if it was set to 0 during pause
+      if (video.volume === 0 && volume > 0) {
+        video.volume = volume;
+      }
+      
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
@@ -766,35 +785,61 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           });
       }
     } else {
-      // CRITICAL: Hard stop - ensure video and audio stop completely
-      // Step 1: Pause video immediately
+      // CRITICAL: Hard stop - ensure video and audio stop COMPLETELY
+      // Step 1: Pause video immediately (synchronous, no async)
       video.pause();
       
-      // Step 2: Force stop audio stream by temporarily muting and unmuting
-      // This ensures audio buffer is cleared
-      const wasMuted = video.muted;
+      // Step 2: CRITICAL - Mute audio IMMEDIATELY and PERMANENTLY until play
+      // This ensures audio stream is completely stopped
+      const wasMutedBeforePause = video.muted;
       video.muted = true;
-      // Use setTimeout to ensure audio stream is cleared
-      setTimeout(() => {
-        if (video) {
-          video.muted = wasMuted;
-        }
-      }, 10);
+      video.volume = 0; // Also set volume to 0 for extra safety
       
-      // Step 3: Safety guard - Force pause if video thinks it's playing
-      if (video.readyState >= 2 && !video.paused) {
+      // Step 3: Force pause again to ensure it's really paused
+      if (!video.paused) {
         video.pause();
       }
       
-      // Step 4: Update state
+      // Step 4: Clear any pending play promises
+      // This prevents audio from continuing if play() was called
+      try {
+        const playPromise = video.play();
+        if (playPromise) {
+          playPromise.catch(() => {
+            // Ignore errors, we're pausing anyway
+          });
+          video.pause();
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+      
+      // Step 5: Update state
       setIsPlaying(false);
+      setIsMuted(true); // Update muted state to reflect reality
       setShowControls(true);
       
+      // Step 6: Store original muted state to restore on play
+      // We'll restore it when play is called
       if (import.meta.env.DEV) {
-        console.log('[VideoPlayer] Video paused, audio stopped');
+        console.log('[VideoPlayer] Video paused, audio completely stopped', {
+          wasMuted: wasMutedBeforePause,
+          currentMuted: video.muted,
+          currentVolume: video.volume,
+        });
       }
+      
+      // Step 7: Restore volume and muted state after a short delay
+      // This allows audio buffer to clear, but keeps it muted until play
+      setTimeout(() => {
+        if (video && video.paused) {
+          // Restore volume but keep muted
+          video.volume = volume; // Restore to previous volume level
+          video.muted = true; // Keep muted until play
+        }
+      }, 50);
     }
-  }, [bootState, showControlsTemporary]);
+  }, [bootState, showControlsTemporary, volume, isMuted]);
 
   const skipTime = useCallback((seconds: number, silent = false) => {
     const video = videoRef.current;
@@ -1137,10 +1182,43 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
-    // If state says not playing but video is not paused, force pause and stop audio
+    // If state says not playing but video is not paused, force pause and stop audio COMPLETELY
     if (!isPlaying && !video.paused) {
       video.pause();
-      // CRITICAL: Stop audio stream by temporarily muting
+      // CRITICAL: Mute audio IMMEDIATELY and PERMANENTLY
+      video.muted = true;
+      video.volume = 0; // Also set volume to 0 for extra safety
+      
+      // Restore volume after audio buffer clears, but keep muted
+      setTimeout(() => {
+        if (video && video.paused) {
+          video.volume = volume; // Restore volume
+          video.muted = true; // Keep muted until play
+        }
+      }, 50);
+      
+      setIsMuted(true); // Update state
+      
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] Safety guard: Force paused, audio completely stopped');
+      }
+    }
+    
+    // Additional safety: if video is paused but state says playing, sync state
+    if (video.paused && isPlaying) {
+      setIsPlaying(false);
+    }
+  }, [isPlaying, volume]);
+
+  // CRITICAL: External pause control (e.g., when bottom sheet opens)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || bootState !== 'READY' && bootState !== 'PLAYING') return;
+
+    if (externalPause && !video.paused) {
+      video.pause();
+      setIsPlaying(false);
+      // Stop audio stream
       const wasMuted = video.muted;
       video.muted = true;
       setTimeout(() => {
@@ -1150,15 +1228,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }, 10);
       
       if (import.meta.env.DEV) {
-        console.log('[VideoPlayer] Safety guard: Force paused, audio stopped');
+        console.log('[VideoPlayer] External pause triggered');
       }
     }
-    
-    // Additional safety: if video is paused but state says playing, sync state
-    if (video.paused && isPlaying) {
-      setIsPlaying(false);
-    }
-  }, [isPlaying]);
+  }, [externalPause, bootState]);
 
   // Memoize computed values
   const isValidSrc = useMemo(() => src && src.trim() !== '', [src]);
@@ -1182,19 +1255,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full bg-black overflow-hidden shadow-2xl ${
+      className={`bg-black overflow-hidden shadow-2xl ${
         isFullscreen
           ? 'fixed inset-0 w-screen h-screen max-w-none mx-0 rounded-none z-[9999]'
-          : isMobile 
-            ? 'rounded-none' 
-            : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
+          : `relative w-full ${
+              isMobile 
+                ? 'rounded-none' 
+                : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
+            }`
       }`}
       style={{
-        aspectRatio: isFullscreen ? 'unset' : '16 / 9',
-        minHeight: isMobile ? 'auto' : '0',
-        zIndex: isFullscreen ? 9999 : 10,
-        width: isFullscreen ? '100vw' : undefined,
-        height: isFullscreen ? '100vh' : undefined,
+        ...(isFullscreen ? {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          aspectRatio: 'auto',
+          minHeight: '100vh',
+          zIndex: 9999,
+        } : {
+          aspectRatio: '16 / 9',
+          minHeight: isMobile ? 'auto' : '0',
+          zIndex: 10,
+          width: '100%',
+        }),
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
@@ -1203,11 +1290,34 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }}
     >
-      {/* Loading Overlay - Optimized: Only shown when video is actually loading data */}
+      {/* Loading Overlay - Premium Player Loading Animation */}
       {/* CRITICAL: Animely.net style - minimal loading, only when truly needed */}
       {shouldShowLoading && (
-        <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10 transition-opacity duration-200 pointer-events-none">
-          <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-black/95 via-black/90 to-black/95 flex items-center justify-center z-10 transition-opacity duration-300 pointer-events-none">
+          <div className="flex flex-col items-center justify-center gap-5">
+            {/* Premium Spinner Ring */}
+            <div className="relative w-20 h-20">
+              {/* Outer Static Ring */}
+              <div className="absolute inset-0 border-[3px] border-white/5 rounded-full"></div>
+              {/* Spinning Ring - Red Accent */}
+              <div className="absolute inset-0 border-[3px] border-transparent border-t-brand-red border-r-brand-red/30 rounded-full animate-player-loading-spin"></div>
+              {/* Inner Glow Pulse */}
+              <div className="absolute inset-3 bg-brand-red/10 rounded-full animate-player-loading-pulse blur-sm"></div>
+              {/* Center Dot */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2 bg-brand-red rounded-full animate-player-loading-pulse"></div>
+              </div>
+            </div>
+            {/* Loading Text with Animation */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-white/80 text-sm font-bold tracking-widest uppercase">Yükleniyor</span>
+              <div className="flex gap-1">
+                <span className="text-brand-red text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0s' }}>.</span>
+                <span className="text-brand-red text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0.2s' }}>.</span>
+                <span className="text-brand-red text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0.4s' }}>.</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1237,12 +1347,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {/* Static Placeholder Layer */}
       {(!isValidSrc || bootState !== 'READY' && bootState !== 'PLAYING') && (
         <div
-          className="absolute inset-0 w-full h-full bg-black transition-opacity duration-300"
+          className={`absolute inset-0 bg-black transition-opacity duration-300 ${
+            isFullscreen ? 'w-screen h-screen' : 'w-full h-full'
+          }`}
           style={{
             opacity: isMetadataLoaded ? 0 : 1,
             visibility: isMetadataLoaded ? 'hidden' : 'visible',
             zIndex: 1,
-            aspectRatio: '16 / 9',
+            aspectRatio: isFullscreen ? 'auto' : '16 / 9',
           }}
         >
           {poster && (
@@ -1262,14 +1374,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {isValidSrc && (
         <video
           ref={videoRef}
-          className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
+          className={`absolute inset-0 object-contain transition-opacity duration-300 ${
+            isFullscreen ? 'w-screen h-screen' : 'w-full h-full'
+          }`}
           style={{
             opacity: isMetadataLoaded ? 1 : 0,
             visibility: isMetadataLoaded ? 'visible' : 'hidden',
             zIndex: 2,
-            width: isFullscreen ? '100vw' : '100%',
-            height: isFullscreen ? '100vh' : '100%',
             objectFit: 'contain',
+            maxWidth: isFullscreen ? '100vw' : '100%',
+            maxHeight: isFullscreen ? '100vh' : '100%',
           }}
           preload="metadata"
           playsInline

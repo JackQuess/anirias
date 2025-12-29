@@ -37,6 +37,9 @@ const WatchSlug: React.FC = () => {
   // CRITICAL: Episode state management - single source of truth
   const [currentEpisodeId, setCurrentEpisodeId] = useState<string | null>(null);
   const [playerReady, setPlayerReady] = useState(false);
+  
+  // Mobile bottom sheet state
+  const [showMobileEpisodeSheet, setShowMobileEpisodeSheet] = useState(false);
 
   // Parse season slug to get anime slug
   const seasonSlugInfo = useMemo(() => {
@@ -331,6 +334,7 @@ const WatchSlug: React.FC = () => {
                 }
               }}
               onPlayerReady={handlePlayerReady}
+              externalPause={showMobileEpisodeSheet}
             />
           ) : (
             <div className="w-full aspect-video bg-black flex items-center justify-center">
@@ -344,20 +348,96 @@ const WatchSlug: React.FC = () => {
           <Comments animeId={anime.id} episodeId={episode.id} />
         </div>
 
-        {/* Mobile Episode List - Bottom Sheet (placeholder for future implementation) */}
+        {/* Mobile Episode List - Bottom Sheet */}
         <div className="fixed bottom-4 left-0 right-0 z-[120] px-4">
           <div className="flex justify-end">
             <button
-              onClick={() => {
-                // TODO: Open bottom sheet with episode list
-                alert('Episode list bottom sheet - to be implemented');
-              }}
+              onClick={() => setShowMobileEpisodeSheet(true)}
               className="bg-red-500 text-white font-bold uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-red-500/30"
             >
               Bölüm Listesi
             </button>
           </div>
         </div>
+
+        {/* Mobile Bottom Sheet Overlay */}
+        {showMobileEpisodeSheet && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/80 z-[130] transition-opacity"
+              onClick={() => setShowMobileEpisodeSheet(false)}
+            />
+            
+            {/* Bottom Sheet */}
+            <div className="fixed bottom-0 left-0 right-0 z-[140] bg-brand-surface border-t border-brand-border rounded-t-[2.5rem] shadow-2xl max-h-[80vh] flex flex-col animate-slide-up">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-12 h-1 bg-white/20 rounded-full" />
+              </div>
+              
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pb-4 border-b border-white/5 flex-shrink-0">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
+                  BÖLÜM LİSTESİ
+                </h3>
+                <span className="text-[9px] font-black text-gray-500 uppercase">
+                  {episodes?.length || 0} BÖLÜM
+                </span>
+              </div>
+              
+              {/* Episode List */}
+              <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 custom-scrollbar space-y-1.5 min-h-0">
+                {episodes?.map((ep) => {
+                  const isCurrent = ep.episode_number === episodeNum;
+                  const progress = progressMap.get(ep.id);
+                  return (
+                    <button
+                      key={`${ep.season_id}-${ep.episode_number}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!ep.video_url && !ep.hls_url) return;
+                        navigateToEpisode(seasonNum!, ep.episode_number);
+                        setShowMobileEpisodeSheet(false);
+                      }}
+                      className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto ${
+                        isCurrent
+                          ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
+                          : 'hover:bg-white/5 text-gray-400 hover:text-white active:bg-white/10'
+                      } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
+                        isCurrent ? 'bg-black/20' : 'bg-white/5'
+                      }`}>
+                        {ep.episode_number}
+                      </div>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <p className="text-[9px] font-black uppercase truncate leading-tight">
+                          {ep.title || `Bölüm ${ep.episode_number}`}
+                        </p>
+                        <p className={`text-[7px] font-bold uppercase mt-0.5 ${
+                          isCurrent ? 'text-white/70' : 'text-gray-600'
+                        }`}>
+                          {ep.duration ? `${Math.floor(ep.duration / 60)} DK` : '24 DK'}
+                        </p>
+                        {progress && progress.duration > 0 && (
+                          <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-400"
+                              style={{
+                                width: `${Math.min(100, (progress.progress / progress.duration) * 100)}%`
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Desktop Layout */}
