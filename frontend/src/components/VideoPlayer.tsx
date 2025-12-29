@@ -87,6 +87,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const previousSrcRef = useRef<string>(''); // Track src changes for smooth episode switching
   const isEpisodeSwitchingRef = useRef(false); // Prevent state reset during episode switch
   const listenersAddedRef = useRef(false); // Track if event listeners are already added
+  const lastTapRef = useRef<number>(0); // Track last tap time for double tap detection
 
   // Detect mobile
   useEffect(() => {
@@ -674,29 +675,47 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
 
-  // Fullscreen handling
+  // CRITICAL: Fullscreen change handling for all browsers (iOS Safari, Android, Desktop)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFullscreenActive = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFullscreenActive);
     };
 
+    // Listen to all fullscreen change events (cross-browser support)
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
   }, []);
 
-  // Mobile landscape auto-fullscreen
+  // CRITICAL: Mobile orientation change handling
+  // Do NOT auto-fullscreen on orientation change
+  // User must manually trigger fullscreen via double tap or button
   useEffect(() => {
     if (!isMobile) return;
 
     const handleOrientationChange = () => {
-      if (window.orientation === 90 || window.orientation === -90) {
-        // Landscape mode
-        if (containerRef.current && !document.fullscreenElement) {
-          containerRef.current.requestFullscreen().catch(() => {
-            // Fullscreen failed (user may have blocked it)
-          });
-        }
-      }
+      // Just update fullscreen state if it changed, don't auto-trigger
+      const isFullscreenActive = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFullscreenActive);
     };
 
     window.addEventListener('orientationchange', handleOrientationChange);
@@ -809,15 +828,68 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     showControlsTemporary();
   }, [volume, isMuted, showControlsTemporary]);
 
+  // CRITICAL: Fullscreen implementation for iOS Safari, Android, and Desktop
+  // iOS Safari requires video.webkitEnterFullscreen() instead of container.requestFullscreen()
   const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video && !container) return;
 
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {
-        // Fullscreen failed
-      });
+    // Check if already in fullscreen
+    const isCurrentlyFullscreen = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+
+    if (!isCurrentlyFullscreen) {
+      // Enter fullscreen - try iOS Safari first, then standard API
+      if (video && (video as any).webkitEnterFullscreen) {
+        // iOS Safari native fullscreen
+        (video as any).webkitEnterFullscreen();
+        setIsFullscreen(true);
+      } else if (video && video.requestFullscreen) {
+        // Standard video fullscreen
+        video.requestFullscreen().then(() => {
+          setIsFullscreen(true);
+        }).catch(() => {
+          // Fallback to container fullscreen
+          if (container && container.requestFullscreen) {
+            container.requestFullscreen().then(() => {
+              setIsFullscreen(true);
+            }).catch(() => {
+              // Fullscreen failed
+            });
+          }
+        });
+      } else if (container && container.requestFullscreen) {
+        // Container fullscreen fallback
+        container.requestFullscreen().then(() => {
+          setIsFullscreen(true);
+        }).catch(() => {
+          // Fullscreen failed
+        });
+      }
     } else {
-      document.exitFullscreen();
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => {
+          setIsFullscreen(false);
+        }).catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen().then(() => {
+          setIsFullscreen(false);
+        }).catch(() => {});
+      } else if ((document as any).mozCancelFullScreen) {
+        (document as any).mozCancelFullScreen().then(() => {
+          setIsFullscreen(false);
+        }).catch(() => {});
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen().then(() => {
+          setIsFullscreen(false);
+        }).catch(() => {});
+      }
     }
     showControlsTemporary();
   }, [showControlsTemporary]);
@@ -835,15 +907,38 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [bootState, togglePlay]);
 
-  // Mobile tap to show/hide controls
-  const handleVideoTouch = useCallback(() => {
-    if (isMobile) {
-      setShowControls((prev) => !prev);
-      if (showControls) {
-        showControlsTemporary();
+  // CRITICAL: Mobile touch handling with double tap detection for fullscreen
+  // Double tap (within 300ms) → toggle fullscreen
+  // Single tap → toggle play/pause or show/hide controls
+  const handleVideoTouch = useCallback((e: React.TouchEvent) => {
+    if (!isMobile) return;
+    
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapRef.current;
+    
+    // Double tap detection (within 300ms)
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Double tap → toggle fullscreen
+      toggleFullscreen();
+      lastTapRef.current = 0; // Reset to prevent triple tap
+    } else {
+      // Single tap → toggle play/pause or show/hide controls
+      lastTapRef.current = now;
+      
+      // If video is ready, toggle play/pause
+      if (bootState === 'READY' || bootState === 'PLAYING') {
+        togglePlay();
+      } else {
+        // Otherwise, just show/hide controls
+        setShowControls((prev) => !prev);
+        if (showControls) {
+          showControlsTemporary();
+        }
       }
     }
-  }, [isMobile, showControls, showControlsTemporary]);
+  }, [isMobile, bootState, showControls, showControlsTemporary, togglePlay, toggleFullscreen]);
 
   const handleResume = useCallback(() => {
     const video = videoRef.current;
@@ -1032,7 +1127,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setShowControls(false);
         }
       }}
-      onTouchStart={handleVideoTouch}
     >
       {/* Loading Overlay - Only shown when src exists but video is not ready yet */}
       {/* CRITICAL: This overlay will disappear on onCanPlay or onLoadedData events */}
@@ -1104,6 +1198,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           webkit-playsinline="true"
           disablePictureInPicture
           onClick={handleVideoClick}
+          onTouchStart={handleVideoTouch}
         />
       )}
 
