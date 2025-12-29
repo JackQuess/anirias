@@ -111,9 +111,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // CRITICAL: Episode switching - update video src without remounting
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
     const isValidSrc = src && src.trim() !== '';
     const srcChanged = previousSrcRef.current !== src;
 
@@ -127,9 +124,29 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
 
-    // If src hasn't changed, don't do anything
+    // If src hasn't changed and we're not in IDLE state, don't do anything
     if (!srcChanged && bootState !== 'IDLE') {
       return;
+    }
+
+    // Get video element (will be null if not mounted yet)
+    const video = videoRef.current;
+    
+    // If video element is not mounted yet, wait a bit and retry
+    if (!video) {
+      const timeoutId = setTimeout(() => {
+        // Retry after video element is mounted
+        const retryVideo = videoRef.current;
+        if (retryVideo && isValidSrc) {
+          // Video element is now mounted, trigger setup
+          const retrySrcChanged = previousSrcRef.current !== src;
+          if (retrySrcChanged) {
+            previousSrcRef.current = src;
+            setBootState('LOADING');
+          }
+        }
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
 
     // Episode switch detected - preserve UI state
@@ -391,15 +408,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('loadeddata', handleLoadedData);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('progress', handleProgress);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('error', handleError);
+      if (video) {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        video.removeEventListener('canplay', handleCanPlay);
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('play', handlePlay);
+        video.removeEventListener('pause', handlePause);
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+        video.removeEventListener('progress', handleProgress);
+        video.removeEventListener('ended', handleEnded);
+        video.removeEventListener('error', handleError);
+      }
       
       // Cleanup loading timeout
       if (loadingTimeoutRef.current) {
@@ -769,7 +788,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Video Element - NEVER remounts, only src changes */}
+      {/* Video Element - ALWAYS mounted, only visibility changes */}
       {isValidSrc && (
         <video
           ref={videoRef}
