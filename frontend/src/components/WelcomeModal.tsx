@@ -8,7 +8,6 @@ import { useLocation } from 'react-router-dom';
  */
 const WelcomeModal: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
