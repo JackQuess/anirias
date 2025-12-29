@@ -1,56 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 import { showToast } from './ToastProvider';
 
-const FeedbackModal: React.FC = () => {
+/**
+ * Feedback Card / Bottom Sheet
+ * Floating button veya welcome modal'dan açılır
+ */
+const FeedbackCard: React.FC = () => {
   const { user } = useAuth();
-  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState<number | null>(null);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Admin panel'de modal açılmasın
-    if (location.pathname.startsWith('/admin')) {
-      return;
-    }
-
-    // Login/Signup sayfalarında açılmasın
-    if (location.pathname === '/login' || location.pathname === '/signup') {
-      return;
-    }
-
-    // Check localStorage
-    const hidden = localStorage.getItem('feedback_modal_hidden');
-    if (hidden === 'true') {
-      return;
-    }
-
-    // Sadece ilk girişte açılmalı (sessionStorage kontrolü)
-    const hasShownThisSession = sessionStorage.getItem('feedback_modal_shown');
-    if (hasShownThisSession === 'true') {
-      return;
-    }
-
-    // Show modal after delay (500-700ms)
-    const timer = setTimeout(() => {
+    // Custom event listener for opening feedback card
+    const handleOpenFeedback = () => {
       setIsOpen(true);
-      sessionStorage.setItem('feedback_modal_shown', 'true');
-    }, 600);
+    };
 
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
+    window.addEventListener('open-feedback-card', handleOpenFeedback);
+    return () => {
+      window.removeEventListener('open-feedback-card', handleOpenFeedback);
+    };
+  }, []);
 
   const handleClose = () => {
     setIsOpen(false);
-    if (dontShowAgain) {
-      localStorage.setItem('feedback_modal_hidden', 'true');
-    }
+    setMessage('');
+    setRating(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,12 +58,13 @@ const FeedbackModal: React.FC = () => {
 
       if (error) throw error;
 
+      // Feedback gönderildi - 14 gün boyunca tekrar gösterilmesin
+      localStorage.setItem('feedback_submitted_at', Date.now().toString());
+      
       showToast('Geri bildiriminiz için teşekkürler! 🎉', 'success');
       handleClose();
-      setMessage('');
-      setRating(null);
     } catch (err: any) {
-      console.error('[FeedbackModal] Submit error:', err);
+      console.error('[FeedbackCard] Submit error:', err);
       showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
     } finally {
       setLoading(false);
@@ -98,9 +79,11 @@ const FeedbackModal: React.FC = () => {
 
   if (!isOpen) return null;
 
+  const isMobile = window.innerWidth < 768;
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6"
+      className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-0 md:p-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
@@ -110,17 +93,17 @@ const FeedbackModal: React.FC = () => {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" />
 
-      {/* Modal Content */}
+      {/* Card Content */}
       <div
-        className={`relative w-full max-w-lg bg-brand-surface border border-brand-border rounded-[2.5rem] shadow-2xl ${
-          window.innerWidth < 768
-            ? 'animate-slide-up max-h-[90vh] overflow-y-auto'
-            : 'animate-fade-in-up'
-        }`}
+        className={`relative w-full ${
+          isMobile ? 'max-h-[85vh] rounded-t-[2.5rem]' : 'max-w-lg rounded-[2.5rem]'
+        } bg-brand-surface border border-brand-border shadow-2xl ${
+          isMobile ? 'animate-slide-up' : 'animate-fade-in-up'
+        } overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/5">
+        <div className="sticky top-0 bg-brand-surface border-b border-white/5 p-6 flex items-center justify-between z-10">
           <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">
             🧪 Anirias <span className="text-brand-red">Test Sürecinde</span>
           </h2>
@@ -137,9 +120,15 @@ const FeedbackModal: React.FC = () => {
 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <p className="text-gray-400 text-sm leading-relaxed">
-            Anirias'ı test ediyoruz! Deneyimlerinizi bizimle paylaşın. Geri bildiriminiz uygulamayı geliştirmemize yardımcı olacak.
-          </p>
+          <div className="space-y-3">
+            <p className="text-gray-300 text-sm leading-relaxed">
+              Deneyimini daha iyi hale getirmek için
+              geri bildirimlerini gerçekten önemsiyoruz.
+            </p>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              Yazdığın her mesaj okunur ve değerlendirilir.
+            </p>
+          </div>
 
           {/* Rating (Optional) */}
           <div>
@@ -175,50 +164,27 @@ const FeedbackModal: React.FC = () => {
               required
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Deneyimlerinizi, önerilerinizi veya sorunları paylaşın..."
+              placeholder="Bir hata, öneri ya da fikir yazabilirsin…"
               rows={5}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700 resize-none"
             />
           </div>
 
-          {/* Don't Show Again Checkbox */}
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="dont-show-again"
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="w-5 h-5 rounded bg-white/5 border-white/10 text-brand-red focus:ring-brand-red focus:ring-2"
-            />
-            <label htmlFor="dont-show-again" className="text-xs text-gray-400 cursor-pointer">
-              Bir daha gösterme
-            </label>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-4 pt-4">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 bg-white/5 hover:bg-white/10 text-gray-500 font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] transition-all"
-            >
-              İptal
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !message.trim()}
-              className="flex-1 bg-brand-red hover:bg-brand-redHover text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-brand-red/20 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  Gönderiliyor...
-                </>
-              ) : (
-                'Gönder'
-              )}
-            </button>
-          </div>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading || !message.trim()}
+            className="w-full bg-brand-red hover:bg-brand-redHover text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg shadow-brand-red/20 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                Gönderiliyor...
+              </>
+            ) : (
+              'Gönder'
+            )}
+          </button>
         </form>
       </div>
     </div>,
@@ -226,5 +192,5 @@ const FeedbackModal: React.FC = () => {
   );
 };
 
-export default FeedbackModal;
+export default FeedbackCard;
 

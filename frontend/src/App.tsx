@@ -5,7 +5,9 @@ import { AuthProvider } from './services/auth';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import GlobalLoader from './components/GlobalLoader';
-import FeedbackModal from './components/FeedbackModal';
+import WelcomeModal from './components/WelcomeModal';
+import FeedbackCard from './components/FeedbackCard';
+import FeedbackFloatingButton from './components/FeedbackFloatingButton';
 import { ToastProvider } from './components/ToastProvider';
 
 // Pages
@@ -49,7 +51,9 @@ const App: React.FC = () => {
     <HashRouter>
       <AuthProvider>
         <ToastProvider>
-          <FeedbackModal />
+          <WelcomeModal />
+          <FeedbackCard />
+          <FeedbackFloatingButton />
           <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
