@@ -393,9 +393,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (!video.paused) {
         video.pause();
       }
+      
+      // CRITICAL: Stop audio stream by temporarily muting
+      // This ensures audio buffer is cleared when video is paused
+      const wasMuted = video.muted;
+      video.muted = true;
+      setTimeout(() => {
+        if (video) {
+          video.muted = wasMuted;
+        }
+      }, 10);
+      
       // Safety guard: Force pause if video thinks it's playing
-      if (video.readyState >= 2) {
+      if (video.readyState >= 2 && !video.paused) {
         video.pause();
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] Pause event fired, audio stopped');
       }
     }
     setIsPlaying(false);
@@ -752,13 +767,32 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     } else {
       // CRITICAL: Hard stop - ensure video and audio stop completely
+      // Step 1: Pause video immediately
       video.pause();
-      // Safety guard: Force pause if video thinks it's playing
+      
+      // Step 2: Force stop audio stream by temporarily muting and unmuting
+      // This ensures audio buffer is cleared
+      const wasMuted = video.muted;
+      video.muted = true;
+      // Use setTimeout to ensure audio stream is cleared
+      setTimeout(() => {
+        if (video) {
+          video.muted = wasMuted;
+        }
+      }, 10);
+      
+      // Step 3: Safety guard - Force pause if video thinks it's playing
       if (video.readyState >= 2 && !video.paused) {
         video.pause();
       }
+      
+      // Step 4: Update state
       setIsPlaying(false);
       setShowControls(true);
+      
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] Video paused, audio stopped');
+      }
     }
   }, [bootState, showControlsTemporary]);
 
@@ -1042,27 +1076,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         case 'ArrowUp':
           e.preventDefault();
           const newVolumeUp = Math.min(1, volume + 0.1);
+          // CRITICAL: Set volume directly on video element for immediate effect
+          video.volume = newVolumeUp;
           setVolume(newVolumeUp);
           setIsMuted(false);
-          if (video.muted) {
-            video.muted = false;
-          }
+          video.muted = false;
+          showControlsTemporary();
           break;
         case 'ArrowDown':
           e.preventDefault();
           const newVolumeDown = Math.max(0, volume - 0.1);
+          // CRITICAL: Set volume directly on video element for immediate effect
+          video.volume = newVolumeDown;
           setVolume(newVolumeDown);
           if (newVolumeDown === 0) {
             setIsMuted(true);
-            if (!video.muted) {
-              video.muted = true;
-            }
+            video.muted = true;
           } else {
             setIsMuted(false);
-            if (video.muted) {
-              video.muted = false;
-            }
+            video.muted = false;
           }
+          showControlsTemporary();
           break;
         case 'f':
         case 'F':
@@ -1079,7 +1113,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute]);
+  }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute, volume, showControlsTemporary]);
 
   // Sync video element volume and muted state
   useEffect(() => {
@@ -1103,9 +1137,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
-    // If state says not playing but video is not paused, force pause
+    // If state says not playing but video is not paused, force pause and stop audio
     if (!isPlaying && !video.paused) {
       video.pause();
+      // CRITICAL: Stop audio stream by temporarily muting
+      const wasMuted = video.muted;
+      video.muted = true;
+      setTimeout(() => {
+        if (video) {
+          video.muted = wasMuted;
+        }
+      }, 10);
+      
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] Safety guard: Force paused, audio stopped');
+      }
     }
     
     // Additional safety: if video is paused but state says playing, sync state
@@ -1137,14 +1183,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div
       ref={containerRef}
       className={`relative w-full bg-black overflow-hidden shadow-2xl ${
-        isMobile 
-          ? 'rounded-none' 
-          : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
+        isFullscreen
+          ? 'fixed inset-0 w-screen h-screen max-w-none mx-0 rounded-none z-[9999]'
+          : isMobile 
+            ? 'rounded-none' 
+            : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
       }`}
       style={{
-        aspectRatio: '16 / 9',
+        aspectRatio: isFullscreen ? 'unset' : '16 / 9',
         minHeight: isMobile ? 'auto' : '0',
-        zIndex: 10, // Ensure player is below episode list (z-20)
+        zIndex: isFullscreen ? 9999 : 10,
+        width: isFullscreen ? '100vw' : undefined,
+        height: isFullscreen ? '100vh' : undefined,
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => {
@@ -1217,11 +1267,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             opacity: isMetadataLoaded ? 1 : 0,
             visibility: isMetadataLoaded ? 'visible' : 'hidden',
             zIndex: 2,
+            width: isFullscreen ? '100vw' : '100%',
+            height: isFullscreen ? '100vh' : '100%',
+            objectFit: 'contain',
           }}
           preload="metadata"
           playsInline
           webkit-playsinline="true"
           disablePictureInPicture
+          controlsList="nodownload nofullscreen noremoteplayback"
           onClick={handleVideoClick}
           onTouchStart={handleVideoTouch}
         />
