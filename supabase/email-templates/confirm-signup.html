@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anirias | Email Doğrulama</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #0a0a0a;
+      color: #ffffff;
+      line-height: 1.6;
+      padding: 20px;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    .header {
+      background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 42px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: -2px;
+      color: #ffffff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      margin-bottom: 10px;
+    }
+    .emoji {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 900;
+      color: #ffffff;
+      margin-bottom: 20px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .description {
+      font-size: 16px;
+      color: #cccccc;
+      margin-bottom: 30px;
+      text-align: center;
+      line-height: 1.8;
+    }
+    .button-container {
+      text-align: center;
+      margin: 40px 0;
+    }
+    .button {
+      display: inline-block;
+      background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 18px 40px;
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 20px rgba(229, 9, 20, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(229, 9, 20, 0.6);
+    }
+    .link-text {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #1a1a1a;
+      border-radius: 8px;
+      border-left: 4px solid #e50914;
+    }
+    .link-text p {
+      font-size: 12px;
+      color: #888888;
+      margin-bottom: 10px;
+    }
+    .link-text a {
+      color: #e50914;
+      word-break: break-all;
+      font-size: 12px;
+      text-decoration: none;
+    }
+    .warning {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #2a1a0a;
+      border-left: 4px solid #ff9800;
+      border-radius: 8px;
+    }
+    .warning p {
+      font-size: 13px;
+      color: #ffb74d;
+      line-height: 1.6;
+    }
+    .footer {
+      background-color: #0a0a0a;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #1a1a1a;
+    }
+    .footer p {
+      font-size: 12px;
+      color: #666666;
+      margin-bottom: 5px;
+    }
+    .footer .brand {
+      color: #e50914;
+      font-weight: 900;
+      font-style: italic;
+    }
+    @media only screen and (max-width: 600px) {
+      .content {
+        padding: 30px 20px;
+      }
+      .title {
+        font-size: 24px;
+      }
+      .button {
+        padding: 16px 30px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="emoji">🎌</div>
+      <div class="logo">ANIRIAS</div>
+    </div>
+    
+    <div class="content">
+      <h1 class="title">Email'ini Doğrula</h1>
+      
+      <p class="description">
+        Anirias ailesine katılmana son bir adım kaldı.<br>
+        Hesabını aktif etmek için aşağıdaki butona tıkla.
+      </p>
+      
+      <div class="button-container">
+        <a href="{{ .ConfirmationURL }}" class="button">Email'imi Doğrula</a>
+      </div>
+      
+      <div class="link-text">
+        <p><strong>Buton çalışmazsa bu linki tarayıcına yapıştır:</strong></p>
+        <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+      </div>
+      
+      <div class="warning">
+        <p>⚠️ <strong>Önemli:</strong> Eğer bu işlemi sen yapmadıysan bu maili yok sayabilirsin.</p>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p><span class="brand">© Anirias</span> – Premium Anime Platformu</p>
+      <p style="margin-top: 10px; font-size: 11px; color: #444;">Bu email otomatik olarak gönderilmiştir. Lütfen yanıtlamayın.</p>
+    </div>
+  </div>
+</body>
+</html>
+
