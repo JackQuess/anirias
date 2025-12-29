@@ -138,6 +138,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [isPlaying]);
 
   // Memoized event handlers using refs to avoid re-creating
+  // CRITICAL: loadedmetadata is NOT enough to consider video ready
+  // Only canplay or canplaythrough events mark video as ready
   const handleLoadedMetadata = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
@@ -148,12 +150,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         readyState: currentVideo.readyState,
       });
     }
+    // Set duration but DO NOT set to READY - wait for canplay/canplaythrough
     if (!durationSetRef.current && currentVideo.duration && isFinite(currentVideo.duration)) {
       setDuration(currentVideo.duration);
       durationSetRef.current = true;
       durationRef.current = currentVideo.duration;
     }
-    setBootState('READY');
+    // DO NOT set bootState to READY here - only canplay/canplaythrough should do that
     isEpisodeSwitchingRef.current = false;
   }, []);
 
@@ -243,36 +246,48 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onEndedRef.current?.();
   }, []);
 
+  // CRITICAL: Error handling with detailed MediaError information
+  // Never log "Object" - always log specific error codes and messages
   const handleError = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
     const error = currentVideo.error;
     let errorMsg = 'Video yüklenemedi.';
+    let errorCodeName = 'UNKNOWN';
     
     if (error) {
+      // CRITICAL: Use MediaError constants for clear error identification
       switch (error.code) {
-        case error.MEDIA_ERR_ABORTED:
+        case MediaError.MEDIA_ERR_ABORTED: // 1
           errorMsg = 'Video yükleme iptal edildi.';
+          errorCodeName = 'MEDIA_ERR_ABORTED';
           break;
-        case error.MEDIA_ERR_NETWORK:
+        case MediaError.MEDIA_ERR_NETWORK: // 2
           errorMsg = 'Ağ hatası. Lütfen internet bağlantınızı kontrol edin.';
+          errorCodeName = 'MEDIA_ERR_NETWORK';
           break;
-        case error.MEDIA_ERR_DECODE:
+        case MediaError.MEDIA_ERR_DECODE: // 3
           errorMsg = 'Video formatı desteklenmiyor.';
+          errorCodeName = 'MEDIA_ERR_DECODE';
           break;
-        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: // 4
           errorMsg = 'Video formatı desteklenmiyor.';
+          errorCodeName = 'MEDIA_ERR_SRC_NOT_SUPPORTED';
           break;
         default:
           errorMsg = 'Video oynatılamadı.';
+          errorCodeName = `UNKNOWN_${error.code}`;
       }
     }
     
+    // CRITICAL: Always log detailed error information, never "Object"
     console.error('[VideoPlayer] Video error:', {
-      errorCode: error?.code,
-      errorMessage: error?.message,
+      code: error?.code,
+      codeName: errorCodeName,
+      message: error?.message || 'No error message',
       readyState: currentVideo.readyState,
+      videoSrc: currentVideo.src?.substring(0, 100) || 'No src',
     });
     
     if (loadingTimeoutRef.current) {
@@ -285,12 +300,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onErrorRef.current?.(errorMsg);
   }, []);
 
+  // CRITICAL: Video is ready when canplay or canplaythrough fires
+  // This is the ONLY way to mark video as ready (not loadedmetadata)
   const handleCanPlay = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
-    // CRITICAL: Always set to READY when canplay fires, regardless of current state
-    // This ensures loading overlay disappears even if state was inconsistent
+    // CRITICAL: Always set to READY when canplay fires
+    // This ensures loading overlay disappears
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
@@ -298,22 +315,53 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setBootState('READY');
     onPlayerReadyRef.current?.();
     if (import.meta.env.DEV) {
-      console.log('[VideoPlayer] Video ready to play');
+      console.log('[VideoPlayer] Video ready to play (canplay)');
     }
   }, []);
 
-  const handleLoadedData = useCallback(() => {
+  // CRITICAL: canplaythrough also marks video as ready
+  // This event fires when enough data is loaded to play through without stopping
+  const handleCanPlayThrough = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
-    // CRITICAL: Always set to READY when loadeddata fires
-    // This ensures loading overlay disappears even if state was inconsistent
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
     }
     setBootState('READY');
     onPlayerReadyRef.current?.();
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] Video ready to play through (canplaythrough)');
+    }
+  }, []);
+
+  // CRITICAL: waiting event fires when video is buffering
+  // Show loading overlay again when buffering occurs
+  const handleWaiting = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    // Only show loading if video was playing or ready
+    if (bootStateRef.current === 'PLAYING' || bootStateRef.current === 'READY') {
+      setBootState('LOADING');
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] Video buffering (waiting)');
+      }
+    }
+  }, []);
+
+  // loadeddata fires when first frame is loaded, but video may not be ready to play
+  // DO NOT set to READY here - only canplay/canplaythrough should do that
+  const handleLoadedData = useCallback(() => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    
+    // Do not set to READY - wait for canplay or canplaythrough
+    // This ensures video is truly ready to play before hiding loading overlay
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] Data loaded, waiting for canplay event');
+    }
   }, []);
 
   const handlePlay = useCallback(() => {
@@ -322,6 +370,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, []);
 
   const handlePause = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      // CRITICAL: Hard stop - ensure video is paused and audio stops
+      if (!video.paused) {
+        video.pause();
+      }
+      // Safety guard: Force pause if video thinks it's playing
+      if (video.readyState >= 2) {
+        video.pause();
+      }
+    }
     setIsPlaying(false);
   }, []);
 
@@ -333,9 +392,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (import.meta.env.DEV) {
       console.log('[VideoPlayer] Adding event listeners');
     }
+    // CRITICAL: Event listeners for video state management
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('canplaythrough', handleCanPlayThrough); // CRITICAL: Also marks video as ready
     video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('waiting', handleWaiting); // CRITICAL: Show loading when buffering
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('timeupdate', handleTimeUpdate);
@@ -347,7 +409,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('canplaythrough', handleCanPlayThrough);
       video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -356,7 +420,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener('error', handleError);
       listenersAddedRef.current = false;
     };
-  }, [handleLoadedMetadata, handleCanPlay, handleLoadedData, handlePlay, handlePause, handleTimeUpdate, handleProgress, handleEnded, handleError]);
+  }, [handleLoadedMetadata, handleCanPlay, handleCanPlayThrough, handleLoadedData, handleWaiting, handlePlay, handlePause, handleTimeUpdate, handleProgress, handleEnded, handleError]);
 
   // CRITICAL: Episode switching - update video src without remounting
   useEffect(() => {
@@ -411,6 +475,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (import.meta.env.DEV) {
         console.log('[VideoPlayer] Source changed, loading new video');
       }
+      
+      // CRITICAL: Cleanup old video before loading new one
+      // This ensures audio from previous episode stops completely
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
+        // Don't remove src here - we'll set new src below
+        // But ensure audio stops
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+      }
+      
       setBootState('LOADING');
       setErrorMessage(null); // Clear any previous error
       durationSetRef.current = false;
@@ -452,12 +530,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         video.src = src;
         // CRITICAL: Always call load() on episode change to ensure events fire
         video.load();
-        // Try to play if autoPlay is desired (muted for autoplay policy)
-        if (video.muted) {
-          video.play().catch(() => {
-            // Ignore autoplay errors
-          });
-        }
+        // CRITICAL: Do NOT autoplay - wait for user interaction
+        // Autoplay policy requires user gesture, we respect that
       }
     } else {
       // HLS handling
@@ -467,12 +541,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           video.src = src;
           // CRITICAL: Always call load() on episode change
           video.load();
-          // Try to play if autoPlay is desired (muted for autoplay policy)
-          if (video.muted) {
-            video.play().catch(() => {
-              // Ignore autoplay errors
-            });
-          }
+          // CRITICAL: Do NOT autoplay - wait for user interaction
+          // Autoplay policy requires user gesture, we respect that
         }
       } else if (Hls.isSupported()) {
         // HLS.js for other browsers
@@ -553,13 +623,36 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [src]); // Only depend on src - callbacks are stored in refs
 
-  // Cleanup HLS only on component unmount
+  // CRITICAL: Cleanup on component unmount - MUST stop audio completely
   useEffect(() => {
     return () => {
+      const video = videoRef.current;
+      
+      // CRITICAL: Hard stop video and audio
+      if (video) {
+        // Pause video immediately
+        video.pause();
+        
+        // Stop all audio streams
+        video.currentTime = 0;
+        video.volume = 0;
+        video.muted = true;
+        
+        // Remove source to stop all network activity
+        video.removeAttribute('src');
+        video.load();
+        
+        // Clear all event listeners by removing src
+        // This ensures no audio continues playing
+      }
+      
+      // Cleanup HLS instance
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      
+      // Cleanup intervals and timeouts
       if (nextEpisodeCountdownRef.current) {
         clearInterval(nextEpisodeCountdownRef.current);
         nextEpisodeCountdownRef.current = null;
@@ -623,7 +716,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           });
       }
     } else {
+      // CRITICAL: Hard stop - ensure video and audio stop completely
       video.pause();
+      // Safety guard: Force pause if video thinks it's playing
+      if (video.readyState >= 2 && !video.paused) {
+        video.pause();
+      }
       setIsPlaying(false);
       setShowControls(true);
     }
@@ -888,6 +986,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [volume, isMuted, bootState]);
 
+  // CRITICAL: Safety guard - ensure video is paused when isPlaying is false
+  // This prevents audio from continuing when video should be paused
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // If state says not playing but video is not paused, force pause
+    if (!isPlaying && !video.paused) {
+      video.pause();
+    }
+    
+    // Additional safety: if video is paused but state says playing, sync state
+    if (video.paused && isPlaying) {
+      setIsPlaying(false);
+    }
+  }, [isPlaying]);
+
   // Memoize computed values
   const isValidSrc = useMemo(() => src && src.trim() !== '', [src]);
   const isMetadataLoaded = useMemo(() => bootState === 'READY' || bootState === 'PLAYING', [bootState]);
@@ -978,7 +1093,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             visibility: isMetadataLoaded ? 'visible' : 'hidden',
             zIndex: 2,
           }}
-          preload="auto"
+          preload="metadata"
           playsInline
           webkit-playsinline="true"
           disablePictureInPicture
