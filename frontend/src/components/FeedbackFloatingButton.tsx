@@ -13,14 +13,12 @@ const FeedbackFloatingButton: React.FC = () => {
     // Admin panel'de gösterilmesin
     if (location.pathname.startsWith('/admin')) {
       setIsVisible(false);
-      if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Hidden: Admin panel');
       return;
     }
 
     // Login/Signup sayfalarında gösterilmesin
     if (location.pathname === '/login' || location.pathname === '/signup') {
       setIsVisible(false);
-      if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Hidden: Login/Signup page');
       return;
     }
 
@@ -33,14 +31,12 @@ const FeedbackFloatingButton: React.FC = () => {
       
       if (now - submittedTime < fourteenDays) {
         setIsVisible(false);
-        if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Hidden: Feedback submitted within 14 days');
         return;
       }
     }
 
     // Diğer tüm durumlarda göster
     setIsVisible(true);
-    if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Visible');
   }, [location.pathname]);
 
   const handleClick = () => {

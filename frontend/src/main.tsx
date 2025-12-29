@@ -12,11 +12,3 @@ root.render(
     <App />
   </React.StrictMode>
 );
-
-// 🔴 ENV DEBUG – BUNU EKLE
-console.log('ENV TEST → VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-console.log('ENV TEST → ALL ENV:', import.meta.env);
-console.log(
-  "BUNNY BASE:",
-  import.meta.env.VITE_BUNNY_HLS_BASE
-);
