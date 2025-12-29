@@ -76,6 +76,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showResumeCard, setShowResumeCard] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [videoReadyState, setVideoReadyState] = useState<number>(0); // Track video.readyState for loading optimization
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootStateRef = useRef<PlayerBootState>('IDLE');
   
@@ -144,6 +145,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleLoadedMetadata = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
+    
+    // Update video readyState for loading optimization
+    setVideoReadyState(currentVideo.readyState);
     
     if (import.meta.env.DEV) {
       console.log('[VideoPlayer] Metadata loaded:', {
@@ -313,6 +317,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
+    // Update video readyState for loading optimization
+    setVideoReadyState(currentVideo.readyState);
+    
     // CRITICAL: Always set to READY when canplay fires
     // This ensures loading overlay disappears
     if (loadingTimeoutRef.current) {
@@ -331,6 +338,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleCanPlayThrough = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
+    
+    // Update video readyState for loading optimization
+    setVideoReadyState(currentVideo.readyState);
     
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
@@ -1107,6 +1117,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Memoize computed values
   const isValidSrc = useMemo(() => src && src.trim() !== '', [src]);
   const isMetadataLoaded = useMemo(() => bootState === 'READY' || bootState === 'PLAYING', [bootState]);
+  
+  // CRITICAL: Optimized loading state - only show when video is actually loading
+  // Animely.net style: minimal loading overlay, only when truly needed
+  const shouldShowLoading = useMemo(() => {
+    if (!isValidSrc || errorMessage || bootState !== 'LOADING') return false;
+    const video = videoRef.current;
+    if (!video) return true; // Show loading if video element not mounted yet
+    
+    // Only show loading if video is actually loading data
+    // readyState: 0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA
+    // networkState: 0=EMPTY, 1=IDLE, 2=LOADING, 3=NO_SOURCE
+    // Use videoReadyState from state (updated by event handlers) for accurate loading detection
+    const isActuallyLoading = videoReadyState < 3 || video.networkState === 2;
+    return isActuallyLoading;
+  }, [isValidSrc, errorMessage, bootState, videoReadyState]);
 
   return (
     <div
@@ -1128,9 +1153,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }}
     >
-      {/* Loading Overlay - Only shown when src exists but video is not ready yet */}
-      {/* CRITICAL: This overlay will disappear on onCanPlay or onLoadedData events */}
-      {bootState === 'LOADING' && isValidSrc && !errorMessage && (
+      {/* Loading Overlay - Optimized: Only shown when video is actually loading data */}
+      {/* CRITICAL: Animely.net style - minimal loading, only when truly needed */}
+      {shouldShowLoading && (
         <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10 transition-opacity duration-200 pointer-events-none">
           <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
         </div>

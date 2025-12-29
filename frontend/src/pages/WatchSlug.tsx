@@ -216,6 +216,57 @@ const WatchSlug: React.FC = () => {
     return null;
   }, [episodes, episodeNum, seasonNum, seasons]);
 
+  // CRITICAL: Preload next episode video for instant switching (Animely.net style)
+  useEffect(() => {
+    if (!nextEpisode || !episodes || !seasons) return;
+
+    // Find the actual next episode object
+    let nextEp = null;
+    if (nextEpisode.seasonNumber === seasonNum) {
+      // Same season, next episode
+      nextEp = episodes.find(ep => ep.episode_number === nextEpisode.episodeNumber);
+    } else {
+      // Next season, first episode
+      const nextSeason = seasons.find(s => s.season_number === nextEpisode.seasonNumber);
+      if (nextSeason) {
+        // We need to fetch episodes for next season, but for now just preload if we have the URL
+        // This is a simplified version - full implementation would fetch next season episodes
+      }
+    }
+
+    // Preload video URL if available
+    if (nextEp && (nextEp.video_url || nextEp.hls_url)) {
+      const videoUrl = nextEp.video_url || nextEp.hls_url;
+      if (videoUrl) {
+        // Prefetch video metadata and segments
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = videoUrl;
+        link.as = 'video';
+        document.head.appendChild(link);
+
+        // For HLS, also prefetch the manifest
+        if (videoUrl.includes('.m3u8')) {
+          fetch(videoUrl, { method: 'HEAD' }).catch(() => {
+            // Ignore errors, just trigger CDN cache
+          });
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('[WatchSlug] Preloading next episode:', videoUrl);
+        }
+
+        return () => {
+          // Cleanup prefetch link
+          const existingLink = document.head.querySelector(`link[href="${videoUrl}"]`);
+          if (existingLink) {
+            existingLink.remove();
+          }
+        };
+      }
+    }
+  }, [nextEpisode, episodes, seasons, seasonNum]);
+
   const handleEnded = useCallback(() => {
     // Auto-play next episode
     if (nextEpisode) {
@@ -262,7 +313,6 @@ const WatchSlug: React.FC = () => {
         <div className="w-full bg-black">
           {shouldRenderPlayer ? (
             <VideoPlayer
-              key={episode.id}
               src={playbackUrl}
               poster={poster}
               title={playerTitle}
@@ -318,7 +368,6 @@ const WatchSlug: React.FC = () => {
             <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10">
               {shouldRenderPlayer ? (
                 <VideoPlayer
-                  key={episode.id}
                   src={playbackUrl}
                   poster={poster}
                   title={playerTitle}
