@@ -97,6 +97,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, []);
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] bootState changed:', {
+        previous: bootStateRef.current,
+        current: bootState,
+      });
+    }
     bootStateRef.current = bootState;
   }, [bootState]);
 
@@ -119,8 +125,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const isValidSrc = src && src.trim() !== '';
     const srcChanged = previousSrcRef.current !== src;
 
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] useEffect triggered:', {
+        src: src?.substring(0, 50) + '...',
+        isValidSrc,
+        srcChanged,
+        previousSrc: previousSrcRef.current?.substring(0, 50) + '...',
+        bootState,
+      });
+    }
+
     // If src is invalid, set to IDLE
     if (!isValidSrc) {
+      if (import.meta.env.DEV) console.log('[VideoPlayer] Invalid src, setting to IDLE');
       if (previousSrcRef.current) {
         // Only reset if we had a valid src before
         setBootState('IDLE');
@@ -131,21 +148,38 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // If src hasn't changed and we're not in IDLE state, don't do anything
     if (!srcChanged && bootState !== 'IDLE') {
+      if (import.meta.env.DEV) console.log('[VideoPlayer] Src unchanged and not IDLE, skipping');
       return;
     }
 
     // Get video element (will be null if not mounted yet)
     const video = videoRef.current;
     
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] Video element check:', {
+        videoExists: !!video,
+        videoReadyState: video?.readyState,
+        videoSrc: video?.src?.substring(0, 50) + '...',
+      });
+    }
+    
     // If video element is not mounted yet, wait a bit and retry
     if (!video) {
+      if (import.meta.env.DEV) console.log('[VideoPlayer] Video element not mounted, retrying in 100ms');
       const timeoutId = setTimeout(() => {
         // Retry after video element is mounted
         const retryVideo = videoRef.current;
+        if (import.meta.env.DEV) {
+          console.log('[VideoPlayer] Retry check:', {
+            videoExists: !!retryVideo,
+            isValidSrc,
+          });
+        }
         if (retryVideo && isValidSrc) {
           // Video element is now mounted, trigger setup
           const retrySrcChanged = previousSrcRef.current !== src;
           if (retrySrcChanged) {
+            if (import.meta.env.DEV) console.log('[VideoPlayer] Retry: Setting bootState to LOADING');
             previousSrcRef.current = src;
             setBootState('LOADING');
           }
@@ -164,6 +198,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // Reset only necessary state for new episode
     if (srcChanged) {
+      if (import.meta.env.DEV) console.log('[VideoPlayer] Src changed, setting bootState to LOADING');
       setBootState('LOADING');
       durationSetRef.current = false;
       lastTimeUpdateRef.current = 0;
@@ -180,21 +215,40 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         clearTimeout(loadingTimeoutRef.current);
       }
       loadingTimeoutRef.current = setTimeout(() => {
-        if (bootStateRef.current === 'LOADING' && previousSrcRef.current === src) {
-          setBootState('READY');
-          onPlayerReady?.();
+        if (import.meta.env.DEV) {
+          console.log('[VideoPlayer] Loading timeout fired:', {
+            currentBootState: bootState,
+            previousSrc: previousSrcRef.current?.substring(0, 50) + '...',
+            currentSrc: src?.substring(0, 50) + '...',
+          });
         }
+        setBootState((prev) => {
+          if (prev === 'LOADING' && previousSrcRef.current === src) {
+            if (import.meta.env.DEV) console.log('[VideoPlayer] Timeout: Setting bootState to READY');
+            onPlayerReady?.();
+            return 'READY';
+          }
+          return prev;
+        });
         loadingTimeoutRef.current = null;
       }, 10000); // 10 second timeout
     }
 
     const handleLoadedMetadata = () => {
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] handleLoadedMetadata fired:', {
+          duration: video.duration,
+          readyState: video.readyState,
+          currentBootState: bootState,
+        });
+      }
       if (!durationSetRef.current && video.duration && isFinite(video.duration)) {
         setDuration(video.duration);
         durationSetRef.current = true;
       }
       setBootState('READY');
       isEpisodeSwitchingRef.current = false;
+      if (import.meta.env.DEV) console.log('[VideoPlayer] handleLoadedMetadata: bootState set to READY');
     };
 
     const handleTimeUpdate = () => {
@@ -268,6 +322,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleError = () => {
+      if (import.meta.env.DEV) {
+        console.error('[VideoPlayer] handleError fired:', {
+          error: video.error,
+          errorCode: video.error?.code,
+          errorMessage: video.error?.message,
+          readyState: video.readyState,
+          videoSrc: video.src?.substring(0, 50) + '...',
+        });
+      }
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
@@ -278,26 +341,48 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     const handleCanPlay = () => {
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] handleCanPlay fired:', {
+          currentBootState: bootState,
+          readyState: video.readyState,
+          videoSrc: video.src?.substring(0, 50) + '...',
+        });
+      }
       if (bootState === 'LOADING') {
         if (loadingTimeoutRef.current) {
+          if (import.meta.env.DEV) console.log('[VideoPlayer] handleCanPlay: Clearing loading timeout');
           clearTimeout(loadingTimeoutRef.current);
           loadingTimeoutRef.current = null;
         }
         setBootState('READY');
         onPlayerReady?.(); // Notify parent that player is ready
+        if (import.meta.env.DEV) console.log('[VideoPlayer] handleCanPlay: bootState set to READY');
+      } else {
+        if (import.meta.env.DEV) console.log('[VideoPlayer] handleCanPlay: bootState is not LOADING, ignoring');
       }
     };
 
     const handleLoadedData = () => {
       // CRITICAL: This event fires when video data is loaded and ready to play
       // This ensures loading overlay closes even if canplay doesn't fire immediately
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] handleLoadedData fired:', {
+          currentBootState: bootState,
+          readyState: video.readyState,
+          videoSrc: video.src?.substring(0, 50) + '...',
+        });
+      }
       if (bootState === 'LOADING') {
         if (loadingTimeoutRef.current) {
+          if (import.meta.env.DEV) console.log('[VideoPlayer] handleLoadedData: Clearing loading timeout');
           clearTimeout(loadingTimeoutRef.current);
           loadingTimeoutRef.current = null;
         }
         setBootState('READY');
         onPlayerReady?.();
+        if (import.meta.env.DEV) console.log('[VideoPlayer] handleLoadedData: bootState set to READY');
+      } else {
+        if (import.meta.env.DEV) console.log('[VideoPlayer] handleLoadedData: bootState is not LOADING, ignoring');
       }
     };
 
@@ -311,6 +396,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     // Add event listeners (only once, not on every src change)
+    if (import.meta.env.DEV) console.log('[VideoPlayer] Adding event listeners to video element');
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('loadeddata', handleLoadedData);
@@ -327,13 +413,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!isHls) {
       // Direct MP4 or other formats
       if (video.src !== src || srcChanged) {
+        if (import.meta.env.DEV) {
+          console.log('[VideoPlayer] Setting MP4 source:', {
+            oldSrc: video.src?.substring(0, 50) + '...',
+            newSrc: src?.substring(0, 50) + '...',
+            srcChanged,
+          });
+        }
         hlsRef.current?.destroy();
         video.src = src;
         // CRITICAL: Always call load() on episode change to ensure events fire
+        if (import.meta.env.DEV) console.log('[VideoPlayer] Calling video.load() for MP4');
         video.load();
         // Try to play if autoPlay is desired (muted for autoplay policy)
         if (video.muted) {
-          video.play().catch(() => {
+          video.play().catch((err) => {
+            if (import.meta.env.DEV) console.log('[VideoPlayer] Autoplay prevented:', err);
             // Ignore autoplay errors
           });
         }
@@ -343,25 +438,41 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native HLS (Safari)
         if (video.src !== src || srcChanged) {
+          if (import.meta.env.DEV) {
+            console.log('[VideoPlayer] Setting native HLS source:', {
+              oldSrc: video.src?.substring(0, 50) + '...',
+              newSrc: src?.substring(0, 50) + '...',
+              srcChanged,
+            });
+          }
           video.src = src;
           // CRITICAL: Always call load() on episode change
+          if (import.meta.env.DEV) console.log('[VideoPlayer] Calling video.load() for native HLS');
           video.load();
           // Try to play if autoPlay is desired (muted for autoplay policy)
           if (video.muted) {
-            video.play().catch(() => {
+            video.play().catch((err) => {
+              if (import.meta.env.DEV) console.log('[VideoPlayer] Autoplay prevented:', err);
               // Ignore autoplay errors
             });
           }
         }
       } else if (Hls.isSupported()) {
         // HLS.js for other browsers
+        if (import.meta.env.DEV) console.log('[VideoPlayer] Using HLS.js for HLS playback');
         if (hlsRef.current) {
           // If HLS instance exists and src changed, update source
           if (hlsRef.current.media === video) {
             // Same instance, same media - update source
+            if (import.meta.env.DEV) {
+              console.log('[VideoPlayer] HLS instance exists, updating source:', {
+                newSrc: src?.substring(0, 50) + '...',
+              });
+            }
             // CRITICAL: Re-attach event listeners for MANIFEST_PARSED
             hlsRef.current.off(Hls.Events.MANIFEST_PARSED);
             hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
+              if (import.meta.env.DEV) console.log('[VideoPlayer] HLS MANIFEST_PARSED event fired');
               handleLoadedMetadata();
               handleLoadedData();
             });
@@ -379,18 +490,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               }
             });
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              if (import.meta.env.DEV) console.log('[VideoPlayer] HLS MANIFEST_PARSED event fired (new instance)');
               handleLoadedMetadata();
               // CRITICAL: Also trigger loadedData handler for HLS
               handleLoadedData();
             });
+            if (import.meta.env.DEV) console.log('[VideoPlayer] Loading HLS source:', src?.substring(0, 50) + '...');
             hls.loadSource(src);
             hls.attachMedia(video);
           }
         } else {
           // Create new HLS instance
+          if (import.meta.env.DEV) console.log('[VideoPlayer] Creating new HLS instance');
           const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
           hlsRef.current = hls;
           hls.on(Hls.Events.ERROR, (_e, data) => {
+            if (import.meta.env.DEV) {
+              console.error('[VideoPlayer] HLS ERROR event:', {
+                fatal: data.fatal,
+                type: data.type,
+                details: data.details,
+              });
+            }
             if (data.fatal) {
               onError?.('Video yüklenemedi (HLS fatal error)');
               hls.destroy();
@@ -399,14 +520,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (import.meta.env.DEV) console.log('[VideoPlayer] HLS MANIFEST_PARSED event fired (new instance)');
             handleLoadedMetadata();
             // CRITICAL: Also trigger loadedData handler for HLS
             handleLoadedData();
           });
+          if (import.meta.env.DEV) console.log('[VideoPlayer] Loading HLS source (new instance):', src?.substring(0, 50) + '...');
           hls.loadSource(src);
           hls.attachMedia(video);
         }
       } else {
+        if (import.meta.env.DEV) console.error('[VideoPlayer] Browser does not support HLS');
         onError?.('Tarayıcı HLS desteklemiyor');
         setBootState('IDLE');
       }
