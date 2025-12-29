@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Hls from 'hls.js';
 import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2, SkipForward } from 'lucide-react';
@@ -77,8 +77,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Persistent flags (useRef to prevent re-triggering)
   const durationSetRef = useRef(false);
   const lastTimeUpdateRef = useRef(0);
-  const resumeCardShownRef = useRef(false); // CRITICAL: Prevent resume card loop
-  const resumeCardTriggeredRef = useRef(false); // Track if resume logic has run
+  const resumeCardShownRef = useRef(false);
+  const resumeCardTriggeredRef = useRef(false);
+  const previousSrcRef = useRef<string>(''); // Track src changes for smooth episode switching
+  const isEpisodeSwitchingRef = useRef(false); // Prevent state reset during episode switch
 
   // Detect mobile
   useEffect(() => {
@@ -104,36 +106,63 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }, 2000);
   }, [isPlaying]);
 
-  // Initialize video and HLS
+  // CRITICAL: Episode switching - update video src without remounting
   useEffect(() => {
     const video = videoRef.current;
-    
-    // CRITICAL: Never set src if URL is undefined or empty
-    if (!video || !src || src.trim() === '') {
-      setBootState('IDLE');
+    if (!video) return;
+
+    const isValidSrc = src && src.trim() !== '';
+    const srcChanged = previousSrcRef.current !== src;
+
+    // If src is invalid, set to IDLE
+    if (!isValidSrc) {
+      if (previousSrcRef.current) {
+        // Only reset if we had a valid src before
+        setBootState('IDLE');
+      }
+      previousSrcRef.current = '';
       return;
     }
 
-    // Reset state when src changes
-    setBootState('LOADING');
-    durationSetRef.current = false;
-    lastTimeUpdateRef.current = 0;
-    resumeCardShownRef.current = false; // Reset resume card flag on src change
-    resumeCardTriggeredRef.current = false;
+    // If src hasn't changed, don't do anything
+    if (!srcChanged && bootState !== 'IDLE') {
+      return;
+    }
+
+    // Episode switch detected - preserve UI state
+    if (srcChanged && previousSrcRef.current && bootState !== 'IDLE') {
+      isEpisodeSwitchingRef.current = true;
+    }
+
+    // Update previous src
+    previousSrcRef.current = src;
+
+    // Reset only necessary state for new episode
+    if (srcChanged) {
+      setBootState('LOADING');
+      durationSetRef.current = false;
+      lastTimeUpdateRef.current = 0;
+      resumeCardShownRef.current = false;
+      resumeCardTriggeredRef.current = false;
+      setShowNextEpisodeOverlay(false);
+      setIntroSkipped(false);
+      if (nextEpisodeCountdownRef.current) {
+        clearInterval(nextEpisodeCountdownRef.current);
+        nextEpisodeCountdownRef.current = null;
+      }
+    }
 
     const handleLoadedMetadata = () => {
-      // Set duration ONLY ONCE from loadedmetadata event
       if (!durationSetRef.current && video.duration && isFinite(video.duration)) {
         setDuration(video.duration);
         durationSetRef.current = true;
       }
       setBootState('READY');
-      // Resume card will be shown based on time, not immediately
+      isEpisodeSwitchingRef.current = false;
     };
 
     const handleTimeUpdate = () => {
       const time = video.currentTime;
-      // Prevent flickering: only update if change is significant (>0.1s) or first update
       if (Math.abs(time - lastTimeUpdateRef.current) > 0.1 || lastTimeUpdateRef.current === 0) {
         setCurrentTime(time);
         lastTimeUpdateRef.current = time;
@@ -142,7 +171,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const videoDuration = video.duration || duration || 0;
       onTimeUpdate?.(time, videoDuration);
       
-      // Show resume card 90 seconds before end (if initialTime > 0 and not shown yet)
+      // Show resume card 90 seconds before end
       if (initialTime > 0 && !resumeCardShownRef.current && videoDuration > 0) {
         const remaining = videoDuration - time;
         if (remaining <= 90 && remaining > 0) {
@@ -158,7 +187,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setShowNextEpisodeOverlay(true);
           setNextEpisodeCountdown(Math.ceil(remaining));
           
-          // Start countdown
           if (nextEpisodeCountdownRef.current) {
             clearInterval(nextEpisodeCountdownRef.current);
           }
@@ -176,14 +204,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             });
           }, 1000);
         } else if (remaining > 10 && showNextEpisodeOverlay) {
-          // Hide overlay if user seeks back
           setShowNextEpisodeOverlay(false);
           if (nextEpisodeCountdownRef.current) {
             clearInterval(nextEpisodeCountdownRef.current);
             nextEpisodeCountdownRef.current = null;
           }
         } else if (showNextEpisodeOverlay && remaining > 0) {
-          // Update countdown
           setNextEpisodeCountdown(Math.ceil(remaining));
         }
       }
@@ -207,11 +233,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     const handleError = () => {
       setBootState('IDLE');
+      isEpisodeSwitchingRef.current = false;
       onError?.('Video oynatılamadı.');
     };
 
     const handleCanPlay = () => {
-      // Video is ready to play
       if (bootState === 'LOADING') {
         setBootState('READY');
       }
@@ -226,6 +252,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsPlaying(false);
     };
 
+    // Add event listeners (only once, not on every src change)
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('play', handlePlay);
@@ -235,48 +262,70 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('ended', handleEnded);
     video.addEventListener('error', handleError);
 
-    // HLS handling
+    // Handle video source change
     const isHls = src.endsWith('.m3u8');
+    
     if (!isHls) {
-      hlsRef.current?.destroy();
-      video.src = src;
-      video.load();
-      return () => {
+      // Direct MP4 or other formats
+      if (video.src !== src) {
         hlsRef.current?.destroy();
-        hlsRef.current = null;
-      };
-    }
-
-    // Native HLS support (Safari)
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
-      video.load();
-      return () => {
-        hlsRef.current?.destroy();
-        hlsRef.current = null;
-      };
-    }
-
-    // HLS.js for other browsers
-    if (Hls.isSupported()) {
-      hlsRef.current?.destroy();
-      const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
-      hlsRef.current = hls;
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) {
-          onError?.('Video yüklenemedi (HLS fatal error)');
-          hls.destroy();
-          setBootState('IDLE');
-        }
-      });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        handleLoadedMetadata();
-      });
-      hls.loadSource(src);
-      hls.attachMedia(video);
+        video.src = src;
+        video.load();
+      }
     } else {
-      onError?.('Tarayıcı HLS desteklemiyor');
-      setBootState('IDLE');
+      // HLS handling
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS (Safari)
+        if (video.src !== src) {
+          video.src = src;
+          video.load();
+        }
+      } else if (Hls.isSupported()) {
+        // HLS.js for other browsers
+        if (hlsRef.current) {
+          // If HLS instance exists and src changed, update source
+          if (hlsRef.current.media === video) {
+            hlsRef.current.loadSource(src);
+          } else {
+            hlsRef.current.destroy();
+            const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
+            hlsRef.current = hls;
+            hls.on(Hls.Events.ERROR, (_e, data) => {
+              if (data.fatal) {
+                onError?.('Video yüklenemedi (HLS fatal error)');
+                hls.destroy();
+                setBootState('IDLE');
+                isEpisodeSwitchingRef.current = false;
+              }
+            });
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              handleLoadedMetadata();
+            });
+            hls.loadSource(src);
+            hls.attachMedia(video);
+          }
+        } else {
+          // Create new HLS instance
+          const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
+          hlsRef.current = hls;
+          hls.on(Hls.Events.ERROR, (_e, data) => {
+            if (data.fatal) {
+              onError?.('Video yüklenemedi (HLS fatal error)');
+              hls.destroy();
+              setBootState('IDLE');
+              isEpisodeSwitchingRef.current = false;
+            }
+          });
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            handleLoadedMetadata();
+          });
+          hls.loadSource(src);
+          hls.attachMedia(video);
+        }
+      } else {
+        onError?.('Tarayıcı HLS desteklemiyor');
+        setBootState('IDLE');
+      }
     }
 
     return () => {
@@ -289,19 +338,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
       
-      // Cancel any pending play() requests to prevent AbortError
-      if (!video.paused) {
-        video.pause();
+      // Only cleanup HLS on unmount, not on src change
+      // HLS instance is reused for episode switching
+    };
+  }, [src, hasNextEpisode, onNextEpisode, duration, onTimeUpdate, onEnded, onError, initialTime, bootState]);
+
+  // Cleanup HLS only on component unmount
+  useEffect(() => {
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
-      
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
       if (nextEpisodeCountdownRef.current) {
         clearInterval(nextEpisodeCountdownRef.current);
         nextEpisodeCountdownRef.current = null;
       }
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
+      }
     };
-  }, [src, hasNextEpisode, onNextEpisode, showNextEpisodeOverlay, duration, onTimeUpdate, onEnded, onError, initialTime, bootState]);
+  }, []);
 
   // Fullscreen handling
   useEffect(() => {
@@ -312,6 +370,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Mobile landscape auto-fullscreen
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handleOrientationChange = () => {
+      if (window.orientation === 90 || window.orientation === -90) {
+        // Landscape mode
+        if (containerRef.current && !document.fullscreenElement) {
+          containerRef.current.requestFullscreen().catch(() => {
+            // Fullscreen failed (user may have blocked it)
+          });
+        }
+      }
+    };
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    return () => window.removeEventListener('orientationchange', handleOrientationChange);
+  }, [isMobile]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -326,7 +403,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             showControlsTemporary();
           })
           .catch((error) => {
-            // Ignore AbortError - video was interrupted by new load
             if (error.name !== 'AbortError' && import.meta.env.DEV) {
               console.warn('[VideoPlayer] Play error:', error);
             }
@@ -344,7 +420,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video || bootState !== 'READY') return;
 
     video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
-    // Silent seek: don't show controls on keyboard seek
     if (!silent) {
       showControlsTemporary();
     }
@@ -433,20 +508,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [bootState, togglePlay]);
 
+  // Mobile tap to show/hide controls
+  const handleVideoTouch = useCallback(() => {
+    if (isMobile) {
+      setShowControls((prev) => !prev);
+      if (showControls) {
+        showControlsTemporary();
+      }
+    }
+  }, [isMobile, showControls, showControlsTemporary]);
+
   const handleResume = useCallback(() => {
     const video = videoRef.current;
     if (!video || initialTime <= 0 || bootState !== 'READY' || resumeCardTriggeredRef.current) return;
     
-    // CRITICAL: Mark as triggered to prevent re-triggering
     resumeCardTriggeredRef.current = true;
     setShowResumeCard(false);
     
-    // Wait for video to be ready before seeking and playing
     const seekAndPlay = () => {
       if (!video) return;
       
       if (video.readyState < 2) {
-        // Wait for video to be ready
         const checkReady = () => {
           if (video && video.readyState >= 2) {
             video.currentTime = initialTime;
@@ -462,20 +544,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   showControlsTemporary();
                 })
                 .catch((error) => {
-                  // Ignore AbortError - video was interrupted
                   if (error.name !== 'AbortError' && import.meta.env.DEV) {
                     console.warn('[VideoPlayer] Resume play error:', error);
                   }
                 });
             }
           } else if (video) {
-            // Retry after a short delay
             setTimeout(checkReady, 100);
           }
         };
         checkReady();
       } else {
-        // Video is ready, seek and play immediately
         video.currentTime = initialTime;
         setCurrentTime(initialTime);
         lastTimeUpdateRef.current = initialTime;
@@ -489,7 +568,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               showControlsTemporary();
             })
             .catch((error) => {
-              // Ignore AbortError - video was interrupted
               if (error.name !== 'AbortError' && import.meta.env.DEV) {
                 console.warn('[VideoPlayer] Resume play error:', error);
               }
@@ -502,7 +580,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [bootState, initialTime, onSeek, showControlsTemporary]);
 
   const handleResumeCancel = useCallback(() => {
-    resumeCardTriggeredRef.current = true; // Mark as handled even if cancelled
+    resumeCardTriggeredRef.current = true;
     setShowResumeCard(false);
   }, []);
 
@@ -523,11 +601,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          skipTime(-10, true); // Silent - no UI flash
+          skipTime(-10, true);
           break;
         case 'ArrowRight':
           e.preventDefault();
-          skipTime(10, true); // Silent - no UI flash
+          skipTime(10, true);
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -562,34 +640,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (nextEpisodeCountdownRef.current) {
-        clearInterval(nextEpisodeCountdownRef.current);
-        nextEpisodeCountdownRef.current = null;
-      }
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  // Don't render video if src is invalid
-  const isValidSrc = src && src.trim() !== '';
-  const isMetadataLoaded = bootState === 'READY' || bootState === 'PLAYING';
+  // Memoize computed values
+  const isValidSrc = useMemo(() => src && src.trim() !== '', [src]);
+  const isMetadataLoaded = useMemo(() => bootState === 'READY' || bootState === 'PLAYING', [bootState]);
 
   return (
     <div
       ref={containerRef}
       className={`relative w-full bg-black overflow-hidden shadow-2xl ${
         isMobile 
-          ? 'rounded-none' // Edge-to-edge on mobile
+          ? 'rounded-none' 
           : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
       }`}
       style={{
-        // Fixed 16:9 aspect ratio - prevents flash
         aspectRatio: '16 / 9',
         minHeight: isMobile ? 'auto' : '0',
       }}
@@ -599,21 +662,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setShowControls(false);
         }
       }}
-      onTouchStart={() => {
-        if (isMobile) {
-          showControlsTemporary();
-        }
-      }}
+      onTouchStart={handleVideoTouch}
     >
-      {/* Loading Skeleton Placeholder */}
-      {bootState === 'LOADING' && (
+      {/* Loading Skeleton - Only on first load or invalid src */}
+      {bootState === 'LOADING' && isValidSrc && (
         <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10">
           <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
         </div>
       )}
 
-      {/* Static Placeholder Layer - Fixed height, prevents flash */}
-      {bootState !== 'READY' && bootState !== 'PLAYING' && (
+      {/* Static Placeholder Layer */}
+      {(!isValidSrc || bootState !== 'READY' && bootState !== 'PLAYING') && (
         <div
           className="absolute inset-0 w-full h-full bg-black transition-opacity duration-300"
           style={{
@@ -636,8 +695,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Video Element - Only render if src is valid and bootState is READY/PLAYING */}
-      {isValidSrc && (bootState === 'READY' || bootState === 'PLAYING') && (
+      {/* Video Element - NEVER remounts, only src changes */}
+      {isValidSrc && (
         <video
           ref={videoRef}
           className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
@@ -651,7 +710,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
 
-      {/* Resume Watching Card - Shows 90 seconds before end */}
+      {/* Resume Watching Card */}
       {showResumeCard && initialTime > 0 && bootState === 'READY' && (
         <div
           className={`absolute inset-0 z-50 flex items-center justify-center ${
@@ -810,8 +869,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Bottom Controls */}
-      {bootState === 'READY' || bootState === 'PLAYING' ? (
+      {/* Bottom Controls - Always mounted, visibility controlled by opacity */}
+      {(bootState === 'READY' || bootState === 'PLAYING') && (
         <div
           className={`absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-opacity duration-300 ${
             showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -928,7 +987,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     onTouchStart={(e) => {
                       if (isMobile) {
                         e.stopPropagation();
-                        // Toggle volume slider on mobile tap
                         const slider = volumeSliderRef.current;
                         if (slider) {
                           const isVisible = slider.classList.contains('opacity-100');
@@ -953,8 +1011,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     ref={volumeSliderRef}
                     className={`h-1 bg-white/20 rounded-full cursor-pointer overflow-hidden absolute left-full ml-2 top-1/2 -translate-y-1/2 transition-all duration-200 ease-out ${
                       isMobile 
-                        ? 'w-0 opacity-0' // Hidden by default on mobile, shown on tap
-                        : 'w-0 opacity-0 group-hover:w-20 group-hover:opacity-100' // Desktop: slide left on hover
+                        ? 'w-0 opacity-0'
+                        : 'w-0 opacity-0 group-hover:w-20 group-hover:opacity-100'
                     }`}
                     onClick={handleVolumeChange}
                     onMouseDown={() => setIsVolumeDragging(true)}
@@ -989,7 +1047,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   </div>
                 </div>
 
-                {/* Next Episode Button - Always visible if next episode exists */}
+                {/* Next Episode */}
                 {hasNextEpisode && onNextEpisode && (
                   <button
                     onClick={(e) => {
@@ -1028,7 +1086,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };
