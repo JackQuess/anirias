@@ -4,6 +4,7 @@ import { Outlet, Link } from 'react-router-dom';
 import Navbar from './Navbar';
 import BackendNotConfiguredBanner from './BackendNotConfiguredBanner';
 import { hasSupabaseEnv } from '@/services/supabaseClient';
+import Mascot from './Mascot';
 
 const Layout: React.FC = () => {
   return (
@@ -12,7 +13,9 @@ const Layout: React.FC = () => {
       <main className="flex-grow pt-24 lg:pt-32">
         <Outlet />
       </main>
-      <footer className="py-20 border-t border-white/5 bg-brand-dark/80 backdrop-blur-xl mt-20">
+      {/* Rias Mascot - Footer Left */}
+      <Mascot type="rias" position="footer-left" />
+      <footer className="py-20 border-t border-white/5 bg-brand-dark/80 backdrop-blur-xl mt-20 relative z-10">
         <div className="max-w-7xl mx-auto px-8 lg:px-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-center">
             <div className="text-center md:text-left">

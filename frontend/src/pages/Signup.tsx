@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
+import Mascot from '@/components/Mascot';
 import { validateUsername } from '@/utils/usernameValidation';
 
 const Signup: React.FC = () => {
@@ -116,6 +117,12 @@ const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Angel Boy Mascot - Bottom Right */}
+      <Mascot 
+        type="angel" 
+        position="auth-bottom-right" 
+        className={showEmailVerification ? 'animate-fade-in-up' : ''}
+      />
       {/* Decorative Blur Backgrounds */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
 

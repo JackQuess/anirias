@@ -238,6 +238,20 @@ video::-webkit-media-text-track-display {
   animation: player-loading-pulse 1.5s ease-in-out infinite;
 }
 
+/* Mascot Floating Animation */
+@keyframes mascot-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.animate-mascot-float {
+  animation: mascot-float 4s ease-in-out infinite;
+}
+
 /* Helpers */
 .line-clamp-1 {
   display: -webkit-box;
