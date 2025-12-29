@@ -24,11 +24,15 @@ const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({ email, on
 
     setLoading(true);
     try {
+      // Production domain için email doğrulama redirect URL'i
+      // HashRouter kullanıldığı için /#/auth/callback formatında
+      const emailRedirectTo = 'https://anirias.vercel.app/#/auth/callback';
+      
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
         options: {
-          emailRedirectTo: window.location.origin + '/#/login',
+          emailRedirectTo: emailRedirectTo,
         },
       });
 

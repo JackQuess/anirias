@@ -30,6 +30,7 @@ import WatchSlug from './pages/WatchSlug';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
+import AuthCallback from './pages/AuthCallback';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +72,7 @@ const App: React.FC = () => {
 
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Admin />} />

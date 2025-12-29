@@ -8,7 +8,7 @@ import EmailVerificationCard from '@/components/EmailVerificationCard';
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { user, status } = useAuth();
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +33,47 @@ const Login: React.FC = () => {
     }
   }, [user, status, navigate]);
 
+  /**
+   * Email format kontrolü
+   * Basit regex ile email formatını kontrol eder
+   */
+  const isEmailFormat = (input: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(input.trim());
+  };
+
+  /**
+   * Username ile email bulma
+   * Supabase RPC function kullanarak username'den email adresini getirir
+   * RPC function: get_email_by_username(username_input TEXT) -> TEXT
+   */
+  const getEmailByUsername = async (username: string): Promise<string | null> => {
+    if (!hasSupabaseEnv || !supabase) return null;
+
+    try {
+      // Supabase RPC function çağrısı
+      // Function direkt TEXT döndürür (array değil)
+      const { data, error } = await supabase.rpc('get_email_by_username', {
+        username_input: username.trim()
+      });
+
+      if (error) {
+        console.error('[Login] RPC function error:', error);
+        return null;
+      }
+
+      // RPC function direkt email string'i döndürür
+      if (data && typeof data === 'string') {
+        return data;
+      }
+
+      return null;
+    } catch (err) {
+      console.error('[Login] Unexpected error getting email by username:', err);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasSupabaseEnv || !supabase) {
@@ -44,8 +85,34 @@ const Login: React.FC = () => {
     setError(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      let emailToUse: string = emailOrUsername.trim();
+
+      // Email formatı kontrolü
+      if (isEmailFormat(emailToUse)) {
+        // Email formatındaysa direkt kullan
+        emailToUse = emailToUse;
+      } else {
+        // Username olarak kabul et, RPC function ile email'i bul
+        const foundEmail = await getEmailByUsername(emailToUse);
+        
+        if (!foundEmail) {
+          setError('Kullanıcı bulunamadı. Lütfen e-posta adresinizi veya kullanıcı adınızı kontrol edin.');
+          setLoading(false);
+          return;
+        }
+        
+        // Bulunan email'i kullan
+        emailToUse = foundEmail;
+      }
+
+      // Normal email + password login
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ 
+        email: emailToUse, 
+        password 
+      });
+      
       if (authError) throw authError;
+      
       if (data.user) {
         // Check if email is verified
         if (!data.user.email_confirmed_at) {
@@ -56,7 +123,14 @@ const Login: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.');
+      // Supabase hatalarını kontrol et
+      if (err.message?.includes('Invalid login credentials') || 
+          err.message?.includes('Email not confirmed') ||
+          err.message?.includes('User not found')) {
+        setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.');
+      } else {
+        setError(err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.');
+      }
     } finally {
       setLoading(false);
     }
@@ -140,14 +214,14 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">E-POSTA ADRESİ</label>
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">E-POSTA VEYA KULLANICI ADI</label>
               <input
-                type="email"
+                type="text"
                 required
-                placeholder="ornek@mail.com"
+                placeholder="ornek@mail.com veya kullanici_adi"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
               />
             </div>
 
