@@ -4,7 +4,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
-import Mascot from '@/components/Mascot';
+import MascotLayer from '@/components/decorative/MascotLayer';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -208,12 +208,12 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Angel Boy Mascot - Bottom Right */}
-      <Mascot 
-        type="angel" 
-        position="auth-bottom-right" 
-        className={showEmailVerification ? 'animate-fade-in-up' : ''}
-      />
+      {/* Angel Boy Mascot - Bottom Right (only when email verification card is visible) */}
+      {showEmailVerification && (
+        <div className="fixed bottom-0 right-0 z-0 pointer-events-none">
+          <MascotLayer type="angel" />
+        </div>
+      )}
       {/* Decorative Blur Backgrounds */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-[120px] pointer-events-none" />

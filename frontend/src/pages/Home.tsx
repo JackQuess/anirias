@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import AnimeCard from '../components/AnimeCard';
-import Mascot from '../components/Mascot';
+import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 
@@ -242,9 +242,11 @@ const Home: React.FC = () => {
 
         {/* 3. Popular Content */}
         <section className="relative">
-          {/* Light Girl Mascot - Right Side (XL screens only) */}
-          <Mascot type="light" position="home-right" />
-          <div className="flex items-end justify-between mb-8 md:mb-12">
+          {/* Light Girl Mascot - Background decoration (XL screens only, hidden on mobile/tablet) */}
+          <div className="absolute top-1/2 right-0 -translate-y-1/2 z-0 hidden xl:block pointer-events-none">
+            <MascotLayer type="light" />
+          </div>
+          <div className="flex items-end justify-between mb-8 md:mb-12 relative z-10">
             <h2 className="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase italic border-l-4 border-brand-red pl-4 md:pl-5">Popüler <span className="text-brand-red">İçerikler</span></h2>
             <Link to="/browse" className="text-[9px] md:text-[10px] font-black text-gray-500 hover:text-brand-red transition-all uppercase tracking-[0.3em] bg-white/5 px-4 md:px-6 py-2 md:py-3 rounded-full border border-white/5 hover:bg-white/10">TÜMÜNÜ GÖR</Link>
           </div>

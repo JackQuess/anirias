@@ -26,6 +26,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminAutoImport from './pages/AdminAutoImport';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminFeedback from './pages/AdminFeedback';
+import AdminMascotSettings from './pages/AdminMascotSettings';
 import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
@@ -88,6 +89,7 @@ const App: React.FC = () => {
             <Route path="import" element={<AdminAutoImport />} />
             <Route path="calendar" element={<AdminCalendar />} />
             <Route path="feedback" element={<AdminFeedback />} />
+            <Route path="site-settings/mascots" element={<AdminMascotSettings />} />
           </Route>
 
           {/* 404 Route */}

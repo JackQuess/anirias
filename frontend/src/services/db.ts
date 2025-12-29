@@ -1283,5 +1283,57 @@ export const db = {
       if (import.meta.env.DEV) console.error('[db.getFeedback] Unexpected error:', err);
       return [];
     }
+  },
+
+  /**
+   * Get site settings by key
+   */
+  async getSiteSetting(key: string): Promise<any | null> {
+    if (!checkEnv()) return null;
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', key)
+        .single();
+
+      if (error) {
+        if (import.meta.env.DEV) console.error(`[db.getSiteSetting] Error fetching ${key}:`, error);
+        return null;
+      }
+
+      return data?.value || null;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error(`[db.getSiteSetting] Unexpected error for ${key}:`, err);
+      return null;
+    }
+  },
+
+  /**
+   * Update site settings (admin only)
+   */
+  async updateSiteSetting(key: string, value: any): Promise<boolean> {
+    if (!checkEnv()) return false;
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          key,
+          value,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) {
+        if (import.meta.env.DEV) console.error(`[db.updateSiteSetting] Error updating ${key}:`, error);
+        return false;
+      }
+
+      return true;
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error(`[db.updateSiteSetting] Unexpected error for ${key}:`, err);
+      return false;
+    }
   }
 };

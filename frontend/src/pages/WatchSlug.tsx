@@ -6,7 +6,7 @@ import { useAuth } from '../services/auth';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
 import VideoPlayer from '../components/VideoPlayer';
-import Mascot from '../components/Mascot';
+import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { WatchProgress } from '../types';
@@ -443,9 +443,11 @@ const WatchSlug: React.FC = () => {
 
       {/* Desktop Layout */}
       <div className="hidden xl:block relative">
-        {/* Lightning Mascot - Top Right (outside content area) */}
-        <Mascot type="lightning" position="watch-top-right" />
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
+        {/* Lightning Mascot - Far right background (1440px+ only, outside content) */}
+        <div className="fixed top-20 right-0 z-0 pointer-events-none hidden 2xl:block">
+          <MascotLayer type="lightning" />
+        </div>
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40 relative z-10">
           <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
             {/* Main Player Area */}
             <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10">
