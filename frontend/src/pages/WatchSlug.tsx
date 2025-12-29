@@ -262,6 +262,7 @@ const WatchSlug: React.FC = () => {
         <div className="w-full bg-black">
           {shouldRenderPlayer ? (
             <VideoPlayer
+              key={episode.id}
               src={playbackUrl}
               poster={poster}
               title={playerTitle}
@@ -317,6 +318,7 @@ const WatchSlug: React.FC = () => {
             <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10">
               {shouldRenderPlayer ? (
                 <VideoPlayer
+                  key={episode.id}
                   src={playbackUrl}
                   poster={poster}
                   title={playerTitle}

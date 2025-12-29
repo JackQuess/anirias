@@ -75,6 +75,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showResumeCard, setShowResumeCard] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootStateRef = useRef<PlayerBootState>('IDLE');
   
@@ -141,11 +142,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
-    console.log('[VideoPlayer] handleLoadedMetadata fired:', {
-      duration: currentVideo.duration,
-      readyState: currentVideo.readyState,
-      currentBootState: bootStateRef.current,
-    });
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] Metadata loaded:', {
+        duration: currentVideo.duration,
+        readyState: currentVideo.readyState,
+      });
+    }
     if (!durationSetRef.current && currentVideo.duration && isFinite(currentVideo.duration)) {
       setDuration(currentVideo.duration);
       durationSetRef.current = true;
@@ -153,7 +155,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     setBootState('READY');
     isEpisodeSwitchingRef.current = false;
-    console.log('[VideoPlayer] handleLoadedMetadata: bootState set to READY');
   }, []);
 
   const handleTimeUpdate = useCallback(() => {
@@ -246,40 +247,58 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
-    console.error('[VideoPlayer] handleError fired:', {
-      error: currentVideo.error,
-      errorCode: currentVideo.error?.code,
-      errorMessage: currentVideo.error?.message,
+    const error = currentVideo.error;
+    let errorMsg = 'Video yüklenemedi.';
+    
+    if (error) {
+      switch (error.code) {
+        case error.MEDIA_ERR_ABORTED:
+          errorMsg = 'Video yükleme iptal edildi.';
+          break;
+        case error.MEDIA_ERR_NETWORK:
+          errorMsg = 'Ağ hatası. Lütfen internet bağlantınızı kontrol edin.';
+          break;
+        case error.MEDIA_ERR_DECODE:
+          errorMsg = 'Video formatı desteklenmiyor.';
+          break;
+        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+          errorMsg = 'Video formatı desteklenmiyor.';
+          break;
+        default:
+          errorMsg = 'Video oynatılamadı.';
+      }
+    }
+    
+    console.error('[VideoPlayer] Video error:', {
+      errorCode: error?.code,
+      errorMessage: error?.message,
       readyState: currentVideo.readyState,
-      videoSrc: currentVideo.src?.substring(0, 50) + '...',
     });
+    
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
     }
     setBootState('IDLE');
+    setErrorMessage(errorMsg);
     isEpisodeSwitchingRef.current = false;
-    onErrorRef.current?.('Video oynatılamadı.');
+    onErrorRef.current?.(errorMsg);
   }, []);
 
   const handleCanPlay = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
-    console.log('[VideoPlayer] handleCanPlay fired:', {
-      currentBootState: bootStateRef.current,
-      readyState: currentVideo.readyState,
-      videoSrc: currentVideo.src?.substring(0, 50) + '...',
-    });
-    if (bootStateRef.current === 'LOADING') {
-      if (loadingTimeoutRef.current) {
-        console.log('[VideoPlayer] handleCanPlay: Clearing loading timeout');
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-      }
-      setBootState('READY');
-      onPlayerReadyRef.current?.();
-      console.log('[VideoPlayer] handleCanPlay: bootState set to READY');
+    // CRITICAL: Always set to READY when canplay fires, regardless of current state
+    // This ensures loading overlay disappears even if state was inconsistent
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    setBootState('READY');
+    onPlayerReadyRef.current?.();
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] Video ready to play');
     }
   }, []);
 
@@ -287,21 +306,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     
-    console.log('[VideoPlayer] handleLoadedData fired:', {
-      currentBootState: bootStateRef.current,
-      readyState: currentVideo.readyState,
-      videoSrc: currentVideo.src?.substring(0, 50) + '...',
-    });
-    if (bootStateRef.current === 'LOADING') {
-      if (loadingTimeoutRef.current) {
-        console.log('[VideoPlayer] handleLoadedData: Clearing loading timeout');
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-      }
-      setBootState('READY');
-      onPlayerReadyRef.current?.();
-      console.log('[VideoPlayer] handleLoadedData: bootState set to READY');
+    // CRITICAL: Always set to READY when loadeddata fires
+    // This ensures loading overlay disappears even if state was inconsistent
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
     }
+    setBootState('READY');
+    onPlayerReadyRef.current?.();
   }, []);
 
   const handlePlay = useCallback(() => {
@@ -318,7 +330,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video || listenersAddedRef.current) return;
 
-    console.log('[VideoPlayer] Adding event listeners to video element');
+    if (import.meta.env.DEV) {
+      console.log('[VideoPlayer] Adding event listeners');
+    }
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('loadeddata', handleLoadedData);
@@ -349,19 +363,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const isValidSrc = src && src.trim() !== '';
     const srcChanged = previousSrcRef.current !== src;
 
-    console.log('[VideoPlayer] useEffect triggered:', {
-      src: src?.substring(0, 50) + '...',
-      isValidSrc,
-      srcChanged,
-      previousSrc: previousSrcRef.current?.substring(0, 50) + '...',
-      bootState,
-      envDev: import.meta.env.DEV,
-      envMode: import.meta.env.MODE,
-    });
-
     // If src is invalid, set to IDLE
     if (!isValidSrc) {
-      console.log('[VideoPlayer] Invalid src, setting to IDLE');
       if (previousSrcRef.current) {
         // Only reset if we had a valid src before
         setBootState('IDLE');
@@ -378,27 +381,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     // Get video element (will be null if not mounted yet)
     const video = videoRef.current;
     
-    console.log('[VideoPlayer] Video element check:', {
-      videoExists: !!video,
-      videoReadyState: video?.readyState,
-      videoSrc: video?.src?.substring(0, 50) + '...',
-    });
-    
     // If video element is not mounted yet, wait a bit and retry
     if (!video) {
-      console.log('[VideoPlayer] Video element not mounted, retrying in 100ms');
       const timeoutId = setTimeout(() => {
         // Retry after video element is mounted
         const retryVideo = videoRef.current;
-        console.log('[VideoPlayer] Retry check:', {
-          videoExists: !!retryVideo,
-          isValidSrc,
-        });
         if (retryVideo && isValidSrc) {
           // Video element is now mounted, trigger setup
           const retrySrcChanged = previousSrcRef.current !== src;
           if (retrySrcChanged) {
-            console.log('[VideoPlayer] Retry: Setting bootState to LOADING');
             previousSrcRef.current = src;
             setBootState('LOADING');
           }
@@ -417,8 +408,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // Reset only necessary state for new episode
     if (srcChanged) {
-      console.log('[VideoPlayer] Src changed, setting bootState to LOADING');
+      if (import.meta.env.DEV) {
+        console.log('[VideoPlayer] Source changed, loading new video');
+      }
       setBootState('LOADING');
+      setErrorMessage(null); // Clear any previous error
       durationSetRef.current = false;
       lastTimeUpdateRef.current = 0;
       resumeCardShownRef.current = false;
@@ -434,14 +428,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         clearTimeout(loadingTimeoutRef.current);
       }
       loadingTimeoutRef.current = setTimeout(() => {
-        console.log('[VideoPlayer] Loading timeout fired:', {
-          currentBootState: bootStateRef.current,
-          previousSrc: previousSrcRef.current?.substring(0, 50) + '...',
-          currentSrc: src?.substring(0, 50) + '...',
-        });
         setBootState((prev) => {
           if (prev === 'LOADING' && previousSrcRef.current === src) {
-            console.log('[VideoPlayer] Timeout: Setting bootState to READY');
+            if (import.meta.env.DEV) {
+              console.warn('[VideoPlayer] Loading timeout - video may not be ready');
+            }
             onPlayerReadyRef.current?.();
             return 'READY';
           }
@@ -457,20 +448,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!isHls) {
       // Direct MP4 or other formats
       if (video.src !== src || srcChanged) {
-        console.log('[VideoPlayer] Setting MP4 source:', {
-          oldSrc: video.src?.substring(0, 50) + '...',
-          newSrc: src?.substring(0, 50) + '...',
-          srcChanged,
-        });
         hlsRef.current?.destroy();
         video.src = src;
         // CRITICAL: Always call load() on episode change to ensure events fire
-        console.log('[VideoPlayer] Calling video.load() for MP4');
         video.load();
         // Try to play if autoPlay is desired (muted for autoplay policy)
         if (video.muted) {
-          video.play().catch((err) => {
-            console.log('[VideoPlayer] Autoplay prevented:', err);
+          video.play().catch(() => {
             // Ignore autoplay errors
           });
         }
@@ -480,37 +464,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native HLS (Safari)
         if (video.src !== src || srcChanged) {
-          console.log('[VideoPlayer] Setting native HLS source:', {
-            oldSrc: video.src?.substring(0, 50) + '...',
-            newSrc: src?.substring(0, 50) + '...',
-            srcChanged,
-          });
           video.src = src;
           // CRITICAL: Always call load() on episode change
-          console.log('[VideoPlayer] Calling video.load() for native HLS');
           video.load();
           // Try to play if autoPlay is desired (muted for autoplay policy)
           if (video.muted) {
-            video.play().catch((err) => {
-              console.log('[VideoPlayer] Autoplay prevented:', err);
+            video.play().catch(() => {
               // Ignore autoplay errors
             });
           }
         }
       } else if (Hls.isSupported()) {
         // HLS.js for other browsers
-        console.log('[VideoPlayer] Using HLS.js for HLS playback');
         if (hlsRef.current) {
           // If HLS instance exists and src changed, update source
           if (hlsRef.current.media === video) {
             // Same instance, same media - update source
-            console.log('[VideoPlayer] HLS instance exists, updating source:', {
-              newSrc: src?.substring(0, 50) + '...',
-            });
             // CRITICAL: Re-attach event listeners for MANIFEST_PARSED
             hlsRef.current.off(Hls.Events.MANIFEST_PARSED);
             hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
-              console.log('[VideoPlayer] HLS MANIFEST_PARSED event fired');
               handleLoadedMetadata();
               handleLoadedData();
             });
@@ -521,53 +493,50 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             hlsRef.current = hls;
             hls.on(Hls.Events.ERROR, (_e, data) => {
               if (data.fatal) {
-                onError?.('Video yüklenemedi (HLS fatal error)');
+                onErrorRef.current?.('Video yüklenemedi (HLS fatal error)');
                 hls.destroy();
                 setBootState('IDLE');
                 isEpisodeSwitchingRef.current = false;
               }
             });
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              if (import.meta.env.DEV) console.log('[VideoPlayer] HLS MANIFEST_PARSED event fired (new instance)');
               handleLoadedMetadata();
               // CRITICAL: Also trigger loadedData handler for HLS
               handleLoadedData();
             });
-            console.log('[VideoPlayer] Loading HLS source:', src?.substring(0, 50) + '...');
             hls.loadSource(src);
             hls.attachMedia(video);
           }
         } else {
           // Create new HLS instance
-          console.log('[VideoPlayer] Creating new HLS instance');
           const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
           hlsRef.current = hls;
           hls.on(Hls.Events.ERROR, (_e, data) => {
-            console.error('[VideoPlayer] HLS ERROR event:', {
-              fatal: data.fatal,
-              type: data.type,
-              details: data.details,
-            });
+            if (import.meta.env.DEV) {
+              console.error('[VideoPlayer] HLS ERROR:', {
+                fatal: data.fatal,
+                type: data.type,
+                details: data.details,
+              });
+            }
             if (data.fatal) {
-              onError?.('Video yüklenemedi (HLS fatal error)');
+              onErrorRef.current?.('Video yüklenemedi (HLS fatal error)');
               hls.destroy();
               setBootState('IDLE');
               isEpisodeSwitchingRef.current = false;
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            console.log('[VideoPlayer] HLS MANIFEST_PARSED event fired (new instance)');
             handleLoadedMetadata();
             // CRITICAL: Also trigger loadedData handler for HLS
             handleLoadedData();
           });
-          console.log('[VideoPlayer] Loading HLS source (new instance):', src?.substring(0, 50) + '...');
           hls.loadSource(src);
           hls.attachMedia(video);
         }
       } else {
         console.error('[VideoPlayer] Browser does not support HLS');
-        onError?.('Tarayıcı HLS desteklemiyor');
+        onErrorRef.current?.('Tarayıcı HLS desteklemiyor');
         setBootState('IDLE');
       }
     }
@@ -637,7 +606,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
-    if (!video || bootState !== 'READY') return;
+    if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
     if (video.paused) {
       const playPromise = video.play();
@@ -662,7 +631,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const skipTime = useCallback((seconds: number, silent = false) => {
     const video = videoRef.current;
-    if (!video || bootState !== 'READY') return;
+    if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
     video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
     if (!silent) {
@@ -673,7 +642,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     const bar = seekBarRef.current;
-    if (!video || !bar || bootState !== 'READY') return;
+    if (!video || !bar || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
     const videoDuration = video.duration || duration || 0;
     if (videoDuration === 0) return;
@@ -703,9 +672,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 
-    video.volume = percent;
     setVolume(percent);
-    setIsMuted(percent === 0);
+    video.volume = percent;
+    if (percent === 0) {
+      setIsMuted(true);
+      video.muted = true;
+    } else {
+      setIsMuted(false);
+      video.muted = false;
+    }
     showControlsTemporary();
   }, [showControlsTemporary]);
 
@@ -713,19 +688,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
-    if (video.muted || volume === 0) {
+    if (isMuted || volume === 0) {
+      // Unmute
+      setIsMuted(false);
       video.muted = false;
       if (volume === 0) {
-        video.volume = 0.5;
-        setVolume(0.5);
+        const newVolume = 0.5;
+        setVolume(newVolume);
+        video.volume = newVolume;
       }
-      setIsMuted(false);
     } else {
-      video.muted = true;
+      // Mute
       setIsMuted(true);
+      video.muted = true;
     }
     showControlsTemporary();
-  }, [volume, showControlsTemporary]);
+  }, [volume, isMuted, showControlsTemporary]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
@@ -748,7 +726,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const handleVideoClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (bootState === 'READY') {
+    if (bootState === 'READY' || bootState === 'PLAYING') {
       togglePlay();
     }
   }, [bootState, togglePlay]);
@@ -837,7 +815,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
 
       const video = videoRef.current;
-      if (!video || bootState !== 'READY') return;
+      if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
       switch (e.key) {
         case ' ':
@@ -854,18 +832,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           break;
         case 'ArrowUp':
           e.preventDefault();
-          if (video.volume < 1) {
-            video.volume = Math.min(1, video.volume + 0.1);
-            setVolume(video.volume);
-            setIsMuted(false);
+          const newVolumeUp = Math.min(1, volume + 0.1);
+          setVolume(newVolumeUp);
+          setIsMuted(false);
+          if (video.muted) {
+            video.muted = false;
           }
           break;
         case 'ArrowDown':
           e.preventDefault();
-          if (video.volume > 0) {
-            video.volume = Math.max(0, video.volume - 0.1);
-            setVolume(video.volume);
-            if (video.volume === 0) setIsMuted(true);
+          const newVolumeDown = Math.max(0, volume - 0.1);
+          setVolume(newVolumeDown);
+          if (newVolumeDown === 0) {
+            setIsMuted(true);
+            if (!video.muted) {
+              video.muted = true;
+            }
+          } else {
+            setIsMuted(false);
+            if (video.muted) {
+              video.muted = false;
+            }
           }
           break;
         case 'f':
@@ -884,6 +871,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute]);
+
+  // Sync video element volume and muted state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
+
+    // Sync volume from state to video element
+    if (Math.abs(video.volume - volume) > 0.01) {
+      video.volume = volume;
+    }
+    
+    // Sync muted from state to video element
+    if (video.muted !== isMuted) {
+      video.muted = isMuted;
+    }
+  }, [volume, isMuted, bootState]);
 
   // Memoize computed values
   const isValidSrc = useMemo(() => src && src.trim() !== '', [src]);
@@ -910,10 +913,34 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }}
       onTouchStart={handleVideoTouch}
     >
-      {/* Loading Overlay - Only shown until canplay/loadeddata event fires */}
-      {bootState === 'LOADING' && isValidSrc && (
+      {/* Loading Overlay - Only shown when src exists but video is not ready yet */}
+      {/* CRITICAL: This overlay will disappear on onCanPlay or onLoadedData events */}
+      {bootState === 'LOADING' && isValidSrc && !errorMessage && (
         <div className="absolute inset-0 w-full h-full bg-black/90 flex items-center justify-center z-10 transition-opacity duration-200 pointer-events-none">
           <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {errorMessage && (
+        <div className="absolute inset-0 w-full h-full bg-black/95 flex flex-col items-center justify-center z-10 pointer-events-none">
+          <div className="text-white text-center px-4">
+            <div className="text-red-500 text-lg font-semibold mb-2">Hata</div>
+            <div className="text-white/70 text-sm">{errorMessage}</div>
+            <button
+              onClick={() => {
+                setErrorMessage(null);
+                setBootState('LOADING');
+                const video = videoRef.current;
+                if (video) {
+                  video.load();
+                }
+              }}
+              className="mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm transition-colors pointer-events-auto"
+            >
+              Tekrar Dene
+            </button>
+          </div>
         </div>
       )}
 
