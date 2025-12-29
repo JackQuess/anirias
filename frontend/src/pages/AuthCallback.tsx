@@ -46,9 +46,13 @@ const AuthCallback: React.FC = () => {
             return;
           }
 
-          // Email doğrulama başarılı
+          // Email doğrulama başarılı - EmailVerificationCard sayfasına yönlendir
+          // Kullanıcı oradan "Email'i Doğruladım" butonuna tıklayıp devam edecek
           if (type === 'signup' || typeFromQuery === 'signup') {
-            navigate('/login?verified=true');
+            // Session set edildi, şimdi user email'ini al
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            const userEmail = currentUser?.email || '';
+            navigate(`/login?verified=true&email=${encodeURIComponent(userEmail)}`);
           } else {
             navigate('/');
           }
@@ -63,7 +67,10 @@ const AuthCallback: React.FC = () => {
             console.error('[AuthCallback] Verification error:', verifyError);
             navigate('/login?error=verification_failed');
           } else {
-            navigate('/login?verified=true');
+            // Email doğrulama başarılı - EmailVerificationCard sayfasına yönlendir
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            const userEmail = currentUser?.email || '';
+            navigate(`/login?verified=true&email=${encodeURIComponent(userEmail)}`);
           }
         } else {
           // Token yok, zaten authenticated olabilir

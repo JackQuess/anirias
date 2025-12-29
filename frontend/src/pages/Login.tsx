@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
@@ -8,6 +8,7 @@ import EmailVerificationCard from '@/components/EmailVerificationCard';
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { user, status } = useAuth();
+  const [searchParams] = useSearchParams();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,17 @@ const Login: React.FC = () => {
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'AUTHENTICATED' && user) {
+    // URL parametrelerinden email verification kontrolü
+    const verified = searchParams.get('verified');
+    const emailParam = searchParams.get('email');
+    
+    if (verified === 'true' && emailParam) {
+      // Email doğrulama linkinden geldi, EmailVerificationCard göster
+      setVerificationEmail(emailParam);
+      setShowEmailVerification(true);
+      // URL'den parametreleri temizle
+      navigate('/login', { replace: true });
+    } else if (status === 'AUTHENTICATED' && user) {
       // Check if email is verified
       if (!user.email_confirmed_at) {
         setVerificationEmail(user.email || '');
@@ -31,7 +42,7 @@ const Login: React.FC = () => {
         navigate('/');
       }
     }
-  }, [user, status, navigate]);
+  }, [user, status, navigate, searchParams]);
 
   /**
    * Email format kontrolü
@@ -174,6 +185,7 @@ const Login: React.FC = () => {
             email={verificationEmail}
             onVerified={() => {
               setShowEmailVerification(false);
+              // Email doğrulandı, ana sayfaya yönlendir
               navigate('/');
             }}
           />
