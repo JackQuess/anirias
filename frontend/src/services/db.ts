@@ -1239,23 +1239,46 @@ export const db = {
     if (!checkEnv()) return [];
     
     try {
-      const { data, error } = await supabase!
+      // First, get all feedback
+      const { data: feedbackData, error: feedbackError } = await supabase!
         .from('feedback')
-        .select(`
-          *,
-          profiles:user_id (
-            id,
-            username,
-            role
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) {
-        if (import.meta.env.DEV) console.error('[db.getFeedback] Query error:', error);
+      if (feedbackError) {
+        if (import.meta.env.DEV) console.error('[db.getFeedback] Query error:', feedbackError);
         return [];
       }
-      return Array.isArray(data) ? data : [];
+
+      if (!feedbackData || feedbackData.length === 0) {
+        return [];
+      }
+
+      // Get unique user IDs (excluding nulls)
+      const userIds = [...new Set(feedbackData.map(f => f.user_id).filter(Boolean))] as string[];
+      
+      // Fetch profiles for those users
+      let profilesMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase!
+          .from('profiles')
+          .select('id, username, role')
+          .in('id', userIds);
+        
+        if (!profilesError && profilesData) {
+          profilesData.forEach(profile => {
+            profilesMap[profile.id] = profile;
+          });
+        }
+      }
+
+      // Combine feedback with profiles
+      const feedbacksWithProfiles = feedbackData.map(feedback => ({
+        ...feedback,
+        profiles: feedback.user_id ? profilesMap[feedback.user_id] || null : null,
+      }));
+
+      return feedbacksWithProfiles;
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getFeedback] Unexpected error:', err);
       return [];

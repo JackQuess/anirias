@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 import { showToast } from './ToastProvider';
 
 const FeedbackModal: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState<number | null>(null);
@@ -13,19 +15,36 @@ const FeedbackModal: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Admin panel'de modal açılmasın
+    if (location.pathname.startsWith('/admin')) {
+      return;
+    }
+
+    // Login/Signup sayfalarında açılmasın
+    if (location.pathname === '/login' || location.pathname === '/signup') {
+      return;
+    }
+
     // Check localStorage
     const hidden = localStorage.getItem('feedback_modal_hidden');
     if (hidden === 'true') {
       return;
     }
 
+    // Sadece ilk girişte açılmalı (sessionStorage kontrolü)
+    const hasShownThisSession = sessionStorage.getItem('feedback_modal_shown');
+    if (hasShownThisSession === 'true') {
+      return;
+    }
+
     // Show modal after delay (500-700ms)
     const timer = setTimeout(() => {
       setIsOpen(true);
+      sessionStorage.setItem('feedback_modal_shown', 'true');
     }, 600);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [location.pathname]);
 
   const handleClose = () => {
     setIsOpen(false);

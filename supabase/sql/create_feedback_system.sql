@@ -30,6 +30,7 @@ CREATE POLICY "Anyone can submit feedback"
   WITH CHECK (true);
 
 -- 2. SELECT: Sadece adminler görebilir
+DROP POLICY IF EXISTS "Only admins can view feedback" ON public.feedback;
 CREATE POLICY "Only admins can view feedback"
   ON public.feedback
   FOR SELECT
