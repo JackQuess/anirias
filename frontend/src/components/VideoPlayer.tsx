@@ -76,6 +76,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showResumeCard, setShowResumeCard] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bootStateRef = useRef<PlayerBootState>('IDLE');
   
   // Persistent flags (useRef to prevent re-triggering)
   const durationSetRef = useRef(false);
@@ -94,6 +95,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    bootStateRef.current = bootState;
+  }, [bootState]);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -175,7 +180,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         clearTimeout(loadingTimeoutRef.current);
       }
       loadingTimeoutRef.current = setTimeout(() => {
-        if (bootState === 'LOADING') {
+        if (bootStateRef.current === 'LOADING' && previousSrcRef.current === src) {
           setBootState('READY');
           onPlayerReady?.();
         }
@@ -317,7 +322,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('error', handleError);
 
     // Handle video source change
-    const isHls = src.endsWith('.m3u8');
+    const isHls = /\.m3u8($|[?#])/i.test(src);
     
     if (!isHls) {
       // Direct MP4 or other formats
