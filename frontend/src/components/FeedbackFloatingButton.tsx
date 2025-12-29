@@ -13,12 +13,14 @@ const FeedbackFloatingButton: React.FC = () => {
     // Admin panel'de gösterilmesin
     if (location.pathname.startsWith('/admin')) {
       setIsVisible(false);
+      if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Hidden: Admin panel');
       return;
     }
 
     // Login/Signup sayfalarında gösterilmesin
     if (location.pathname === '/login' || location.pathname === '/signup') {
       setIsVisible(false);
+      if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Hidden: Login/Signup page');
       return;
     }
 
@@ -31,24 +33,14 @@ const FeedbackFloatingButton: React.FC = () => {
       
       if (now - submittedTime < fourteenDays) {
         setIsVisible(false);
+        if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Hidden: Feedback submitted within 14 days');
         return;
       }
     }
 
-    // Welcome modal gösterildiyse 24 saat sonra göster
-    const lastShown = localStorage.getItem('welcome_modal_last_shown');
-    if (lastShown) {
-      const lastShownTime = parseInt(lastShown, 10);
-      const now = Date.now();
-      const oneDay = 24 * 60 * 60 * 1000;
-      
-      if (now - lastShownTime < oneDay) {
-        setIsVisible(false);
-        return;
-      }
-    }
-
+    // Diğer tüm durumlarda göster
     setIsVisible(true);
+    if (import.meta.env.DEV) console.log('[FeedbackFloatingButton] Visible');
   }, [location.pathname]);
 
   const handleClick = () => {
@@ -61,7 +53,8 @@ const FeedbackFloatingButton: React.FC = () => {
   return (
     <button
       onClick={handleClick}
-      className="fixed bottom-6 right-6 z-[9997] bg-brand-red hover:bg-brand-redHover text-white px-6 py-3 rounded-full shadow-2xl shadow-brand-red/30 font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+      className="fixed bottom-6 right-6 z-[9999] bg-brand-red hover:bg-brand-redHover text-white px-6 py-3 rounded-full shadow-2xl shadow-brand-red/30 font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+      style={{ zIndex: 9999 }}
       aria-label="Geri Bildirim Gönder"
     >
       <span className="text-lg">💬</span>
