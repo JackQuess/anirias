@@ -11,6 +11,8 @@ import createSeasonRouter from './routes/admin/createSeason.js';
 import updateProfileRoleRouter from './routes/admin/updateProfileRole.js';
 import adminNotificationsRouter from './routes/admin/adminNotifications.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
+import { startAnimelyWatcher } from './services/animelyWatcher.js';
+import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
 
 const app = express();
 
@@ -91,6 +93,12 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`ANIRIAS backend listening on ${PORT}`);
   
-  // Start notification worker
+  // Start notification worker (checks for upcoming/released episodes every 5 min)
   startNotificationWorker();
+  
+  // Start Animely watcher (checks for new episodes every 30 min)
+  startAnimelyWatcher();
+  
+  // Start auto download worker (processes pending downloads every 15 min)
+  startAutoDownloadWorker();
 });

@@ -1,0 +1,41 @@
+-- ============================================================================
+-- AUTO-POPULATE CALENDAR FROM EPISODES
+-- ============================================================================
+-- Purpose: Automatically ensure episodes with air_date appear in calendar
+-- Trigger: When episode is created or updated with air_date
+-- ============================================================================
+
+-- This is a documentation file only.
+-- The calendar system already works automatically:
+-- - Public calendar reads from episodes table where air_date IS NOT NULL
+-- - Admin calendar reads all episodes for management
+-- - No separate calendar table needed
+-- 
+-- When an episode is created with air_date:
+-- 1. It automatically appears in public calendar (/calendar)
+-- 2. It appears in admin calendar (/admin/calendar) for management
+-- 3. Admin can set status (waiting, published, airing)
+-- 
+-- No database changes needed - system is already connected!
+
+-- ============================================================================
+-- VERIFICATION QUERY
+-- ============================================================================
+-- To verify the connection, run:
+--
+-- SELECT 
+--   e.id,
+--   e.episode_number,
+--   e.air_date,
+--   e.status,
+--   a.title
+-- FROM episodes e
+-- INNER JOIN seasons s ON e.season_id = s.id
+-- INNER JOIN animes a ON s.anime_id = a.id
+-- WHERE e.air_date IS NOT NULL
+-- ORDER BY e.air_date DESC
+-- LIMIT 20;
+--
+-- These episodes will appear in the public calendar automatically.
+
+
