@@ -889,7 +889,7 @@ export const db = {
       // Use .match() instead of .eq() to avoid RLS/nullable column issues
       const { data, error } = await supabase!
         .from('comments')
-        .select('*, profiles:profiles(username,avatar_id)')
+        .select('*, profiles(username,avatar_id)')
         .match({
           anime_id: animeId,
           episode_id: episodeId,
@@ -1097,7 +1097,7 @@ export const db = {
     try {
       const logs: ActivityLog[] = [];
 
-      const fetchComments = supabase!.from('comments').select('id, text, created_at, user_id, profiles:profiles(username)').order('created_at', { ascending: false }).limit(5);
+      const fetchComments = supabase!.from('comments').select('id, text, created_at, user_id, profiles(username)').order('created_at', { ascending: false }).limit(5);
       const fetchEpisodes = supabase!.from('episodes').select('id, title, episode_number, updated_at, anime_id').order('updated_at', { ascending: false }).limit(5);
       const fetchAnimes = supabase!.from('animes').select('id, title, updated_at').order('updated_at', { ascending: false }).limit(3);
 
