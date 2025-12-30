@@ -88,13 +88,18 @@ export interface WatchlistEntry {
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'new_episode' | 'admin' | 'system';
+  type: 'new_episode' | 'admin' | 'system' | 'upcoming' | 'released';
   title: string;
   body: string;
   anime_id?: string | null;
   episode_id?: string | null;
   is_read: boolean;
   created_at: string;
+  episode?: {
+    season_number?: number | null;
+    episode_number?: number | null;
+    anime_slug?: string | null;
+  } | null;
 }
 
 export interface ActivityLog {

@@ -193,8 +193,12 @@ const Navbar: React.FC = () => {
                           notifications.map(n => {
                             // Build link based on notification type
                             let link = '#';
-                            if (n.type === 'new_episode' && n.anime_id) {
-                              // For new episode notifications, link to anime detail page
+                            if ((n.type === 'new_episode' || n.type === 'upcoming' || n.type === 'released') && n.episode && n.episode.anime_slug) {
+                              // Link directly to episode watch page
+                              const seasonNum = n.episode.season_number || 1;
+                              const episodeNum = n.episode.episode_number || 1;
+                              link = `/watch/${n.episode.anime_slug}/${seasonNum}/${episodeNum}`;
+                            } else if (n.anime_id) {
                               link = `/anime/${n.anime_id}`;
                             }
                             

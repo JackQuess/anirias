@@ -1225,16 +1225,34 @@ export const db = {
     try {
       const { data, error } = await supabase!
         .from('notifications')
-        .select('id, user_id, type, title, body, anime_id, episode_id, is_read, created_at')
+        .select('id, user_id, type, title, body, anime_id, episode_id, is_read, created_at, episode:episodes(season_number, episode_number, seasons(anime:animes(slug)))')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
       
       if (error) {
         // Silently fail - notifications table might not exist
         if (import.meta.env.DEV) console.error('[db.getNotifications] Query error:', error);
         return [];
       }
-      return Array.isArray(data) ? data : [];
+      
+      // Flatten the nested structure
+      return (Array.isArray(data) ? data : []).map((n: any) => ({
+        id: n.id,
+        user_id: n.user_id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        anime_id: n.anime_id,
+        episode_id: n.episode_id,
+        is_read: n.is_read,
+        created_at: n.created_at,
+        episode: n.episode ? {
+          season_number: n.episode.season_number,
+          episode_number: n.episode.episode_number,
+          anime_slug: n.episode.seasons?.anime?.slug || null
+        } : null
+      }));
     } catch (err: any) {
       // Silently fail - prevent app crash
       if (import.meta.env.DEV) console.error('[db.getNotifications] Unexpected error:', err);
