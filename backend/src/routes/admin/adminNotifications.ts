@@ -20,7 +20,7 @@ router.get('/notifications', requireAdmin, async (req: Request, res: Response) =
     const { data, error } = await supabaseAdmin
       .from('admin_notifications')
       .select('*')
-      .order('read', { ascending: true }) // Unread first
+      .order('is_read', { ascending: true }) // Unread first
       .order('created_at', { ascending: false }) // Most recent first
       .limit(20);
 
@@ -51,7 +51,7 @@ router.post('/notifications/read', requireAdmin, async (req: Request, res: Respo
 
     const { error } = await supabaseAdmin
       .from('admin_notifications')
-      .update({ read: true })
+      .update({ is_read: true })
       .eq('id', id);
 
     if (error) {
@@ -74,8 +74,8 @@ router.post('/notifications/read-all', requireAdmin, async (req: Request, res: R
   try {
     const { error } = await supabaseAdmin
       .from('admin_notifications')
-      .update({ read: true })
-      .eq('read', false);
+      .update({ is_read: true })
+      .eq('is_read', false);
 
     if (error) {
       console.error('[AdminNotifications API] Error marking all notifications as read:', error);

@@ -11,7 +11,7 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -50,7 +50,7 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
 
       // Update local state
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
       );
     } catch (err) {
       console.error('[AdminNotificationBell] Failed to mark notification as read:', err);
@@ -69,7 +69,7 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
       });
 
       // Update local state
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (err) {
       console.error('[AdminNotificationBell] Failed to mark all as read:', err);
     }
@@ -207,9 +207,9 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  onClick={() => !notification.read && markAsRead(notification.id)}
+                  onClick={() => !notification.is_read && markAsRead(notification.id)}
                   className={`px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${
-                    !notification.read ? 'bg-brand-red/5' : ''
+                    !notification.is_read ? 'bg-brand-red/5' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -224,7 +224,7 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
                         <h4 className="text-sm font-bold text-white truncate">
                           {notification.title}
                         </h4>
-                        {!notification.read && (
+                        {!notification.is_read && (
                           <span className="w-2 h-2 bg-brand-red rounded-full flex-shrink-0" />
                         )}
                       </div>

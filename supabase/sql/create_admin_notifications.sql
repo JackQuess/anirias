@@ -15,14 +15,14 @@ CREATE TABLE IF NOT EXISTS public.admin_notifications (
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   source TEXT NOT NULL CHECK (source IN ('animely', 'system', 'downloader', 'import')),
-  read BOOLEAN DEFAULT false NOT NULL,
+  is_read BOOLEAN DEFAULT false NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_admin_notifications_created_at ON public.admin_notifications(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_admin_notifications_read ON public.admin_notifications(read);
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_is_read ON public.admin_notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_admin_notifications_type ON public.admin_notifications(type);
 CREATE INDEX IF NOT EXISTS idx_admin_notifications_source ON public.admin_notifications(source);
 
