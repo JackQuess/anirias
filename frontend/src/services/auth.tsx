@@ -27,9 +27,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const prof = await fetchProfile(currentUser.id);
       if (prof) {
         setProfile(prof);
+        if (import.meta.env.DEV) {
+          console.log('[Auth] Profile loaded:', { id: prof.id, username: prof.username, role: prof.role, avatar_id: prof.avatar_id, avatar_url: prof.avatar_url });
+        }
+      } else {
+        console.warn('[Auth] Profile fetch returned null for user:', currentUser.id);
       }
     } catch (e) {
-      console.error("Profil yüklenirken hata:", e);
+      console.error("[Auth] Profil yüklenirken hata:", e);
     }
   };
 
