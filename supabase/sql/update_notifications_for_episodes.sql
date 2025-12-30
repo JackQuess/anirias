@@ -37,6 +37,7 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_notification_count INTEGER := 0;
+  v_row_count INTEGER := 0;
   v_episode RECORD;
   v_anime_title TEXT;
   v_user_id UUID;
@@ -102,7 +103,8 @@ BEGIN
     WHERE af.anime_id = v_episode.anime_id
     ON CONFLICT (user_id, episode_id, type) DO NOTHING;
 
-    GET DIAGNOSTICS v_notification_count = ROW_COUNT;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    v_notification_count := v_notification_count + v_row_count;
   END LOOP;
 
   -- Process released episodes (airing_at <= now and status is 'released' or 'published')
@@ -160,7 +162,8 @@ BEGIN
     WHERE af.anime_id = v_episode.anime_id
     ON CONFLICT (user_id, episode_id, type) DO NOTHING;
 
-    GET DIAGNOSTICS v_notification_count = v_notification_count + ROW_COUNT;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    v_notification_count := v_notification_count + v_row_count;
   END LOOP;
 
   RETURN v_notification_count;
