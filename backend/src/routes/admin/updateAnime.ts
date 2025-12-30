@@ -107,43 +107,47 @@ router.put('/update-anime/:id', async (req: Request, res: Response) => {
       is_featured,
     } = req.body || {};
 
-    // Normalize title: Frontend sends { romaji: string, english: string }, backend expects string
+    // Normalize title: Database expects JSONB { romaji, english }, not string
     if (title !== undefined) {
       if (typeof title === 'string') {
-        updates.title = title.trim();
+        // String gelirse JSONB formatına çevir
+        updates.title = {
+          romaji: title.trim(),
+          english: title.trim(),
+        };
       } else if (title && typeof title === 'object' && (title.romaji || title.english)) {
-        // Use romaji if available, otherwise english
-        updates.title = (title.romaji || title.english || '').trim();
+        // Object gelirse JSONB formatında kaydet
+        const romaji = (title.romaji || '').trim();
+        const english = (title.english || title.romaji || '').trim();
+        
+        if (!romaji && !english) {
+          return res.status(400).json({
+            success: false,
+            error: 'title must have at least romaji or english',
+          });
+        }
+        
+        updates.title = {
+          romaji: romaji || english,
+          english: english || romaji,
+        };
       } else {
         return res.status(400).json({
           success: false,
           error: 'title must be a non-empty string or object with romaji/english',
         });
       }
-      
-      if (!updates.title || updates.title === '') {
-        return res.status(400).json({
-          success: false,
-          error: 'title cannot be empty',
-        });
-      }
     }
     if (slug !== undefined) updates.slug = slug;
+    // Only include fields that exist in database schema
     if (description !== undefined) updates.description = description;
     if (cover_image !== undefined) updates.cover_image = cover_image;
     if (banner_image !== undefined) updates.banner_image = banner_image;
     if (genres !== undefined) updates.genres = genres;
-    if (studios !== undefined) updates.studios = studios;
-    if (status !== undefined) updates.status = status;
-    if (type !== undefined) updates.type = type;
-    if (release_year !== undefined) updates.release_year = release_year;
-    if (season !== undefined) updates.season = season;
-    if (rating !== undefined) updates.rating = rating;
-    if (total_episodes !== undefined) updates.total_episodes = total_episodes;
-    if (duration !== undefined) updates.duration = duration;
-    if (mal_id !== undefined) updates.mal_id = mal_id;
     if (anilist_id !== undefined) updates.anilist_id = anilist_id;
+    if (release_year !== undefined) updates.year = release_year; // Map release_year to year
     if (is_featured !== undefined) updates.is_featured = is_featured;
+    // Note: status, type, studios, season, rating, total_episodes, duration, mal_id don't exist in schema
 
     // Always update the updated_at timestamp
     updates.updated_at = new Date().toISOString();
