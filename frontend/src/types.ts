@@ -28,6 +28,7 @@ export interface Anime {
   tags?: string[];
   view_count: number;
   is_featured?: boolean; // New field for Hero Slider
+  is_adult?: boolean; // +18 age restriction flag
   updated_at: string;
   created_at: string;
   ai_summary?: string;
