@@ -60,9 +60,6 @@ const WatchSlug: React.FC = () => {
     [seasonSlugInfo]
   );
 
-  // Age Gate - Check if adult content
-  const { showModal: showAgeGate, isChecking: isAgeChecking, confirm: confirmAge, deny: denyAge } = useAgeGate(anime?.is_adult || false);
-
   const { data: season, loading: seasonLoading, error: seasonError } = useLoad(
     () => {
       if (!anime?.id || !seasonNum) throw new Error('Anime and season required');
@@ -314,9 +311,6 @@ const WatchSlug: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Age Gate Modal */}
-      <AgeGateModal isOpen={showAgeGate} onConfirm={confirmAge} onDeny={denyAge} />
-      
       {/* Mobile-First Layout */}
       <div className="xl:hidden">
         {/* Mobile Player - Full Width */}

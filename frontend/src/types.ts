@@ -9,6 +9,7 @@ export interface Profile {
   banner_id?: string | null;
   avatar_url?: string;
   banner_url?: string;
+  is_adult_confirmed?: boolean; // +18 age confirmation flag
 }
 
 export interface Anime {
@@ -29,6 +30,7 @@ export interface Anime {
   view_count: number;
   is_featured?: boolean; // New field for Hero Slider
   is_adult?: boolean; // +18 age restriction flag
+  rating?: string | null; // AniList rating (e.g. "R18", "Rx", "PG-13")
   updated_at: string;
   created_at: string;
   ai_summary?: string;
