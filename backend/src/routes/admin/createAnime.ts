@@ -114,11 +114,12 @@ router.post('/create-anime', async (req: Request, res: Response) => {
         .replace(/^-+|-+$/g, '') || 'anime';
     }
 
-    if (!status || !['ongoing', 'completed', 'upcoming'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'status is required and must be one of: ongoing, completed, upcoming',
-      });
+    // Normalize status: default to 'ongoing' if not provided
+    let normalizedStatus: string;
+    if (status && ['ongoing', 'completed', 'upcoming'].includes(status)) {
+      normalizedStatus = status;
+    } else {
+      normalizedStatus = 'ongoing'; // Default status
     }
 
     // Check if slug already exists
@@ -145,7 +146,7 @@ router.post('/create-anime', async (req: Request, res: Response) => {
       banner_image: banner_image || null,
       genres: genres || [],
       studios: studios || [],
-      status: status,
+      status: normalizedStatus,
       type: type || 'tv',
       release_year: release_year || null,
       season: season || null,
