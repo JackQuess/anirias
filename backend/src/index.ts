@@ -17,10 +17,16 @@ import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
 const app = express();
 
 // CORS Configuration
-const allowedOrigin = process.env.CORS_ORIGIN || '*';
+// Normalize origin to remove trailing slash
+const normalizeOrigin = (origin: string) => origin.replace(/\/$/, '');
+
+const allowedOrigin = process.env.CORS_ORIGIN 
+  ? normalizeOrigin(process.env.CORS_ORIGIN) 
+  : '*';
+
 const allowedOrigins = allowedOrigin === '*' 
   ? '*' 
-  : allowedOrigin.split(',').map((o) => o.trim());
+  : allowedOrigin.split(',').map((o) => normalizeOrigin(o.trim()));
 
 // Default allowed origins (add production domain, Vercel and localhost for dev)
 const defaultOrigins = [

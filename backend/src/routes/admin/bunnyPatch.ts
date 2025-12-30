@@ -3,6 +3,17 @@ import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 
 const router = Router();
 
+// CORS middleware - normalize origin to remove trailing slash
+router.use((req, res, next) => {
+  const origin = process.env.CORS_ORIGIN || '*';
+  const normalizedOrigin = origin.replace(/\/$/, '');
+  res.setHeader('Access-Control-Allow-Origin', normalizedOrigin);
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 async function checkCdnFileExists(url: string): Promise<boolean> {
   try {
     const res = await fetch(url, { method: 'HEAD' });
