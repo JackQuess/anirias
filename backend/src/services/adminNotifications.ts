@@ -41,7 +41,7 @@ export async function createAdminNotification(
         message: payload.message,
         source: payload.source,
         metadata: payload.metadata || {},
-        read: false,
+        is_read: false,
         created_at: new Date().toISOString(),
       })
       .select('id')
