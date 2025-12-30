@@ -19,6 +19,7 @@ const Navbar: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false); // Global Search State
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +35,31 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsSearchOpen(false); // Close search on nav
+    setIsProfileOpen(false); // Close profile dropdown on nav
+    setIsNotifOpen(false); // Close notification dropdown on nav
   }, [location]);
+
+  // Click-away handler for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Close notification dropdown if clicked outside
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+      // Close profile dropdown if clicked outside
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    // Only add listener if dropdowns are open
+    if (isNotifOpen || isProfileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isNotifOpen, isProfileOpen]);
 
   // Load initial notifications and subscribe to Realtime updates
   useEffect(() => {
@@ -231,7 +256,7 @@ const Navbar: React.FC = () => {
                 </div>
 
                 {/* Profile Menu */}
-                <div className="relative">
+                <div className="relative" ref={profileRef}>
                   <button 
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center gap-3 p-1 pr-2 md:pr-4 rounded-2xl hover:bg-white/5 transition-all border border-transparent hover:border-white/5"
@@ -279,7 +304,13 @@ const Navbar: React.FC = () => {
                              KOMUTA MERKEZİ
                           </Link>
                         )}
-                        <button onClick={() => signOut()} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-gray-600 hover:text-brand-red uppercase tracking-[0.2em] transition-all text-left">
+                        <button 
+                          onClick={async () => {
+                            setIsProfileOpen(false);
+                            await signOut();
+                          }} 
+                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-gray-600 hover:text-brand-red uppercase tracking-[0.2em] transition-all text-left"
+                        >
                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                            ÇIKIŞ YAP
                         </button>

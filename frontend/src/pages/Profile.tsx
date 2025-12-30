@@ -240,7 +240,9 @@ const Profile: React.FC = () => {
                   PROFİLİ DÜZENLE
                 </button>
                 <button 
-                  onClick={() => signOut()}
+                  onClick={async () => {
+                    await signOut();
+                  }}
                   className="w-full py-5 text-gray-600 hover:text-brand-red text-[9px] font-black uppercase tracking-[0.3em] transition-all"
                 >
                   GÜVENLİ ÇIKIŞ
