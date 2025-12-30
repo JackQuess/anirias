@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/services/auth';
 import { hasSupabaseEnv } from '@/services/supabaseClient';
@@ -7,7 +7,22 @@ import { hasSupabaseEnv } from '@/services/supabaseClient';
 const AdminLayout: React.FC = () => {
   const { user, profile, status } = useAuth();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Mobile'da default kapalı, desktop'ta açık
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+
+  // Body scroll lock when sidebar is open on mobile
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (isMobile && sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   // Supabase bağlı değilse (Mock modu), girişi ve rolü zorunlu tutma (Test amaçlı)
   const isTestMode = !hasSupabaseEnv;
@@ -48,9 +63,25 @@ const AdminLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand-black flex font-sans">
-      {/* Sidebar */}
+      {/* Mobile Backdrop */}
       {sidebarOpen && (
-        <aside className="w-80 bg-[#080808] border-r border-white/5 hidden lg:flex flex-col sticky top-0 h-screen z-50 shadow-2xl">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside 
+        className={`
+          w-80 bg-[#080808] border-r border-white/5 flex flex-col h-screen z-[1000] shadow-2xl
+          fixed lg:sticky top-0 left-0
+          transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${!sidebarOpen && 'lg:hidden'}
+        `}
+      >
           <div className="p-10 pb-8">
             <Link to="/" className="block">
               <h1 className="text-4xl font-black text-white italic tracking-tighter drop-shadow-md">
@@ -112,15 +143,25 @@ const AdminLayout: React.FC = () => {
            </div>
         </div>
           </aside>
-      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto bg-brand-black relative">
+        {/* Hamburger Menu Button - Mobile Only */}
         <button
           onClick={() => setSidebarOpen((prev) => !prev)}
-          className="fixed top-5 left-5 z-[1200] bg-white/10 text-white border border-white/15 rounded-full px-3 py-2 text-xs font-black uppercase tracking-widest hover:bg-white/20 transition-colors shadow-lg"
+          className="fixed top-5 left-5 z-[1100] bg-white/10 text-white border border-white/15 rounded-lg p-3 hover:bg-white/20 transition-all shadow-lg lg:rounded-full lg:px-4 lg:py-2"
+          aria-label={sidebarOpen ? 'Sidebar Gizle' : 'Sidebar Aç'}
         >
-          {sidebarOpen ? 'Sidebar Gizle' : 'Sidebar Aç'}
+          {/* Hamburger Icon - Mobile */}
+          <span className="flex flex-col gap-1 lg:hidden">
+            <span className={`w-5 h-0.5 bg-white transition-all ${sidebarOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
+            <span className={`w-5 h-0.5 bg-white transition-all ${sidebarOpen ? 'opacity-0' : ''}`} />
+            <span className={`w-5 h-0.5 bg-white transition-all ${sidebarOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+          </span>
+          {/* Text - Desktop */}
+          <span className="hidden lg:block text-xs font-black uppercase tracking-widest">
+            {sidebarOpen ? 'Gizle' : 'Aç'}
+          </span>
         </button>
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
         <div className="relative z-10 max-w-[1600px] mx-auto p-8 lg:p-12">
