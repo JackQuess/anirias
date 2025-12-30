@@ -8,6 +8,7 @@ import deleteAnimeRouter from './routes/admin/deleteAnime.js';
 import toggleFeaturedRouter from './routes/admin/toggleFeatured.js';
 import bindAniListSeasonRouter from './routes/admin/bindAniListSeason.js';
 import createSeasonRouter from './routes/admin/createSeason.js';
+import updateProfileRoleRouter from './routes/admin/updateProfileRole.js';
 
 const app = express();
 
@@ -80,6 +81,7 @@ app.use('/api/admin', deleteAnimeRouter);
 app.use('/api/admin', toggleFeaturedRouter);
 app.use('/api/admin', bindAniListSeasonRouter);
 app.use('/api/admin', createSeasonRouter);
+app.use('/api/admin', updateProfileRoleRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {

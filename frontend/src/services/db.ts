@@ -997,11 +997,25 @@ export const db = {
 
   updateProfileRole: async (userId: string, role: 'user' | 'admin', adminToken?: string): Promise<void> => {
     // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'updateProfileRole: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: PUT /api/admin/update-profile-role/:userId'
+    if (!checkEnv()) {
+      throw new Error('Supabase environment not configured');
+    }
+
+    const token = adminToken || localStorage.getItem('admin_token') || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    if (!token) {
+      throw new Error('Admin token is required');
+    }
+
+    const result = await callBackendApi(
+      '/api/admin/update-profile-role',
+      'PUT',
+      { user_id: userId, role },
+      token
     );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to update profile role');
+    }
   },
 
   autoPatchEpisodeVideos: async () => {
