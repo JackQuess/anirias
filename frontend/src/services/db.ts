@@ -1151,7 +1151,7 @@ export const db = {
       // Must join through seasons to get anime relation for new imports
       const { data, error } = await supabase!
         .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, seasons!inner(anime:animes(*))')
+        .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, seasons!inner(season_number, anime:animes(*))')
         .not('air_date', 'is', null)
         .order('air_date', { ascending: true });
       
