@@ -3,11 +3,11 @@ import { Anime } from '../types';
 /**
  * Adult Content Detection Utility
  * 
- * Determines if anime is truly adult (+18) content
- * Ecchi alone does NOT trigger adult confirmation
+ * Determines if anime is adult (+18) content
+ * Includes Ecchi, Hentai, and other adult genres
  */
 
-const ADULT_GENRES = ['Hentai', 'Erotica', 'Adult'];
+const ADULT_GENRES = ['Hentai', 'Erotica', 'Adult', 'Ecchi'];
 const ADULT_RATINGS = ['R18', 'Rx', 'R18+'];
 
 /**
@@ -16,9 +16,7 @@ const ADULT_RATINGS = ['R18', 'Rx', 'R18+'];
  * Returns true if:
  * - anime.is_adult === true
  * - OR anime.rating is R18/Rx
- * - OR anime.genres includes Hentai/Erotica/Adult
- * 
- * NOTE: Ecchi alone does NOT count as adult content
+ * - OR anime.genres includes Hentai/Erotica/Adult/Ecchi
  */
 export function isAdultContent(anime: Anime | null | undefined): boolean {
   if (!anime) return false;
@@ -35,8 +33,7 @@ export function isAdultContent(anime: Anime | null | undefined): boolean {
     return true;
   }
 
-  // 3. Genre check (Hentai, Erotica, Adult)
-  // Ecchi alone does NOT trigger
+  // 3. Genre check (Hentai, Erotica, Adult, Ecchi)
   if (anime.genres && anime.genres.length > 0) {
     const hasAdultGenre = anime.genres.some(genre =>
       ADULT_GENRES.some(adult => 
