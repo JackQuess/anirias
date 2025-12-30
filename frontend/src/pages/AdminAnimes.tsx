@@ -79,19 +79,19 @@ const AdminAnimes: React.FC = () => {
   };
 
   return (
-    <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-6 lg:space-y-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
         <div>
-          <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">
+          <h1 className="text-2xl lg:text-4xl font-black text-white uppercase italic tracking-tighter">
             İçerik <span className="text-brand-red">Yönetimi</span>
           </h1>
-          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">
+          <p className="text-gray-500 text-[10px] lg:text-xs font-bold uppercase tracking-widest mt-1">
             Platformdaki tüm animeleri düzenleyin veya yenilerini ekleyin
           </p>
         </div>
         <button 
           onClick={() => navigate('/admin/animes/new')}
-          className="bg-brand-red hover:bg-brand-redHover text-white px-10 py-5 rounded-[1.5rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all active:scale-95"
+          className="w-full md:w-auto bg-brand-red active:bg-brand-redHover lg:hover:bg-brand-redHover text-white px-6 lg:px-10 py-4 lg:py-5 rounded-xl lg:rounded-[1.5rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all touch-manipulation"
         >
           YENİ ANİME EKLE
         </button>
@@ -104,9 +104,9 @@ const AdminAnimes: React.FC = () => {
           placeholder="ANİME ARA..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-brand-dark border border-brand-border rounded-2xl px-12 py-4 text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
+          className="w-full bg-brand-dark border border-brand-border rounded-xl lg:rounded-2xl px-10 lg:px-12 py-3 lg:py-4 text-[10px] lg:text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
          />
-        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="absolute left-3 lg:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
       </div>
@@ -119,15 +119,17 @@ const AdminAnimes: React.FC = () => {
 
       {/* Anime List */}
       {!loading && !error && (
-        <div className="bg-brand-dark border border-brand-border rounded-[2.5rem] overflow-hidden shadow-2xl">
+        <div className="bg-brand-dark border border-brand-border rounded-2xl lg:rounded-[2.5rem] overflow-hidden shadow-2xl">
           {filteredAnimes.length === 0 ? (
-            <div className="px-8 py-20 text-center">
-              <p className="text-gray-600 font-black uppercase text-xs tracking-[0.3em]">
+            <div className="px-4 lg:px-8 py-12 lg:py-20 text-center">
+              <p className="text-gray-600 font-black uppercase text-[10px] lg:text-xs tracking-[0.3em]">
                 {searchTerm ? 'Aradığınız kriterde anime bulunamadı.' : 'Henüz anime eklenmedi.'}
               </p>
             </div>
           ) : (
-          <table className="w-full text-left">
+          <>
+          {/* Desktop Table */}
+          <table className="hidden lg:table w-full text-left">
             <thead>
               <tr className="border-b border-brand-border bg-white/5">
                 <th className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Anime Bilgisi</th>
@@ -208,30 +210,104 @@ const AdminAnimes: React.FC = () => {
               })}
             </tbody>
           </table>
+
+          {/* Mobile Card Layout */}
+          <div className="lg:hidden divide-y divide-brand-border">
+            {filteredAnimes.map((anime) => {
+              const titleString = getDisplayTitle(anime.title);
+              return (
+                <div key={anime.id} className="p-4 active:bg-white/[0.03] transition-colors">
+                  <div className="flex gap-4 mb-4">
+                    <div className="w-16 h-24 rounded-lg overflow-hidden border border-brand-border shadow-lg flex-shrink-0">
+                      <img
+                        src={proxyImage(anime.cover_image || '')}
+                        className="w-full h-full object-cover"
+                        alt={titleString}
+                        onError={(e) => {
+                          const fallback = anime.cover_image || '';
+                          if (fallback && (e.target as HTMLImageElement).src !== fallback) {
+                            (e.target as HTMLImageElement).src = fallback;
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-black text-sm uppercase tracking-tight truncate">
+                        {titleString}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {Array.isArray(anime.genres) && anime.genres.slice(0, 2).map(g => (
+                          <span key={g} className="text-[8px] text-gray-600 font-black uppercase tracking-widest">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-3 mt-2">
+                        <div>
+                          <p className="text-[8px] text-gray-500 uppercase font-black">YIL</p>
+                          <p className="text-white font-black text-xs">{anime.year}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] text-gray-500 uppercase font-black">PUAN</p>
+                          <p className="text-brand-red font-black text-xs">★ {anime.score}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] text-gray-500 uppercase font-black">İZLENME</p>
+                          <p className="text-white font-black text-xs">{anime.view_count?.toLocaleString() || 0}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Link 
+                      to={`/admin/episodes/${anime.id}`} 
+                      className="bg-white/5 active:bg-white/10 text-[9px] font-black text-white px-3 py-3 rounded-lg border border-white/5 transition-all text-center touch-manipulation"
+                    >
+                      BÖLÜMLER
+                    </Link>
+                    <Link 
+                      to={`/admin/animes/${anime.id}/edit`} 
+                      className="bg-white/5 active:bg-white/10 text-[9px] font-black text-white px-3 py-3 rounded-lg border border-white/5 transition-all text-center touch-manipulation"
+                    >
+                      DÜZENLE
+                    </Link>
+                    <button 
+                      onClick={() => handleDeleteClick(anime.id, titleString)}
+                      disabled={isDeleting === anime.id}
+                      className="bg-brand-red/10 active:bg-brand-red text-brand-red active:text-white px-3 py-3 rounded-lg text-[9px] font-black transition-all disabled:opacity-20 touch-manipulation"
+                    >
+                      {isDeleting === anime.id ? '...' : 'SİL'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
           )}
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 lg:p-6">
           <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={handleDeleteCancel} />
-          <div className="relative w-full max-w-lg bg-brand-dark border border-brand-red/50 p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.3)]">
-            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-4">
+          <div className="relative w-full max-w-lg bg-brand-dark border border-brand-red/50 p-6 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.3)] max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl lg:text-3xl font-black text-white uppercase italic tracking-tighter mb-3 lg:mb-4">
               <span className="text-brand-red">SİLME</span> ONAYI
             </h2>
-            <p className="text-white/80 text-sm mb-6 leading-relaxed">
+            <p className="text-white/80 text-xs lg:text-sm mb-4 lg:mb-6 leading-relaxed">
               Bu anime ve <strong className="text-brand-red">TÜM bölümleri</strong> kalıcı olarak silinecek.
             </p>
-            <div className="bg-brand-red/10 border border-brand-red/30 rounded-2xl p-4 mb-6">
-              <p className="text-white font-black text-lg uppercase italic">
+            <div className="bg-brand-red/10 border border-brand-red/30 rounded-xl lg:rounded-2xl p-3 lg:p-4 mb-4 lg:mb-6">
+              <p className="text-white font-black text-sm lg:text-lg uppercase italic truncate">
                 {getDisplayTitle(deleteConfirm.title)}
               </p>
             </div>
-            <p className="text-gray-400 text-xs mb-6">
+            <p className="text-gray-400 text-[10px] lg:text-xs mb-3 lg:mb-6">
               Bu işlem geri alınamaz. Aşağıdaki veriler silinecek:
             </p>
-            <ul className="text-gray-500 text-xs space-y-1 mb-6 list-disc list-inside">
+            <ul className="text-gray-500 text-[10px] lg:text-xs space-y-1 mb-4 lg:mb-6 list-disc list-inside">
               <li>Tüm sezonlar</li>
               <li>Tüm bölümler</li>
               <li>İzleme listesi kayıtları</li>
@@ -239,9 +315,9 @@ const AdminAnimes: React.FC = () => {
               <li>İzleme geçmişi</li>
               <li>Yorumlar</li>
             </ul>
-            <div className="space-y-4">
+            <div className="space-y-3 lg:space-y-4">
               <div>
-                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 block">
+                <label className="text-[9px] lg:text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 block">
                   Admin Token (X-ADMIN-TOKEN)
                 </label>
                 <input
@@ -249,21 +325,21 @@ const AdminAnimes: React.FC = () => {
                   value={adminToken}
                   onChange={(e) => setAdminToken(e.target.value)}
                   placeholder="ADMIN_TOKEN"
-                  className="w-full bg-brand-black border border-brand-border rounded-xl px-4 py-3 text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
+                  className="w-full bg-brand-black border border-brand-border rounded-lg lg:rounded-xl px-3 lg:px-4 py-2.5 lg:py-3 text-[10px] lg:text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
                   autoFocus
                 />
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 lg:gap-3">
                 <button
                   onClick={handleDeleteCancel}
-                  className="flex-1 bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                  className="flex-1 bg-white/5 active:bg-white/10 lg:hover:bg-white/10 text-white px-4 lg:px-6 py-3 rounded-lg lg:rounded-xl text-[10px] lg:text-xs font-black uppercase tracking-widest transition-all touch-manipulation"
                 >
                   İPTAL
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
                   disabled={isDeleting === deleteConfirm.id}
-                  className="flex-1 bg-brand-red hover:bg-brand-redHover text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                  className="flex-1 bg-brand-red active:bg-brand-redHover lg:hover:bg-brand-redHover text-white px-4 lg:px-6 py-3 rounded-lg lg:rounded-xl text-[10px] lg:text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 touch-manipulation"
                 >
                   {isDeleting === deleteConfirm.id ? 'SİLİNİYOR...' : 'SİL'}
                 </button>
