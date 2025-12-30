@@ -13,7 +13,8 @@ import { db } from '../services/db';
 export function useAgeGate(
   isAdultContent: boolean,
   profile: Profile | null | undefined,
-  userId: string | null | undefined
+  userId: string | null | undefined,
+  refreshProfile?: () => Promise<void>
 ) {
   const [showModal, setShowModal] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -55,6 +56,13 @@ export function useAgeGate(
     try {
       // Save confirmation to Supabase profile
       await db.updateProfile(userId, { is_adult_confirmed: true });
+      
+      // CRITICAL: Refresh profile to get updated data from DB
+      // This prevents profile state from being overwritten
+      if (refreshProfile) {
+        await refreshProfile();
+      }
+      
       setShowModal(false);
     } catch (error) {
       if (import.meta.env.DEV) {

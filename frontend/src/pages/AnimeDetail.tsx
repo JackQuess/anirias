@@ -15,7 +15,7 @@ import { isAdultContent } from '../utils/adultContent';
 
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
@@ -55,7 +55,8 @@ const AnimeDetail: React.FC = () => {
   const { showModal: showAgeGate, isChecking: isAgeChecking, isConfirming, confirm: confirmAge, deny: denyAge } = useAgeGate(
     isAdult,
     profile,
-    user?.id
+    user?.id,
+    refreshProfile
   );
   
   // Extract animeId as string to prevent object reference issues (after anime is fetched)
