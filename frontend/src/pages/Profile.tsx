@@ -15,7 +15,7 @@ type BannerItem = { id: string; src: string; name?: string };
 const loggedAvatarErrors = new Set<string>();
 
 const Profile: React.FC = () => {
-  const { user, profile, status, signOut, refreshProfile, setProfile } = useAuth();
+  const { user, profile, status, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'info' | 'watchlist' | 'history'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [activeAvatarCategory, setActiveAvatarCategory] = useState<'hsdxd' | 'jjk'>('hsdxd');
@@ -131,17 +131,15 @@ const Profile: React.FC = () => {
     }
 
     try {
-      // Update in database and get fresh data
-      const updatedProfile = await db.updateProfile(user.id, {
+      // Update in database
+      await db.updateProfile(user.id, {
         bio: sanitizedBio,
         avatar_id: editForm.avatar_id,
         banner_id: editForm.banner_id
       } as any);
       
-      // Update global profile context with fresh DB data
-      setProfile(updatedProfile);
-      
-      // Force refresh to ensure all components get updated data
+      // CRITICAL: Refresh profile from DB to update global state
+      // This ensures Navbar and all components get updated data
       await refreshProfile();
       
       // Update local form state to match

@@ -36,6 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     if (user) {
       await loadUserProfile(user);
+    } else {
+      console.warn('[Auth] refreshProfile called but user is null');
     }
   };
 
