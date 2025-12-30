@@ -121,7 +121,6 @@ const Watch: React.FC = () => {
   const hlsRef = useRef<Hls | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const originalMutedStateRef = useRef<boolean>(false);
   
   // Video State
   const [isPlaying, setIsPlaying] = useState(false);
