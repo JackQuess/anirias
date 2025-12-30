@@ -267,7 +267,7 @@ export const db = {
   createAnime: async (anime: Partial<Anime>, adminToken?: string): Promise<Anime> => {
     // Admin operation - uses backend API for security
     try {
-      const data = await callBackendApi('/create-anime', 'POST', anime, adminToken);
+      const data = await callBackendApi('/api/admin/create-anime', 'POST', anime, adminToken);
       if (!data.success || !data.anime) {
         throw new Error(data.error || 'Failed to create anime');
       }
@@ -281,7 +281,7 @@ export const db = {
   updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string): Promise<void> => {
     // Admin operation - uses backend API for security
     try {
-      const data = await callBackendApi(`/update-anime/${id}`, 'PUT', updates, adminToken);
+      const data = await callBackendApi(`/api/admin/update-anime/${id}`, 'PUT', updates, adminToken);
       if (!data.success) {
         throw new Error(data.error || 'Failed to update anime');
       }
