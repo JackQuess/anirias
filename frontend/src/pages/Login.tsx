@@ -1,21 +1,22 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
-import EmailVerificationCard from '@/components/EmailVerificationCard';
-import MascotLayer from '@/components/decorative/MascotLayer';
+// TODO [v2]: Re-enable email verification
+// import EmailVerificationCard from '@/components/EmailVerificationCard';
+// import MascotLayer from '@/components/decorative/MascotLayer';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { user, status } = useAuth();
-  const [searchParams] = useSearchParams();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState('');
+  // TODO [v2]: Re-enable email verification
+  // const [showEmailVerification, setShowEmailVerification] = useState(false);
+  // const [verificationEmail, setVerificationEmail] = useState('');
   
   // Forgot Password State
   const [showForgot, setShowForgot] = useState(false);
@@ -23,27 +24,14 @@ const Login: React.FC = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
+  // TODO [v2]: Re-enable email verification check
+  // Temporarily disabled: Users can login immediately without email confirmation
   useEffect(() => {
-    // URL parametrelerinden email verification kontrolü
-    const verified = searchParams.get('verified');
-    const emailParam = searchParams.get('email');
-    
-    if (verified === 'true' && emailParam) {
-      // Email doğrulama linkinden geldi, EmailVerificationCard göster
-      setVerificationEmail(emailParam);
-      setShowEmailVerification(true);
-      // URL'den parametreleri temizle
-      navigate('/login', { replace: true });
-    } else if (status === 'AUTHENTICATED' && user) {
-      // Check if email is verified
-      if (!user.email_confirmed_at) {
-        setVerificationEmail(user.email || '');
-        setShowEmailVerification(true);
-      } else {
-        navigate('/');
-      }
+    if (status === 'AUTHENTICATED' && user) {
+      // Direct navigation - no email verification required
+      navigate('/');
     }
-  }, [user, status, navigate, searchParams]);
+  }, [user, status, navigate]);
 
   /**
    * Email format kontrolü
@@ -125,19 +113,16 @@ const Login: React.FC = () => {
       
       if (authError) throw authError;
       
+      // TODO [v2]: Re-enable email verification check
+      // Temporarily disabled: Users are automatically logged in
       if (data.user) {
-        // Check if email is verified
-        if (!data.user.email_confirmed_at) {
-          setVerificationEmail(data.user.email || '');
-          setShowEmailVerification(true);
-        } else {
-          navigate('/');
-        }
+        // Login successful - navigate directly
+        navigate('/');
       }
     } catch (err: any) {
       // Supabase hatalarını kontrol et
+      // TODO [v2]: Re-enable 'Email not confirmed' error handling
       if (err.message?.includes('Invalid login credentials') || 
-          err.message?.includes('Email not confirmed') ||
           err.message?.includes('User not found')) {
         setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.');
       } else {
@@ -167,53 +152,12 @@ const Login: React.FC = () => {
     }
   };
 
-  // Show email verification card if needed
-  if (showEmailVerification && verificationEmail) {
-    return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative Blur Backgrounds */}
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="w-full max-w-md relative z-10">
-          <div className="text-center mb-10">
-            <Link to="/" className="text-5xl font-black text-brand-red italic tracking-tighter drop-shadow-[0_0_15px_rgba(229,9,20,0.4)]">
-              ANIRIAS
-            </Link>
-            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4">Premium Streaming Experience</p>
-          </div>
-          <EmailVerificationCard
-            email={verificationEmail}
-            onVerified={() => {
-              setShowEmailVerification(false);
-              // Email doğrulandı, ana sayfaya yönlendir
-              navigate('/');
-            }}
-          />
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setShowEmailVerification(false);
-                if (supabase) supabase.auth.signOut();
-              }}
-              className="text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
-            >
-              ← Giriş Sayfasına Dön
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // TODO [v2]: Re-enable email verification card UI
+  // Temporarily disabled: No email verification card needed
+  // if (showEmailVerification && verificationEmail) { ... }
 
   return (
     <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Angel Boy Mascot - Bottom Right (only when email verification card is visible) */}
-      {showEmailVerification && (
-        <div className="fixed bottom-0 right-0 z-0 pointer-events-none">
-          <MascotLayer type="angel" />
-        </div>
-      )}
       {/* Decorative Blur Backgrounds */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-[120px] pointer-events-none" />

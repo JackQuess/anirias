@@ -1,3 +1,19 @@
+/**
+ * Email Verification Card Component
+ * 
+ * TODO [v2]: Re-enable this component when email verification is implemented
+ * 
+ * DEPRECATED: Email verification is temporarily disabled.
+ * Users can register and login immediately without email confirmation.
+ * This component is kept for future re-enabling.
+ * 
+ * When re-enabling:
+ * 1. Update Supabase Auth settings to require email confirmation
+ * 2. Uncomment imports in Signup.tsx and Login.tsx
+ * 3. Restore email_confirmed_at checks in auth flow
+ * 4. Update AuthCallback.tsx to show this component
+ */
+
 import React, { useState, useEffect } from 'react';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';

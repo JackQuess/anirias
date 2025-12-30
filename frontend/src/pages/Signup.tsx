@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
-import EmailVerificationCard from '@/components/EmailVerificationCard';
-import MascotLayer from '@/components/decorative/MascotLayer';
+// TODO [v2]: Re-enable email verification
+// import EmailVerificationCard from '@/components/EmailVerificationCard';
+// import MascotLayer from '@/components/decorative/MascotLayer';
 import { validateUsername } from '@/utils/usernameValidation';
 
 const Signup: React.FC = () => {
@@ -16,17 +17,16 @@ const Signup: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
-  const [signedUpEmail, setSignedUpEmail] = useState('');
+  // TODO [v2]: Re-enable email verification
+  // const [showEmailVerification, setShowEmailVerification] = useState(false);
+  // const [signedUpEmail, setSignedUpEmail] = useState('');
 
+  // TODO [v2]: Re-enable email verification check
+  // Temporarily disabled: Users can register and login immediately without email confirmation
   useEffect(() => {
     if (status === 'AUTHENTICATED' && user) {
-      if (!user.email_confirmed_at) {
-        setSignedUpEmail(user.email || '');
-        setShowEmailVerification(true);
-      } else {
-        navigate('/');
-      }
+      // Direct navigation - no email verification required
+      navigate('/');
     }
   }, [user, status, navigate]);
 
@@ -58,19 +58,18 @@ const Signup: React.FC = () => {
         password,
         options: {
           data: { username: username.trim(), role: 'user' },
-          emailRedirectTo: emailRedirectTo
+          // TODO [v2]: Re-enable email confirmation redirect
+          // emailRedirectTo: emailRedirectTo
         }
       });
 
       if (authError) throw authError;
       
-      // Check if email confirmation is required
-      if (data.user && !data.user.email_confirmed_at) {
-        setSignedUpEmail(data.user.email || '');
-        setShowEmailVerification(true);
-      } else {
-        alert('Kayıt başarılı! Lütfen giriş yapın.');
-        navigate('/login');
+      // TODO [v2]: Re-enable email verification flow
+      // Temporarily disabled: Users are automatically logged in after signup
+      if (data.user) {
+        // Signup successful - user is automatically authenticated
+        navigate('/');
       }
     } catch (err: any) {
       setError(err.message || 'Kayıt sırasında bir hata oluştu.');
@@ -79,50 +78,12 @@ const Signup: React.FC = () => {
     }
   };
 
-  // Show email verification card if needed
-  if (showEmailVerification && signedUpEmail) {
-    return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative Blur Backgrounds */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="w-full max-w-md relative z-10">
-          <div className="text-center mb-10">
-            <Link to="/" className="text-5xl font-black text-brand-red italic tracking-tighter drop-shadow-[0_0_15px_rgba(229,9,20,0.4)]">
-              ANIRIAS
-            </Link>
-          </div>
-          <EmailVerificationCard
-            email={signedUpEmail}
-            onVerified={() => {
-              setShowEmailVerification(false);
-              navigate('/login');
-            }}
-          />
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setShowEmailVerification(false);
-                if (supabase) supabase.auth.signOut();
-              }}
-              className="text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
-            >
-              ← Kayıt Sayfasına Dön
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // TODO [v2]: Re-enable email verification card UI
+  // Temporarily disabled: No email verification card needed
+  // if (showEmailVerification && signedUpEmail) { ... }
 
   return (
     <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Angel Boy Mascot - Bottom Right (only when email verification card is visible) */}
-      {showEmailVerification && (
-        <div className="fixed bottom-0 right-0 z-0 pointer-events-none">
-          <MascotLayer type="angel" />
-        </div>
-      )}
       {/* Decorative Blur Backgrounds */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
 
