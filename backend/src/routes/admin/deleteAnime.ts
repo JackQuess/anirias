@@ -1,18 +1,19 @@
 import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
+import { normalizeOrigin } from '../../utils/cors.js';
 
 const router = Router();
 
 router.use((req, res, next) => {
   // Allow production domain and Vercel
   const allowedOrigins = [
-    'https://anirias.com',
+    normalizeOrigin('https://anirias.com'),
     'https://anirias.vercel.app',
     'http://localhost:5173',
     'http://localhost:3000',
   ];
   
-  const origin = req.headers.origin;
+  const origin = normalizeOrigin(req.headers.origin);
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (process.env.CORS_ORIGIN) {
