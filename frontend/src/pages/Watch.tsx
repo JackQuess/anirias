@@ -121,6 +121,7 @@ const Watch: React.FC = () => {
   const hlsRef = useRef<Hls | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originalMutedStateRef = useRef<boolean>(false);
   
   // Video State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -271,13 +272,35 @@ const Watch: React.FC = () => {
     if (!videoRef.current) return;
 
     if (videoRef.current.paused) {
+      // Restore original muted state before playing
+      if (originalMutedStateRef.current !== undefined) {
+        videoRef.current.muted = originalMutedStateRef.current;
+        setIsMuted(originalMutedStateRef.current);
+      }
       videoRef.current.play().then(() => {
         setHasStarted(true);
         setIsPlaying(true);
         if (!skipControls) showControlsTemporary();
       }).catch(() => {});
     } else {
+      // Store original muted state before muting
+      originalMutedStateRef.current = videoRef.current.muted;
+      
+      // Pause video and ensure audio stops completely
       videoRef.current.pause();
+      
+      // Force audio to stop by muting temporarily
+      // This ensures audio doesn't continue playing in background (especially with HLS)
+      videoRef.current.muted = true;
+      
+      // Restore muted state after a short delay to allow audio buffer to clear
+      setTimeout(() => {
+        if (videoRef.current && videoRef.current.paused) {
+          videoRef.current.muted = originalMutedStateRef.current;
+          setIsMuted(originalMutedStateRef.current);
+        }
+      }, 100);
+      
       setIsPlaying(false);
       if (!skipControls) showControlsTemporary();
     }
