@@ -9,13 +9,10 @@ import { WatchlistStatus } from '../types';
 import AnimeCard from '../components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
-import AgeGateModal from '../components/AgeGateModal';
-import { useAgeGate } from '../hooks/useAgeGate';
-import { isAdultContent } from '../utils/adultContent';
 
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile } = useAuth();
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
@@ -48,16 +45,6 @@ const AnimeDetail: React.FC = () => {
   
   // Fetch anime - only depends on id (primitive), fetcher is memoized
   const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
-  
-  // Age Gate - Check if truly adult content (Hentai, R18, etc.)
-  // Ecchi alone does NOT trigger
-  const isAdult = isAdultContent(anime);
-  const { showModal: showAgeGate, isChecking: isAgeChecking, isConfirming, confirm: confirmAge, deny: denyAge } = useAgeGate(
-    isAdult,
-    profile,
-    user?.id,
-    refreshProfile
-  );
   
   // Extract animeId as string to prevent object reference issues (after anime is fetched)
   const animeId = anime?.id || null;
@@ -201,9 +188,6 @@ const AnimeDetail: React.FC = () => {
 
   return (
     <div className="bg-brand-black min-h-screen pb-40">
-      {/* Age Gate Modal */}
-      <AgeGateModal isOpen={showAgeGate} onConfirm={confirmAge} onDeny={denyAge} />
-      
       {/* Background Banner - Fail-safe: show gradient if image fails */}
       <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden bg-gradient-to-br from-brand-red/20 via-brand-black to-brand-black">
         {(anime.banner_image || anime.cover_image) && (

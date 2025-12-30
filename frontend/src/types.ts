@@ -9,7 +9,6 @@ export interface Profile {
   banner_id?: string | null;
   avatar_url?: string;
   banner_url?: string;
-  is_adult_confirmed?: boolean; // +18 age confirmation flag
 }
 
 export interface Anime {
