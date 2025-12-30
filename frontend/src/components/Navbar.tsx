@@ -237,7 +237,9 @@ const Navbar: React.FC = () => {
                     className="flex items-center gap-3 p-1 pr-2 md:pr-4 rounded-2xl hover:bg-white/5 transition-all border border-transparent hover:border-white/5"
                   >
                     <div className="w-8 h-8 md:w-9 md:h-9 bg-brand-red rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-brand-red/20 overflow-hidden">
-                      {profile?.avatar_id ? (
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
+                      ) : profile?.avatar_id ? (
                         <img src={getAvatarSrc(profile.avatar_id)} className="w-full h-full object-cover" alt="avatar" />
                       ) : (
                         (profile?.username || 'U').charAt(0).toUpperCase()
@@ -253,7 +255,9 @@ const Navbar: React.FC = () => {
                     <div className="absolute top-full right-0 mt-4 w-64 bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in z-50">
                       <div className="mb-6 pb-6 border-b border-white/5 flex items-center gap-4">
                          <div className="w-10 h-10 bg-brand-red rounded-xl flex items-center justify-center text-white font-black overflow-hidden">
-                            {profile?.avatar_id ? (
+                            {profile?.avatar_url ? (
+                              <img src={profile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
+                            ) : profile?.avatar_id ? (
                               <img src={getAvatarSrc(profile.avatar_id)} className="w-full h-full object-cover" alt="avatar" />
                             ) : (
                               (profile?.username || 'U').charAt(0).toUpperCase()
@@ -272,7 +276,7 @@ const Navbar: React.FC = () => {
                         {profile?.role === 'admin' && (
                           <Link to="/admin" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-brand-red hover:text-white uppercase tracking-[0.2em] transition-all" onClick={() => setIsProfileOpen(false)}>
                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                             ADMİN PANELİ
+                             KOMUTA MERKEZİ
                           </Link>
                         )}
                         <button onClick={() => signOut()} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-gray-600 hover:text-brand-red uppercase tracking-[0.2em] transition-all text-left">

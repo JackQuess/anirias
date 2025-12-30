@@ -5,19 +5,18 @@ interface AgeGateModalProps {
   isOpen: boolean;
   onConfirm: () => void;
   onDeny: () => void;
+  isConfirming?: boolean;
 }
 
 /**
- * Age Gate Modal (+18)
+ * Age Gate Modal (+18) - Compact & Mobile-Friendly
  * 
- * Blocks access to adult content until user confirms they are 18+
+ * - Max width: 420px desktop, 92vw mobile
+ * - localStorage-based persistence (anirias_age_verified)
+ * - ESC and click outside disabled for security
  * - Portal rendered above all UI
- * - ESC key disabled
- * - Click outside disabled
- * - Mobile bottom-sheet style
- * - Desktop centered modal
  */
-const AgeGateModal: React.FC<AgeGateModalProps> = ({ isOpen, onConfirm, onDeny }) => {
+const AgeGateModal: React.FC<AgeGateModalProps> = ({ isOpen, onConfirm, onDeny, isConfirming = false }) => {
   // Disable ESC key and background scroll
   useEffect(() => {
     if (!isOpen) return;
@@ -43,69 +42,57 @@ const AgeGateModal: React.FC<AgeGateModalProps> = ({ isOpen, onConfirm, onDeny }
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-end lg:items-center justify-center">
-      {/* Backdrop - Click disabled */}
+    <div className="fixed inset-0 z-[9999] flex items-end lg:items-center justify-center p-4">
+      {/* Backdrop - Click disabled for security */}
       <div 
-        className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
         style={{ pointerEvents: 'all' }}
+        aria-hidden="true"
       />
       
-      {/* Modal */}
+      {/* Modal - Compact design */}
       <div 
-        className="relative w-full lg:max-w-lg bg-gradient-to-br from-brand-dark via-brand-surface to-brand-dark border-t lg:border border-brand-red/50 lg:rounded-[3rem] rounded-t-[2rem] shadow-[0_0_100px_rgba(229,9,20,0.5)] overflow-hidden"
+        className="relative w-full max-w-[420px] bg-brand-surface border border-brand-red/50 rounded-t-[1.5rem] lg:rounded-[2rem] shadow-2xl overflow-hidden"
         style={{ pointerEvents: 'all' }}
       >
         {/* Decorative glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-red/20 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-brand-red/10 rounded-full blur-[80px] pointer-events-none" />
         
-        <div className="relative z-10 p-6 lg:p-10">
-          {/* Icon */}
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-brand-red/20 border-2 border-brand-red flex items-center justify-center">
-              <span className="text-4xl lg:text-5xl">🔞</span>
+        <div className="relative z-10 p-6 lg:p-8">
+          {/* Icon - Smaller */}
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 lg:w-18 lg:h-18 rounded-full bg-brand-red/20 border-2 border-brand-red flex items-center justify-center">
+              <span className="text-3xl lg:text-4xl">🔞</span>
             </div>
           </div>
 
-          {/* Title */}
-          <h2 className="text-2xl lg:text-3xl font-black text-white uppercase italic tracking-tighter text-center mb-4">
-            <span className="text-brand-red">YAŞ</span> UYARISI
+          {/* Title - Compact */}
+          <h2 className="text-xl lg:text-2xl font-black text-white uppercase italic tracking-tighter text-center mb-3">
+            <span className="text-brand-red">+18</span> İçerik
           </h2>
 
-          {/* Description */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
-            <p className="text-white/90 text-sm lg:text-base text-center leading-relaxed">
-              Bu içerik <strong className="text-brand-red">18 yaş ve üzeri</strong> kullanıcılar içindir.
-            </p>
-            <p className="text-white/90 text-sm lg:text-base text-center leading-relaxed mt-2">
-              Devam etmek için 18 yaşından büyük olduğunu onaylaman gerekir.
-            </p>
-          </div>
-
-          {/* Warning text */}
-          <p className="text-gray-500 text-xs text-center mb-6">
-            Bu tercihin cihazında saklanacak ve bir daha sorulmayacak.
+          {/* Description - Short */}
+          <p className="text-white/90 text-sm text-center leading-relaxed mb-6 px-2">
+            Bu içerik <strong className="text-brand-red">18 yaş ve üzeri</strong> kullanıcılar içindir.
+            Devam etmek için 18 yaşından büyük olduğunu onaylaman gerekir.
           </p>
 
-          {/* Buttons */}
+          {/* Buttons - Compact */}
           <div className="flex flex-col gap-3">
             <button
               onClick={onConfirm}
-              className="w-full bg-brand-red hover:bg-brand-redHover active:bg-brand-redHover text-white px-6 py-4 rounded-2xl text-sm lg:text-base font-black uppercase tracking-widest transition-all shadow-2xl shadow-brand-red/50 hover:shadow-brand-red/70 hover:scale-[1.02] active:scale-95 touch-manipulation"
+              disabled={isConfirming}
+              className="w-full bg-brand-red hover:bg-brand-redHover active:bg-brand-redHover text-white px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/50 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
             >
-              Evet, 18 Yaşından Büyüğüm
+              {isConfirming ? 'ONAYLANIYOR...' : 'Evet, 18+'}
             </button>
             <button
               onClick={onDeny}
-              className="w-full bg-white/5 hover:bg-white/10 active:bg-white/10 text-white border border-white/10 px-6 py-4 rounded-2xl text-sm lg:text-base font-black uppercase tracking-widest transition-all hover:border-white/20 active:scale-95 touch-manipulation"
+              className="w-full bg-white/5 hover:bg-white/10 active:bg-white/10 text-white border border-white/10 px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-all hover:border-white/20 active:scale-95 min-h-[44px] touch-manipulation"
             >
               Hayır
             </button>
           </div>
-
-          {/* Footer note */}
-          <p className="text-gray-600 text-[10px] text-center mt-6 uppercase tracking-widest font-bold">
-            18 Yaşından Küçükler İçin Uygun Değildir
-          </p>
         </div>
       </div>
     </div>
@@ -115,4 +102,3 @@ const AgeGateModal: React.FC<AgeGateModalProps> = ({ isOpen, onConfirm, onDeny }
 };
 
 export default AgeGateModal;
-

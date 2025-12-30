@@ -3,11 +3,12 @@ import { Profile } from '../types';
 import { db } from '../services/db';
 
 /**
- * Age Gate Hook (Supabase Profile-based)
+ * Age Gate Hook (localStorage + Supabase Profile-based)
  * 
- * Manages +18 age verification state using Supabase profile
- * - Checks profile.is_adult_confirmed
- * - Saves confirmation to Supabase (persistent across devices)
+ * Manages +18 age verification state:
+ * - Checks localStorage first (anirias_age_verified)
+ * - Falls back to Supabase profile.is_adult_confirmed
+ * - Saves to both localStorage and Supabase
  * - Only shows on Anime Detail page for truly adult content
  */
 export function useAgeGate(
@@ -20,6 +21,7 @@ export function useAgeGate(
   const [isChecking, setIsChecking] = useState(true);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  // Check localStorage and profile for previous confirmation
   useEffect(() => {
     // If not adult content, no need to check
     if (!isAdultContent) {
@@ -28,39 +30,61 @@ export function useAgeGate(
       return;
     }
 
-    // If not logged in, don't show modal (optional: could show for guests too)
-    if (!userId) {
+    // Check localStorage first (fastest)
+    const localStorageVerified = localStorage.getItem('anirias_age_verified') === 'true';
+    
+    // Check optional timestamp (30 days validity)
+    const verifiedUntil = localStorage.getItem('anirias_age_verified_until');
+    const isExpired = verifiedUntil ? Date.now() > parseInt(verifiedUntil, 10) : false;
+    
+    // If localStorage says verified and not expired, skip modal
+    if (localStorageVerified && !isExpired) {
       setIsChecking(false);
       setShowModal(false);
       return;
     }
 
-    // Check profile for previous confirmation
-    if (profile?.is_adult_confirmed === true) {
-      setShowModal(false);
-    } else {
-      setShowModal(true);
-    }
-    
-    setIsChecking(false);
-  }, [isAdultContent, profile?.is_adult_confirmed, userId]);
-
-  const confirm = async () => {
-    if (!userId) {
+    // If logged in, also check Supabase profile
+    if (userId && profile?.is_adult_confirmed === true) {
+      // Sync localStorage with profile
+      localStorage.setItem('anirias_age_verified', 'true');
+      const thirtyDaysFromNow = Date.now() + (30 * 24 * 60 * 60 * 1000);
+      localStorage.setItem('anirias_age_verified_until', String(thirtyDaysFromNow));
+      
+      setIsChecking(false);
       setShowModal(false);
       return;
     }
 
+    // Show modal if not verified
+    setShowModal(true);
+    setIsChecking(false);
+  }, [isAdultContent, profile?.is_adult_confirmed, userId]);
+
+  const confirm = async () => {
     setIsConfirming(true);
     
     try {
-      // Save confirmation to Supabase profile
-      await db.updateProfile(userId, { is_adult_confirmed: true });
+      // Save to localStorage (immediate)
+      localStorage.setItem('anirias_age_verified', 'true');
+      const thirtyDaysFromNow = Date.now() + (30 * 24 * 60 * 60 * 1000);
+      localStorage.setItem('anirias_age_verified_until', String(thirtyDaysFromNow));
       
-      // CRITICAL: Refresh profile to get updated data from DB
-      // This prevents profile state from being overwritten
-      if (refreshProfile) {
-        await refreshProfile();
+      // Save to Supabase profile (if logged in)
+      if (userId) {
+        try {
+          await db.updateProfile(userId, { is_adult_confirmed: true });
+          
+          // Refresh profile to get updated data
+          if (refreshProfile) {
+            await refreshProfile();
+          }
+        } catch (error) {
+          // If Supabase save fails, still allow access (localStorage is enough)
+          if (import.meta.env.DEV) {
+            console.error('[useAgeGate] Failed to save to Supabase:', error);
+          }
+        }
       }
       
       setShowModal(false);
@@ -77,7 +101,7 @@ export function useAgeGate(
 
   const deny = () => {
     setShowModal(false);
-    // Redirect to homepage
+    // Redirect to catalog/homepage
     window.location.href = '/#/';
   };
 
@@ -89,4 +113,3 @@ export function useAgeGate(
     deny,
   };
 }
-

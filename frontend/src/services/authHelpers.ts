@@ -6,10 +6,12 @@ export const fetchProfile = async (userId: string): Promise<Profile | null> => {
   if (!supabase) return null;
   
   try {
+    // Use limit(1) + maybeSingle to prevent "Cannot coerce" errors
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
+      .limit(1)
       .maybeSingle();
 
     if (error) {

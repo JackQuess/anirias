@@ -925,7 +925,9 @@ export const db = {
     if (!checkEnv()) throw new Error("Backend connection failed");
     
     // Filter out undefined/null values and only include fields that exist
-    const safeUpdates: Record<string, any> = {};
+    const safeUpdates: Record<string, any> = {
+      id: userId, // Include id for upsert
+    };
     if (updates.bio !== undefined) safeUpdates.bio = updates.bio;
     if (updates.avatar_id !== undefined) safeUpdates.avatar_id = updates.avatar_id;
     if (updates.banner_id !== undefined) safeUpdates.banner_id = updates.banner_id;
@@ -937,12 +939,13 @@ export const db = {
     // Always update updated_at (required for tracking)
     safeUpdates.updated_at = new Date().toISOString();
     
+    // Use upsert instead of update to handle missing profiles
+    // This prevents "Cannot coerce the result to a single JSON object" error
     const { data, error } = await supabase!
       .from('profiles')
-      .update(safeUpdates)
-      .eq('id', userId)
+      .upsert(safeUpdates, { onConflict: 'id' })
       .select()
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error('[db.updateProfile] Full Error:', error);
