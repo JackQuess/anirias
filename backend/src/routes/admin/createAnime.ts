@@ -1,7 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 import { normalizeOrigin } from '../../utils/cors.js';
-import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
@@ -117,9 +116,8 @@ router.post('/create-anime', async (req: Request, res: Response) => {
       });
     }
 
-    // Prepare anime data
+    // Prepare anime data (Supabase will auto-generate UUID for id)
     const animeData: any = {
-      id: uuidv4(),
       title: title.trim(),
       slug: slug.trim(),
       description: description || null,
