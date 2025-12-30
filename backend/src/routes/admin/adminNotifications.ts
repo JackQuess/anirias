@@ -7,9 +7,27 @@
 
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
-import { requireAdmin } from '../../middleware/auth.js';
 
 const router = Router();
+
+// CORS middleware
+router.use((req, res, next) => {
+  const origin = process.env.CORS_ORIGIN || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+// Admin token verification middleware
+const requireAdmin = (req: Request, res: Response, next: Function) => {
+  const adminToken = req.header('x-admin-token');
+  if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
 
 /**
  * GET /api/admin/notifications
