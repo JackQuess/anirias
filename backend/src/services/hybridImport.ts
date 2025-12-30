@@ -12,7 +12,7 @@
  * - All season and episode grouping must come from Supabase
  */
 
-import { searchAniList, getAniListMedia, detectSeasonRanges, cleanDescription, type AniListMedia, type AniListSeasonRange } from './anilist.js';
+import { searchAniList, getAniListMedia, detectSeasonRanges, cleanDescription, getAniListAiringSchedule, type AniListMedia, type AniListSeasonRange } from './anilist.js';
 import { validateEpisodeCount } from './myanimelist.js';
 import {
   ensureAnimeSlug,
@@ -200,9 +200,26 @@ async function resolveSeasons(
 async function generateEpisodes(
   animeId: string,
   seasons: SeasonRow[],
-  anilistRanges: AniListSeasonRange[]
+  anilistRanges: AniListSeasonRange[],
+  anilistId?: number
 ): Promise<number> {
   let totalEpisodesCreated = 0;
+
+  // Fetch airing schedule from AniList if available
+  let airingSchedule: Map<number, number> = new Map(); // episode_number -> airingAt (unix timestamp)
+  if (anilistId) {
+    try {
+      const schedule = await getAniListAiringSchedule(anilistId);
+      schedule.forEach(item => {
+        if (item.episode > 0 && item.airingAt > 0) {
+          airingSchedule.set(item.episode, item.airingAt);
+        }
+      });
+    } catch (error) {
+      // Log but don't fail - airing schedule is optional
+      console.warn(`[hybridImport] Failed to fetch airing schedule for AniList ID ${anilistId}:`, error);
+    }
+  }
 
   for (const season of seasons) {
     // Find corresponding AniList range for this season
@@ -232,6 +249,10 @@ async function generateEpisodes(
     const episodesToCreate = [];
     for (let epNum = episodeStart; epNum <= episodeEnd; epNum++) {
       if (!existingNumbers.has(epNum)) {
+        // Get airing date from AniList schedule if available
+        const airingAt = airingSchedule.get(epNum);
+        const airDate = airingAt ? new Date(airingAt * 1000).toISOString() : null;
+
         episodesToCreate.push({
           anime_id: animeId,
           season_id: season.id,
@@ -241,9 +262,26 @@ async function generateEpisodes(
           status: 'pending',
           video_url: null,
           duration_seconds: 1440, // Default 24 minutes
+          air_date: airDate,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
+      } else {
+        // Update existing episode with airing date if available and not already set
+        const airingAt = airingSchedule.get(epNum);
+        if (airingAt) {
+          const airDate = new Date(airingAt * 1000).toISOString();
+          await supabaseAdmin
+            .from('episodes')
+            .update({ 
+              air_date: airDate,
+              updated_at: new Date().toISOString()
+            })
+            .eq('anime_id', animeId)
+            .eq('season_id', season.id)
+            .eq('episode_number', epNum)
+            .is('air_date', null); // Only update if air_date is currently null
+        }
       }
     }
 
@@ -319,7 +357,7 @@ export async function hybridImportAnime(params: HybridImportParams): Promise<Hyb
     }
 
     // STEP 5: Generate episodes for each season
-    const episodesCreated = await generateEpisodes(animeId, seasons, anilistRanges);
+    const episodesCreated = await generateEpisodes(animeId, seasons, anilistRanges, anilistId);
 
     // STEP 6: MAL validation (soft check)
     let malValidation;

@@ -129,7 +129,7 @@ const Calendar: React.FC = () => {
                           </div>
                         </div>
                         <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
-                           Bölüm {entry.episode_number}
+                           {entry.season_number ? `${entry.season_number}. Sezon • ` : ''}Bölüm {entry.episode_number}
                         </p>
                         {entry.short_note && (
                           <p className="text-gray-500 text-[11px] font-semibold">{entry.short_note}</p>

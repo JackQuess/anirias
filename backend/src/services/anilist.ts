@@ -60,6 +60,11 @@ export interface AniListSeasonRange {
   format?: string;
 }
 
+export interface AniListAiringSchedule {
+  episode: number;
+  airingAt: number; // UNIX timestamp
+}
+
 const SEARCH_QUERY = `
 query ($search: String) {
   Page(perPage: 10) {
@@ -104,6 +109,20 @@ query ($id: Int!) {
           episodes
           startDate { year month day }
         }
+      }
+    }
+  }
+}
+`;
+
+const AIRING_SCHEDULE_QUERY = `
+query ($id: Int!) {
+  Media(id: $id, type: ANIME) {
+    id
+    airingSchedule(notYetAired: true, perPage: 100) {
+      nodes {
+        episode
+        airingAt
       }
     }
   }
@@ -295,6 +314,40 @@ export function detectSeasonRanges(media: AniListMedia, allRelated: AniListMedia
   }
 
   return ranges;
+}
+
+/**
+ * Get airing schedule for an anime from AniList
+ */
+export async function getAniListAiringSchedule(anilistId: number): Promise<AniListAiringSchedule[]> {
+  try {
+    const response = await fetch(ANILIST_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: AIRING_SCHEDULE_QUERY,
+        variables: { id: anilistId }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`AniList API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+    if (json.errors) {
+      throw new Error(`AniList GraphQL error: ${JSON.stringify(json.errors)}`);
+    }
+
+    const nodes = json.data?.Media?.airingSchedule?.nodes || [];
+    return nodes.map((node: any) => ({
+      episode: node.episode || 0,
+      airingAt: node.airingAt || 0
+    }));
+  } catch (error: any) {
+    console.error('[AniList] Airing schedule error:', error);
+    return []; // Return empty array on error, don't break import
+  }
 }
 
 /**
