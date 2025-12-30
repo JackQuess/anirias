@@ -67,9 +67,9 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
                <span className="bg-brand-red text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-lg shadow-lg uppercase tracking-widest animate-pulse">
                   YENİ
                </span>
-               {(episode.season?.season_number ?? episode.seasons?.season_number ?? episode.season_number) && (
+               {(episode.seasons?.season_number ?? episode.season_number) && (
                  <span className="bg-gray-800/80 backdrop-blur-md text-gray-300 text-[8px] md:text-[9px] font-black px-2 md:px-2.5 py-1 rounded-lg border border-gray-700/50 uppercase tracking-wide">
-                  {(episode.season?.season_number ?? episode.seasons?.season_number ?? episode.season_number)}. Sezon
+                  {(episode.seasons?.season_number ?? episode.season_number)}. Sezon
                </span>
                )}
              </>
