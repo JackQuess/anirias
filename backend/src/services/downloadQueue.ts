@@ -9,6 +9,7 @@ import {
   getEpisodeByKey,
   updateEpisodePath,
 } from './supabaseAdmin.js';
+import { notifyDownloadFailed } from './adminNotifications.js';
 
 const TMP_ROOT = process.env.DOWNLOAD_TMP_ROOT || '/tmp/anirias-downloads';
 const MAX_CONCURRENT_DOWNLOADS = parseInt(process.env.MAX_CONCURRENT_DOWNLOADS || '2', 10);
@@ -165,6 +166,23 @@ async function processEpisodeDownload(
     await rm(tempFile, { force: true }).catch(() => {
       // Ignore cleanup errors
     });
+
+    // Notify admin of download failure
+    const { data: episodeData } = await supabaseAdmin
+      .from('episodes')
+      .select('episode_number, seasons!inner(season_number, anime:animes!inner(title))')
+      .eq('id', episodeId)
+      .maybeSingle();
+
+    if (episodeData) {
+      const animeTitle = (episodeData.seasons as any)?.anime?.title?.romaji || 
+                        (episodeData.seasons as any)?.anime?.title?.english || 
+                        'Unknown Anime';
+      const seasonNumber = (episodeData.seasons as any)?.season_number || 1;
+      const episodeNumber = episodeData.episode_number;
+      
+      notifyDownloadFailed(animeTitle, seasonNumber, episodeNumber, errorMessage, episodeId);
+    }
 
     return { success: false, error: errorMessage };
   }

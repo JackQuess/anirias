@@ -21,6 +21,7 @@ import {
   type AnimeRow,
   type SeasonRow,
 } from './supabaseAdmin.js';
+import { notifyNewAnimeDetected, notifyImportSuccess, notifyImportWarning } from './adminNotifications.js';
 
 export interface HybridImportParams {
   anilistId: number;
@@ -378,6 +379,15 @@ export async function hybridImportAnime(params: HybridImportParams): Promise<Hyb
         ...validation,
         supabaseCount,
       };
+    }
+
+    // Notify admin of import success
+    const animeTitle = media.title?.romaji || media.title?.english || 'Unknown Anime';
+    if (episodesCreated > 0) {
+      notifyImportSuccess(animeTitle, seasons.length, episodesCreated);
+    }
+    if (warnings.length > 0) {
+      notifyImportWarning(animeTitle, warnings.join(', '));
     }
 
     return {

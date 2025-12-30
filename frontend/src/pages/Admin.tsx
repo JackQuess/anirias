@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getDisplayTitle } from '@/utils/title';
 import { ActivityLog } from '@/types';
+import AdminNotificationBell from '@/components/AdminNotificationBell';
 
 interface DashboardStats {
   totalUsers: number;
@@ -46,6 +47,9 @@ const Admin: React.FC = () => {
       })
     : [];
 
+  // Get admin token from localStorage (assuming it's stored there)
+  const adminToken = localStorage.getItem('adminToken') || '';
+
   return (
     <div className="space-y-12 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/5">
@@ -58,6 +62,13 @@ const Admin: React.FC = () => {
             KOMUTA <span className="text-brand-red">MERKEZİ</span>
           </h1>
         </div>
+        
+        {/* Admin Notification Bell */}
+        {adminToken && (
+          <div className="flex items-center gap-4">
+            <AdminNotificationBell adminToken={adminToken} />
+          </div>
+        )}
         <div className="flex gap-4">
            <div className="text-right">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">SUNUCU SAATİ</p>

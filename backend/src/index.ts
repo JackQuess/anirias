@@ -9,6 +9,7 @@ import toggleFeaturedRouter from './routes/admin/toggleFeatured.js';
 import bindAniListSeasonRouter from './routes/admin/bindAniListSeason.js';
 import createSeasonRouter from './routes/admin/createSeason.js';
 import updateProfileRoleRouter from './routes/admin/updateProfileRole.js';
+import adminNotificationsRouter from './routes/admin/adminNotifications.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 
 const app = express();
@@ -83,6 +84,7 @@ app.use('/api/admin', toggleFeaturedRouter);
 app.use('/api/admin', bindAniListSeasonRouter);
 app.use('/api/admin', createSeasonRouter);
 app.use('/api/admin', updateProfileRoleRouter);
+app.use('/api/admin', adminNotificationsRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
