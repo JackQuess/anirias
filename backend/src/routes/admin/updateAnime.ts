@@ -107,7 +107,27 @@ router.put('/update-anime/:id', async (req: Request, res: Response) => {
       is_featured,
     } = req.body || {};
 
-    if (title !== undefined) updates.title = title;
+    // Normalize title: Frontend sends { romaji: string, english: string }, backend expects string
+    if (title !== undefined) {
+      if (typeof title === 'string') {
+        updates.title = title.trim();
+      } else if (title && typeof title === 'object' && (title.romaji || title.english)) {
+        // Use romaji if available, otherwise english
+        updates.title = (title.romaji || title.english || '').trim();
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'title must be a non-empty string or object with romaji/english',
+        });
+      }
+      
+      if (!updates.title || updates.title === '') {
+        return res.status(400).json({
+          success: false,
+          error: 'title cannot be empty',
+        });
+      }
+    }
     if (slug !== undefined) updates.slug = slug;
     if (description !== undefined) updates.description = description;
     if (cover_image !== undefined) updates.cover_image = cover_image;

@@ -80,18 +80,38 @@ router.post('/create-anime', async (req: Request, res: Response) => {
       is_featured,
     } = req.body || {};
 
-    if (!title || typeof title !== 'string' || title.trim() === '') {
+    // Normalize title: Frontend sends { romaji: string, english: string }, backend expects string
+    let normalizedTitle: string;
+    if (typeof title === 'string') {
+      normalizedTitle = title.trim();
+    } else if (title && typeof title === 'object' && (title.romaji || title.english)) {
+      // Use romaji if available, otherwise english
+      normalizedTitle = (title.romaji || title.english || '').trim();
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'title is required and must be a non-empty string or object with romaji/english',
+      });
+    }
+
+    if (!normalizedTitle || normalizedTitle === '') {
       return res.status(400).json({
         success: false,
         error: 'title is required and must be a non-empty string',
       });
     }
 
-    if (!slug || typeof slug !== 'string' || slug.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        error: 'slug is required and must be a non-empty string',
-      });
+    // Generate slug from title if not provided
+    let normalizedSlug: string;
+    if (slug && typeof slug === 'string' && slug.trim() !== '') {
+      normalizedSlug = slug.trim();
+    } else {
+      // Auto-generate slug from title
+      normalizedSlug = normalizedTitle
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'anime';
     }
 
     if (!status || !['ongoing', 'completed', 'upcoming'].includes(status)) {
@@ -105,21 +125,21 @@ router.post('/create-anime', async (req: Request, res: Response) => {
     const { data: existingAnime } = await supabaseAdmin
       .from('animes')
       .select('id, slug')
-      .eq('slug', slug)
+      .eq('slug', normalizedSlug)
       .maybeSingle();
 
     if (existingAnime) {
       return res.status(409).json({
         success: false,
-        error: `Anime with slug "${slug}" already exists`,
+        error: `Anime with slug "${normalizedSlug}" already exists`,
         existingAnimeId: existingAnime.id,
       });
     }
 
     // Prepare anime data (Supabase will auto-generate UUID for id)
     const animeData: any = {
-      title: title.trim(),
-      slug: slug.trim(),
+      title: normalizedTitle,
+      slug: normalizedSlug,
       description: description || null,
       cover_image: cover_image || null,
       banner_image: banner_image || null,
