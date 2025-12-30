@@ -70,22 +70,22 @@ const Admin: React.FC = () => {
       <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
          <div className="absolute top-0 right-0 w-96 h-96 bg-brand-red/5 rounded-full blur-[100px] pointer-events-none" />
          
-         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 relative z-10 gap-6">
+         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 relative z-20 gap-6">
             <div>
                <h3 className="text-2xl font-black text-white uppercase tracking-tighter italic">VİTRİN <span className="text-brand-red">YÖNETİMİ</span></h3>
                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Ana sayfa slider alanında gösterilen içerikler</p>
             </div>
             
-            <div className="relative w-full md:w-80">
+            <div className="relative w-full md:w-80 z-30">
                <input 
                  type="text" 
                  placeholder="VİTRİNE EKLE..." 
                  value={heroSearch}
                  onChange={(e) => setHeroSearch(e.target.value)}
-                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-3 text-xs font-bold text-white uppercase tracking-widest outline-none focus:border-brand-red"
+                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-3 text-xs font-bold text-white uppercase tracking-widest outline-none focus:border-brand-red relative z-30"
                />
                {heroSearch && searchResults && searchResults.length > 0 && (
-                 <div className="absolute top-full left-0 right-0 mt-2 bg-brand-surface border border-brand-border rounded-2xl p-2 z-50 shadow-2xl max-h-60 overflow-y-auto">
+                 <div className="absolute top-full left-0 right-0 mt-2 bg-brand-surface border border-brand-border rounded-2xl p-2 z-[100] shadow-2xl max-h-60 overflow-y-auto">
                     {searchResults.map(a => (
                        <button 
                          key={a.id}
@@ -102,7 +102,7 @@ const Admin: React.FC = () => {
             </div>
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-0">
             {featuredAnimes?.map((anime) => (
                <div key={anime.id} className="group relative aspect-video rounded-2xl overflow-hidden border border-white/10 hover:border-brand-red transition-all">
                   <img src={anime.banner_image || anime.cover_image || ''} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
