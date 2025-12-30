@@ -10,6 +10,8 @@ import bindAniListSeasonRouter from './routes/admin/bindAniListSeason.js';
 import createSeasonRouter from './routes/admin/createSeason.js';
 import updateProfileRoleRouter from './routes/admin/updateProfileRole.js';
 import adminNotificationsRouter from './routes/admin/adminNotifications.js';
+import createAnimeRouter from './routes/admin/createAnime.js';
+import updateAnimeRouter from './routes/admin/updateAnime.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
@@ -93,6 +95,8 @@ app.use('/api/admin', bindAniListSeasonRouter);
 app.use('/api/admin', createSeasonRouter);
 app.use('/api/admin', updateProfileRoleRouter);
 app.use('/api/admin', adminNotificationsRouter);
+app.use('/api/admin', createAnimeRouter);
+app.use('/api/admin', updateAnimeRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {

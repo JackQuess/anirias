@@ -265,21 +265,30 @@ export const db = {
   // Frontend only uses anon key for read operations and user data (RLS protected)
   
   createAnime: async (anime: Partial<Anime>, adminToken?: string): Promise<Anime> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'createAnime: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: POST /api/admin/create-anime'
-    );
+    // Admin operation - uses backend API for security
+    try {
+      const data = await callBackendApi('/create-anime', 'POST', anime, adminToken);
+      if (!data.success || !data.anime) {
+        throw new Error(data.error || 'Failed to create anime');
+      }
+      return data.anime;
+    } catch (err: any) {
+      console.error('[db.createAnime] Error:', err);
+      throw err;
+    }
   },
 
   updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string): Promise<void> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'updateAnime: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: PUT /api/admin/update-anime/:id'
-    );
+    // Admin operation - uses backend API for security
+    try {
+      const data = await callBackendApi(`/update-anime/${id}`, 'PUT', updates, adminToken);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update anime');
+      }
+    } catch (err: any) {
+      console.error('[db.updateAnime] Error:', err);
+      throw err;
+    }
   },
 
   deleteAnime: async (id: string, adminToken?: string): Promise<{ success: boolean; deleted?: any; error?: string }> => {

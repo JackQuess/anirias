@@ -251,3 +251,4 @@ action_statement: EXECUTE FUNCTION public.handle_new_user()
 **Status:** ⚠️ Supabase'de çalıştırılması gerekiyor  
 **Tahmini Süre:** 30 saniye
 
+
