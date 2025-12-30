@@ -938,13 +938,40 @@ export const db = {
     // Always update updated_at (required for tracking)
     safeUpdates.updated_at = new Date().toISOString();
     
-    // Use upsert instead of update to handle missing profiles
-    // This prevents "Cannot coerce the result to a single JSON object" error
-    const { data, error } = await supabase!
+    // First check if profile exists
+    const { data: existingProfile } = await supabase!
       .from('profiles')
-      .upsert(safeUpdates, { onConflict: 'id' })
-      .select()
+      .select('id')
+      .eq('id', userId)
       .maybeSingle();
+    
+    let data, error;
+    
+    if (existingProfile) {
+      // Profile exists - use UPDATE
+      const result = await supabase!
+        .from('profiles')
+        .update(safeUpdates)
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+      data = result.data;
+      error = result.error;
+    } else {
+      // Profile doesn't exist - use INSERT
+      // Include required fields for new profile
+      safeUpdates.username = safeUpdates.username || `user_${userId.substring(0, 8)}`;
+      safeUpdates.role = safeUpdates.role || 'user';
+      safeUpdates.created_at = new Date().toISOString();
+      
+      const result = await supabase!
+        .from('profiles')
+        .insert(safeUpdates)
+        .select()
+        .maybeSingle();
+      data = result.data;
+      error = result.error;
+    }
     
     if (error) {
       console.error('[db.updateProfile] Full Error:', error);
