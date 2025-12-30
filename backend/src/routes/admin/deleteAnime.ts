@@ -4,10 +4,27 @@ import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 const router = Router();
 
 router.use((req, res, next) => {
-  const origin = process.env.CORS_ORIGIN || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  // Allow production domain and Vercel
+  const allowedOrigins = [
+    'https://anirias.com',
+    'https://anirias.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ];
+  
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (process.env.CORS_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });

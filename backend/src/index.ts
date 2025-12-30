@@ -17,8 +17,9 @@ const allowedOrigins = allowedOrigin === '*'
   ? '*' 
   : allowedOrigin.split(',').map((o) => o.trim());
 
-// Default allowed origins (add Vercel and localhost for dev)
+// Default allowed origins (add production domain, Vercel and localhost for dev)
 const defaultOrigins = [
+  'https://anirias.com',
   'https://anirias.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
