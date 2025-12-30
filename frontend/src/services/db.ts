@@ -1349,7 +1349,7 @@ export const db = {
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         // No active announcement is not an error
@@ -1358,7 +1358,7 @@ export const db = {
         return null;
       }
 
-      return data;
+      return data || null;
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getActiveAnnouncement] Unexpected error:', err);
       return null;
