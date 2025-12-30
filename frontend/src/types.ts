@@ -161,6 +161,17 @@ export interface Comment {
   profiles?: CommentProfile;
 }
 
+export interface AdminNotification {
+  id: string;
+  type: 'info' | 'warning' | 'error';
+  title: string;
+  message: string;
+  source: 'animely' | 'system' | 'downloader' | 'import';
+  is_read: boolean;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
 export type AuthStatus = 'LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED';
 
 export interface LoadState<T> {
