@@ -61,11 +61,18 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
         </div>
 
         {/* Badges */}
-        <div className="absolute top-2 left-2 md:top-3 md:left-3 flex flex-col gap-2">
+        <div className="absolute top-2 left-2 md:top-3 md:left-3 flex flex-row gap-2 flex-wrap">
            {episode ? (
-             <span className="bg-brand-red text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-lg shadow-lg uppercase tracking-widest animate-pulse">
-                YENİ
-             </span>
+             <>
+               <span className="bg-brand-red text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-lg shadow-lg uppercase tracking-widest animate-pulse">
+                  YENİ
+               </span>
+               {(episode.season?.season_number ?? episode.seasons?.season_number ?? episode.season_number) && (
+                 <span className="bg-gray-800/80 backdrop-blur-md text-gray-300 text-[8px] md:text-[9px] font-black px-2 md:px-2.5 py-1 rounded-lg border border-gray-700/50 uppercase tracking-wide">
+                  {(episode.season?.season_number ?? episode.seasons?.season_number ?? episode.season_number)}. Sezon
+               </span>
+               )}
+             </>
            ) : (
              <span className="bg-white/10 backdrop-blur-md text-white text-[8px] md:text-[9px] font-black px-2 py-1 rounded border border-white/10">
                 HD
