@@ -89,7 +89,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
         <div className="absolute bottom-0 left-0 right-0 p-3 md:p-5 transform lg:translate-y-2 lg:group-hover:translate-y-0 transition-transform duration-300">
           
           {episode && (
-             <p className="text-[8px] md:text-[9px] font-black text-brand-red uppercase tracking-widest mb-1">
+             <p className="text-[8px] md:text-[9px] font-black text-white uppercase tracking-widest mb-1">
                {episode.season_number ? `S${episode.season_number} E${episode.episode_number}` : `BÖLÜM ${episode.episode_number}`}
              </p>
           )}
