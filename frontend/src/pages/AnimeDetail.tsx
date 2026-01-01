@@ -187,7 +187,7 @@ const AnimeDetail: React.FC = () => {
   };
 
   return (
-    <div className="bg-brand-black min-h-screen pb-40">
+    <div className="bg-brand-black min-h-screen pb-40 overflow-x-hidden">
       {/* Background Banner - Fail-safe: show gradient if image fails */}
       <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden bg-gradient-to-br from-brand-red/20 via-brand-black to-brand-black">
         {(anime.banner_image || anime.cover_image) && (
@@ -275,7 +275,7 @@ const AnimeDetail: React.FC = () => {
           </div>
 
           {/* Main Content */}
-          <div className="flex-grow lg:pt-24 text-center lg:text-left">
+          <div className="flex-grow lg:pt-24 text-center lg:text-left overflow-x-hidden">
             <h1 className="text-4xl md:text-5xl lg:text-8xl font-black text-white uppercase italic tracking-tighter leading-[0.9] mb-6 lg:mb-10 drop-shadow-2xl">{titleString}</h1>
             
             <p className="text-gray-300 text-sm md:text-lg leading-relaxed max-w-4xl mb-8 lg:mb-12 opacity-90">{anime.description}</p>
@@ -313,13 +313,13 @@ const AnimeDetail: React.FC = () => {
                </div>
             </div>
 
-            <section className="space-y-8 lg:space-y-12 mb-16 lg:mb-24 text-left">
+            <section className="space-y-8 lg:space-y-12 mb-16 lg:mb-24 text-left overflow-x-hidden">
                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <h3 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter">BÖLÜM <span className="text-brand-red">LİSTESİ</span></h3>
                   
                   {/* Season Selector - Only show if multiple seasons */}
                   {seasonNumbers.length > 1 && (
-                    <div className="flex bg-brand-dark/50 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full">
+                    <div className="flex bg-brand-dark/50 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full flex-shrink-0">
                       {seasonNumbers.map(seasonNum => (
                         <button 
                           key={seasonNum} 
@@ -327,7 +327,7 @@ const AnimeDetail: React.FC = () => {
                             setSelectedSeasonNumber(seasonNum);
                             setSearchParams({ season: String(seasonNum) });
                           }} 
-                          className={`px-4 lg:px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedSeasonNumber === seasonNum ? 'bg-brand-red text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+                          className={`px-4 lg:px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedSeasonNumber === seasonNum ? 'bg-brand-red text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
                         >
                           SEZON {seasonNum}
                         </button>
