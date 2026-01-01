@@ -234,7 +234,7 @@ const Home: React.FC = () => {
           </div>
           <div className="flex gap-6 md:gap-10 overflow-x-auto pb-12 scrollbar-hide snap-x px-2 md:px-4 -mx-4 md:mx-0">
             {top10.map((anime, idx) => (
-              <div key={anime.id} className="w-48 md:w-64 flex-shrink-0 snap-start pl-8 md:pl-12">
+              <div key={anime.id} className="w-48 md:w-64 flex-shrink-0 snap-start pl-12 md:pl-16">
                 <AnimeCard anime={anime} rank={idx + 1} />
               </div>
             ))}

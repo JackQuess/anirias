@@ -30,14 +30,14 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
            <span className="absolute -left-4 bottom-8 text-[120px] md:text-[160px] font-black leading-none italic text-transparent z-0 select-none transition-all lg:group-hover:-translate-x-2" style={{ WebkitTextStroke: '2px #333' }}>
             {rank}
            </span>
-           <span className="absolute -left-4 bottom-8 text-[120px] md:text-[160px] font-black leading-none italic text-brand-red/10 lg:group-hover:text-brand-red z-0 select-none opacity-0 lg:group-hover:opacity-100 transition-all duration-500 lg:group-hover:-translate-x-2 hidden lg:block">
+           <span className="absolute -left-4 bottom-8 text-[120px] md:text-[160px] font-black leading-none italic text-brand-red/10 lg:group-hover:text-brand-red z-20 select-none opacity-0 lg:group-hover:opacity-100 transition-all duration-500 lg:group-hover:-translate-x-2 hidden lg:block">
             {rank}
            </span>
         </>
       )}
 
       {/* Main Card Container */}
-      <div className={`relative w-full rounded-2xl md:rounded-[2rem] overflow-hidden border border-white/5 transition-all duration-500 lg:group-hover:border-brand-red lg:group-hover:shadow-[0_0_30px_rgba(229,9,20,0.3)] bg-brand-surface z-10 ${episode ? 'aspect-[4/5]' : 'aspect-[2/3]'}`}>
+      <div className={`relative w-full rounded-2xl md:rounded-[2rem] overflow-hidden border border-white/5 transition-all duration-500 lg:group-hover:border-brand-red lg:group-hover:shadow-[0_0_30px_rgba(229,9,20,0.3)] bg-brand-surface z-15 ${episode ? 'aspect-[4/5]' : 'aspect-[2/3]'}`}>
         
         {/* Image */}
         <img 
