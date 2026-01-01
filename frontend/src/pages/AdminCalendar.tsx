@@ -37,12 +37,16 @@ const AdminCalendar: React.FC = () => {
     if (!editing) return;
     setIsSaving(true);
     try {
+      const adminToken =
+        localStorage.getItem('admin_token') ||
+        localStorage.getItem('ADMIN_TOKEN') ||
+        undefined;
       await db.updateEpisode(editing.id, {
         status: form.status,
         air_date: form.air_date || null,
         episode_number: form.episode_number,
         short_note: form.short_note || null,
-      });
+      }, adminToken);
       setEditing(null);
       setForm({});
       await reload();

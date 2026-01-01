@@ -646,12 +646,17 @@ export const db = {
   },
 
   updateEpisode: async (id: string, updates: Partial<Episode>, adminToken?: string): Promise<Episode> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'updateEpisode: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: PUT /api/admin/update-episode/:id'
-    );
+    // Admin operation - uses backend API for security
+    try {
+      const data = await callBackendApi(`/api/admin/update-episode/${id}`, 'PUT', updates, adminToken);
+      if (!data.success || !data.episode) {
+        throw new Error(data.error || 'Failed to update episode');
+      }
+      return data.episode as Episode;
+    } catch (err: any) {
+      console.error('[db.updateEpisode] Error:', err);
+      throw err;
+    }
   },
 
   deleteEpisode: async (id: string, adminToken?: string): Promise<void> => {
