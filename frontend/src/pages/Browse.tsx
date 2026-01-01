@@ -7,6 +7,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import AnimeCard from '../components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
+import { translateGenre, translateGenreToEnglish } from '@/utils/genreTranslations';
 
 const Browse: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -40,7 +41,9 @@ const Browse: React.FC = () => {
     ];
     const s = new Set<string>(['Hepsi', ...defaultGenres]);
     allAnimes?.forEach(a => a.genres?.forEach(g => s.add(g)));
-    return Array.from(s).sort();
+    
+    // Türkçe'ye çevir ve sırala
+    return Array.from(s).map(g => g === 'Hepsi' ? g : translateGenre(g)).sort();
   }, [allAnimes]);
 
   const years = useMemo(() => {
@@ -55,7 +58,11 @@ const Browse: React.FC = () => {
     let results = allAnimes.filter(anime => {
       const title = getDisplayTitle(anime.title).toLowerCase();
       const matchesSearch = title.includes(searchQuery.toLowerCase());
-      const matchesGenre = selectedGenre === 'Hepsi' || anime.genres?.includes(selectedGenre);
+      
+      // Seçilen tür Türkçe ise İngilizce'ye çevir (database'de İngilizce tutuluyor)
+      const genreToMatch = selectedGenre === 'Hepsi' ? 'Hepsi' : translateGenreToEnglish(selectedGenre);
+      const matchesGenre = genreToMatch === 'Hepsi' || anime.genres?.includes(genreToMatch);
+      
       const matchesYear = selectedYear === 'Hepsi' || anime.year.toString() === selectedYear;
       return matchesSearch && matchesGenre && matchesYear;
     });
@@ -82,7 +89,8 @@ const Browse: React.FC = () => {
 
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
 
-  const popularQuickGenres = ['Action', 'Romance', 'Sci-Fi', 'Fantasy', 'Sports', 'Slice of Life'];
+  // Popüler hızlı türler - Türkçe gösterilecek
+  const popularQuickGenres = ['Action', 'Romance', 'Sci-Fi', 'Fantasy', 'Sports', 'Slice of Life'].map(translateGenre);
 
   return (
     <div className="min-h-screen bg-brand-black pb-40">

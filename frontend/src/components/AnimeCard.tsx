@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Anime, Episode } from '../types';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { translateGenre } from '@/utils/genreTranslations';
 
 interface AnimeCardProps {
   anime: Anime;
@@ -96,7 +97,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
 
           {!episode && (
              <p className="text-[8px] md:text-[9px] font-black text-brand-red uppercase tracking-widest mb-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 delay-75 transform lg:translate-y-2 lg:group-hover:translate-y-0">
-               {anime.genres?.[0]}
+               {anime.genres?.[0] ? translateGenre(anime.genres[0]) : ''}
              </p>
           )}
 

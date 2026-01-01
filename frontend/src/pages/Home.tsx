@@ -10,6 +10,7 @@ import AnimeCard from '../components/AnimeCard';
 import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { translateGenres } from '@/utils/genreTranslations';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -99,7 +100,7 @@ const Home: React.FC = () => {
                   <div className="flex items-center gap-2 md:gap-3 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5">
                      <span className="text-yellow-500 font-black italic text-base md:text-lg">★ {heroAnime.score}</span>
                      <span className="text-white/20">|</span>
-                     <span className="text-white/80 text-[10px] md:text-xs font-bold uppercase tracking-widest">{heroAnime.genres?.slice(0,3).join(' • ')}</span>
+                     <span className="text-white/80 text-[10px] md:text-xs font-bold uppercase tracking-widest">{translateGenres(heroAnime.genres?.slice(0,3) || []).join(' • ')}</span>
                      <span className="text-white/20">|</span>
                      <span className="text-white/80 text-[10px] md:text-xs font-bold uppercase tracking-widest">{heroAnime.year}</span>
                   </div>
