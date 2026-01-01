@@ -12,10 +12,10 @@ const Legal: React.FC = () => {
       subtitle: 'ANIRIAS MANİFESTOSU',
       body: (
         <>
-          <p className="mb-6">Anirias, anime tutkunları için tasarlanmış, sıradanlığa meydan okuyan yeni nesil bir yayın platformudur. Biz sadece anime izletmiyoruz; size o evrenin bir parçası olma hissini yaşatıyoruz.</p>
-          <p className="mb-6">Modern arayüzümüz, yapay zeka destekli öneri motorumuz ve topluluk odaklı özelliklerimizle, izleme deneyimini pasif bir eylemden aktif bir yolculuğa dönüştürüyoruz.</p>
+          <p className="mb-6">Anirias, anime tutkunları için tasarlanmış, sıradanlığın ötesine geçen yeni nesil bir yayın platformudur. İlhamını anime dünyasının ikonik, karizmatik ve güçlü karakterlerinden alır; izleyiciyi yalnızca ekrana değil, hikâyenin merkezine taşır. Burada izlemek bir alışkanlık değil, bir bağ kurma biçimidir.</p>
+          <p className="mb-6">Karanlık estetik, güçlü bir duruş ve zarif bir sadelik… Anirias, animeyi yalnızca anlatılan bir hikâye olarak değil, hissedilen bir evren olarak sunar. Her detay, izleyicide iz bırakmak için tasarlanır.</p>
           <h3 className="text-white text-xl font-black italic mt-8 mb-4">MİSYONUMUZ</h3>
-          <p>Global anime kültürünü, en yüksek kalitede ve en erişilebilir şekilde sunarak, hayranlar için dijital bir sığınak oluşturmak.</p>
+          <p>Global anime kültürünü; yüksek kalite, özgün atmosfer ve sadakat hissi odağında sunarak, anime tutkunları için güvenilir, karakterli ve kalıcı bir dijital merkez oluşturmak.</p>
         </>
       )
     },
