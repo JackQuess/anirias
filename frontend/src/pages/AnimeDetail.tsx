@@ -9,6 +9,7 @@ import { WatchlistStatus } from '../types';
 import AnimeCard from '../components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { translateGenre } from '@/utils/genreTranslations';
 
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -269,7 +270,7 @@ const AnimeDetail: React.FC = () => {
                   <div className="flex justify-between items-center"><span className="text-[10px] text-gray-500 font-bold uppercase">DURUM</span><span className="text-white font-black">DEVAM EDİYOR</span></div>
                </div>
                <div className="flex flex-wrap gap-2 pt-4">
-                  {anime.genres.map(g => <span key={g} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-[8px] font-black text-gray-400 uppercase">{g}</span>)}
+                  {anime.genres.map(g => <span key={g} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-[8px] font-black text-gray-400 uppercase">{translateGenre(g)}</span>)}
                </div>
             </div>
           </div>
@@ -309,7 +310,7 @@ const AnimeDetail: React.FC = () => {
                   </div>
                </div>
                <div className="flex flex-wrap gap-2 mt-6">
-                  {anime.genres.map(g => <span key={g} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-[8px] font-black text-gray-400 uppercase">{g}</span>)}
+                  {anime.genres.map(g => <span key={g} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-[8px] font-black text-gray-400 uppercase">{translateGenre(g)}</span>)}
                </div>
             </div>
 
