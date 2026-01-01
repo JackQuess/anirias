@@ -336,7 +336,7 @@ const AnimeDetail: React.FC = () => {
                   )}
                </div>
 
-               <div className="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 w-full">
+               <div className="flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 w-full">
                   {episodesLoading ? (
                     <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest py-8">
                       Yükleniyor...
@@ -348,9 +348,9 @@ const AnimeDetail: React.FC = () => {
                         <Link 
                           key={`${ep.id}-${ep.episode_number}`} 
                           to={`/watch/${anime.slug || anime.id}/${seasonNum}/${ep.episode_number}`} 
-                          className="group w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2.5 px-3 py-2 min-h-[56px] hover:bg-white/[0.02]"
+                          className="group w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2 px-2.5 py-1.5 min-h-[44px] hover:bg-white/[0.02]"
                         >
-                          <div className="w-7 h-7 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[10px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
+                          <div className="w-6 h-6 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[9px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
                             {ep.episode_number}
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
