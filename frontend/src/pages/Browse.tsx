@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { useSearchParams } from 'react-router-dom';
@@ -14,23 +14,66 @@ const Browse: React.FC = () => {
   const initialGenre = searchParams.get('genre') || 'Hepsi';
   
   // PERFORMANCE FIX: Fetch with reasonable limit for Browse page
-  // Browse needs all animes for filtering, but we limit to 200 for performance
+  // Reduced from 200 to 100 to improve initial load time (-50% payload)
   // If catalog grows beyond this, implement server-side filtering/pagination
-  const { data: allAnimes, loading, error, reload } = useLoad(() => db.getAllAnimes('created_at', 200));
+  const { data: allAnimes, loading, error, reload } = useLoad(() => db.getAllAnimes('created_at', 100));
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string>(initialGenre);
   const [selectedSort, setSelectedSort] = useState<'popular' | 'newest' | 'score'>('popular');
   const [selectedYear, setSelectedYear] = useState<string>('Hepsi');
   
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24); // Initial cards to render
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // PERFORMANCE FIX: Debounce search input to prevent excessive filtering
+  // Delays filter recalculation by 300ms after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 80);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // PERFORMANCE FIX: Intersection observer for progressive card rendering
+  // Only render visible cards to reduce initial DOM load
+  // Pattern reused from NewEpisodes.tsx
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredResults.length) {
+          setVisibleCount(prev => Math.min(prev + 24, filteredResults.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '400px' } // Trigger 400px before reaching bottom
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget && filteredResults.length > visibleCount) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [visibleCount, filteredResults.length]);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [debouncedSearch, selectedGenre, selectedYear, selectedSort]);
 
   const genres = useMemo(() => {
     // Standart anime türleri listesi (Mock veri olmasa bile görünsün)
@@ -57,7 +100,7 @@ const Browse: React.FC = () => {
     
     let results = allAnimes.filter(anime => {
       const title = getDisplayTitle(anime.title).toLowerCase();
-      const matchesSearch = title.includes(searchQuery.toLowerCase());
+      const matchesSearch = title.includes(debouncedSearch.toLowerCase());
       
       // Seçilen tür Türkçe ise İngilizce'ye çevir (database'de İngilizce tutuluyor)
       const genreToMatch = selectedGenre === 'Hepsi' ? 'Hepsi' : translateGenreToEnglish(selectedGenre);
@@ -76,7 +119,7 @@ const Browse: React.FC = () => {
     });
 
     return results;
-  }, [allAnimes, searchQuery, selectedGenre, selectedYear, selectedSort]);
+  }, [allAnimes, debouncedSearch, selectedGenre, selectedYear, selectedSort]);
 
   if (loading) return (
     <div className="min-h-screen pt-32 px-10 space-y-12 bg-brand-black">
@@ -197,11 +240,18 @@ const Browse: React.FC = () => {
          </div>
          
          {filteredResults.length > 0 ? (
-           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-12">
-             {filteredResults.map(anime => (
-               <AnimeCard key={anime.id} anime={anime} />
-             ))}
-           </div>
+           <>
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-12">
+               {filteredResults.slice(0, visibleCount).map(anime => (
+                 <AnimeCard key={anime.id} anime={anime} />
+               ))}
+             </div>
+             
+             {/* Intersection observer target for progressive loading */}
+             {visibleCount < filteredResults.length && (
+               <div ref={observerTarget} className="h-4 mt-12" />
+             )}
+           </>
          ) : (
            <div className="py-40 text-center bg-brand-dark/30 rounded-[4rem] border border-dashed border-white/5 flex flex-col items-center animate-fade-in-up">
               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8 border border-white/10 animate-pulse">

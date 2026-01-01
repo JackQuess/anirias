@@ -49,6 +49,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
         <img 
           src={coverSrc} 
           referrerPolicy="no-referrer" 
+          loading="lazy"
           className="w-full h-full object-cover transition-transform duration-700 lg:group-hover:scale-110 lg:group-hover:rotate-1" 
           alt={title}
           onError={(e) => {
@@ -122,4 +123,6 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
   );
 };
 
-export default AnimeCard;
+// PERFORMANCE FIX: Memoize component to prevent unnecessary re-renders
+// When parent (Browse) updates filters, unchanged cards won't re-render
+export default React.memo(AnimeCard);
