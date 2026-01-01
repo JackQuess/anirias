@@ -13,7 +13,10 @@ const AdminAnimes: React.FC = () => {
 
   // Fetch animes - always returns array
   const fetchAnimes = useCallback(async (): Promise<Anime[]> => {
-    const data = await db.getAllAnimes('created_at');
+    // PERFORMANCE FIX: Admin page needs to see all animes for management
+    // But we limit to 500 to prevent memory issues on large catalogs
+    // For larger catalogs, implement server-side pagination
+    const data = await db.getAllAnimes('created_at', 500);
     return Array.isArray(data) ? data : [];
   }, []);
 

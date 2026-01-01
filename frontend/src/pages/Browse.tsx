@@ -12,7 +12,10 @@ const Browse: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialGenre = searchParams.get('genre') || 'Hepsi';
   
-  const { data: allAnimes, loading, error, reload } = useLoad(db.getAllAnimes);
+  // PERFORMANCE FIX: Fetch with reasonable limit for Browse page
+  // Browse needs all animes for filtering, but we limit to 200 for performance
+  // If catalog grows beyond this, implement server-side filtering/pagination
+  const { data: allAnimes, loading, error, reload } = useLoad(() => db.getAllAnimes('created_at', 200));
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string>(initialGenre);

@@ -59,11 +59,13 @@ const Profile: React.FC = () => {
   const { data: watchlist, reload: reloadWatchlist } = useLoad(fetchWatchlist, [userId]);
 
   // Reload watchlist when watchlist tab becomes active (in case user added items from other pages)
+  // FIX: Remove reloadWatchlist from dependency array to prevent infinite loop
   useEffect(() => {
     if (activeTab === 'watchlist') {
       reloadWatchlist();
     }
-  }, [activeTab, reloadWatchlist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]); // Only depend on activeTab, not reloadWatchlist
 
   // Use history length as stable dependency instead of entire history array
   const historyLength = history?.length ?? 0;

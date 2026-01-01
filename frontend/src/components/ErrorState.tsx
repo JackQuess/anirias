@@ -1,11 +1,45 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 
 interface ErrorStateProps {
   message: string;
   onRetry?: () => void;
 }
 
+const MAX_RETRIES = 3;
+const COOLDOWN_MS = 3000; // 3 seconds cooldown
+
 const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
+  const [retryCount, setRetryCount] = useState(0);
+  const [isOnCooldown, setIsOnCooldown] = useState(false);
+  const lastRetryTime = useRef<number>(0);
+
+  const handleRetry = () => {
+    if (!onRetry) return;
+    
+    const now = Date.now();
+    const timeSinceLastRetry = now - lastRetryTime.current;
+    
+    // Enforce cooldown
+    if (timeSinceLastRetry < COOLDOWN_MS) {
+      setIsOnCooldown(true);
+      const remainingTime = Math.ceil((COOLDOWN_MS - timeSinceLastRetry) / 1000);
+      setTimeout(() => setIsOnCooldown(false), COOLDOWN_MS - timeSinceLastRetry);
+      return;
+    }
+    
+    // Check retry limit
+    if (retryCount >= MAX_RETRIES) {
+      alert('Maximum retry limit reached. Please refresh the page or try again later.');
+      return;
+    }
+    
+    lastRetryTime.current = now;
+    setRetryCount(prev => prev + 1);
+    onRetry();
+  };
+
+  const isRetryDisabled = retryCount >= MAX_RETRIES || isOnCooldown;
+
   return (
     <div className="flex flex-col items-center justify-center p-8 bg-brand-surface border border-red-900/50 rounded-lg text-center my-4">
       <svg
@@ -22,14 +56,26 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
         />
       </svg>
       <h3 className="text-xl font-bold text-white mb-2">Connection Issue</h3>
-      <p className="text-gray-400 mb-6 max-w-md">{message}</p>
+      <p className="text-gray-400 mb-2 max-w-md">{message}</p>
       {onRetry && (
-        <button
-          onClick={onRetry}
-          className="px-6 py-2 bg-brand-red hover:bg-brand-redHover text-white rounded font-medium transition-colors"
-        >
-          Try Again
-        </button>
+        <>
+          {retryCount > 0 && retryCount < MAX_RETRIES && (
+            <p className="text-xs text-gray-500 mb-4">
+              Retry attempt {retryCount}/{MAX_RETRIES}
+            </p>
+          )}
+          <button
+            onClick={handleRetry}
+            disabled={isRetryDisabled}
+            className={`px-6 py-2 rounded font-medium transition-colors ${
+              isRetryDisabled
+                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                : 'bg-brand-red hover:bg-brand-redHover text-white'
+            }`}
+          >
+            {isOnCooldown ? 'Wait...' : retryCount >= MAX_RETRIES ? 'Max Retries Reached' : 'Try Again'}
+          </button>
+        </>
       )}
     </div>
   );

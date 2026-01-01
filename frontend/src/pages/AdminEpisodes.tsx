@@ -222,10 +222,21 @@ const AdminEpisodes: React.FC = () => {
   };
 
   useEffect(() => {
+    // PERFORMANCE FIX: Ensure cleanup of polling interval
+    // Add abort controller to prevent memory leaks
     if (autoRunning) {
       const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
       if (!apiBase) return;
+      
+      let isActive = true; // Track if effect is still active
+      
       const timer = setInterval(async () => {
+        // Skip if effect was cleaned up
+        if (!isActive) {
+          clearInterval(timer);
+          return;
+        }
+        
         try {
           if (!autoResult?.jobId) return;
           const res = await fetch(`${apiBase}/api/admin/auto-import/${autoResult.jobId}/progress`);
@@ -236,24 +247,28 @@ const AdminEpisodes: React.FC = () => {
           const percent = totalEpisodes ? Math.round((completedEpisodes / totalEpisodes) * 100) : Number(prog?.percent ?? progress.percent ?? 0);
           const statusText = prog?.status || data?.state || 'idle';
           const message = prog?.message || (statusText === 'completed' ? 'Tamamlandı' : 'Devam ediyor');
-          setProgress((prev) => ({
-            total: totalEpisodes,
-            processed: completedEpisodes,
-            success: completedEpisodes,
-            failed: Number(prog?.failed ?? prev.failed ?? 0),
-            currentEpisode: prog?.currentEpisode ?? null,
-            status: statusText,
-            percent,
-            message,
-            lastUpdateAt: Date.now(),
-            error: prog?.error ?? null
-          }));
+          
+          if (isActive) { // Only update state if still active
+            setProgress((prev) => ({
+              total: totalEpisodes,
+              processed: completedEpisodes,
+              success: completedEpisodes,
+              failed: Number(prog?.failed ?? prev.failed ?? 0),
+              currentEpisode: prog?.currentEpisode ?? null,
+              status: statusText,
+              percent,
+              message,
+              lastUpdateAt: Date.now(),
+              error: prog?.error ?? null
+            }));
+          }
+          
           if (data?.state === 'completed' || data?.state === 'failed') {
             clearInterval(timer);
             setProgressTimer(null);
             setAutoRunning(false);
             // Reload episodes after import completes
-            if (data?.state === 'completed') {
+            if (data?.state === 'completed' && isActive) {
               reload();
               reloadSeasons();
             }
@@ -262,13 +277,17 @@ const AdminEpisodes: React.FC = () => {
           // ignore polling errors
         }
       }, 2000);
+      
       setProgressTimer(timer as any);
+      
       return () => {
+        isActive = false; // Mark effect as inactive
         clearInterval(timer);
         setProgressTimer(null);
       };
     }
-  }, [autoRunning]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunning]); // Only depend on autoRunning to prevent recreation
 
   const runAutoImport = async () => {
     if (!animeId) return;

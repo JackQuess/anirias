@@ -68,7 +68,7 @@ export const db = {
       history.forEach(h => h.anime?.genres?.forEach(g => genreCounts[g] = (genreCounts[g] || 0) + 1));
       const favGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).map(e => e[0]).slice(0, 3);
 
-      if (favGenres.length === 0) return db.getAllAnimes('view_count');
+      if (favGenres.length === 0) return db.getAllAnimes('view_count', 10);
 
       // 2. Bu türlerdeki animeleri getir (rpc veya filtreleme ile)
       const { data, error } = await supabase!
@@ -141,14 +141,24 @@ export const db = {
     }
   },
 
-  getAllAnimes: async (sortBy: string = 'created_at'): Promise<Anime[]> => {
+  getAllAnimes: async (sortBy: string = 'created_at', limit?: number): Promise<Anime[]> => {
     if (!checkEnv()) return [];
     
     try {
-      const { data, error } = await supabase!
+      // PERFORMANCE FIX: Add default limit to prevent fetching thousands of records
+      // Only fetch unlimited when explicitly requested (limit = 0)
+      const effectiveLimit = limit === 0 ? undefined : (limit || 100);
+      
+      let query = supabase!
         .from('animes')
         .select('*')
         .order(sortBy, { ascending: false });
+      
+      if (effectiveLimit) {
+        query = query.limit(effectiveLimit);
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         if (import.meta.env.DEV) console.error('[db.getAllAnimes] Query error:', error);
@@ -860,15 +870,18 @@ export const db = {
     await supabase!.from('watch_history').insert([history]);
   },
 
-  getWatchHistory: async (userId: string): Promise<WatchHistory[]> => {
+  getWatchHistory: async (userId: string, limit: number = 50): Promise<WatchHistory[]> => {
     if (!checkEnv()) return [];
     
     try {
+      // PERFORMANCE FIX: Add limit to prevent fetching entire watch history
+      // Default to 50 recent items, can be increased if needed
       const { data, error } = await supabase!
         .from('watch_history')
         .select('*, anime:animes(*), episode:episodes(*)')
         .eq('user_id', userId)
-        .order('completed_at', { ascending: false });
+        .order('completed_at', { ascending: false})
+        .limit(limit);
       
       if (error) {
         if (import.meta.env.DEV) console.error('[db.getWatchHistory] Query error:', error);
