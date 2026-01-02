@@ -45,36 +45,6 @@ const Browse: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // PERFORMANCE FIX: Intersection observer for progressive card rendering
-  // Only render visible cards to reduce initial DOM load
-  // Pattern reused from NewEpisodes.tsx
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && visibleCount < filteredResults.length) {
-          setVisibleCount(prev => Math.min(prev + 24, filteredResults.length));
-        }
-      },
-      { threshold: 0.1, rootMargin: '400px' } // Trigger 400px before reaching bottom
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget && filteredResults.length > visibleCount) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
-  }, [visibleCount, filteredResults.length]);
-
-  // Reset visible count when filters change
-  useEffect(() => {
-    setVisibleCount(24);
-  }, [debouncedSearch, selectedGenre, selectedYear, selectedSort]);
-
   const genres = useMemo(() => {
     // Standart anime türleri listesi (Mock veri olmasa bile görünsün)
     const defaultGenres = [
@@ -120,6 +90,36 @@ const Browse: React.FC = () => {
 
     return results;
   }, [allAnimes, debouncedSearch, selectedGenre, selectedYear, selectedSort]);
+
+  // PERFORMANCE FIX: Intersection observer for progressive card rendering
+  // Only render visible cards to reduce initial DOM load
+  // Pattern reused from NewEpisodes.tsx
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredResults.length) {
+          setVisibleCount(prev => Math.min(prev + 24, filteredResults.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '400px' } // Trigger 400px before reaching bottom
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget && filteredResults.length > visibleCount) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [visibleCount, filteredResults.length]);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [debouncedSearch, selectedGenre, selectedYear, selectedSort]);
 
   if (loading) return (
     <div className="min-h-screen pt-32 px-10 space-y-12 bg-brand-black">
