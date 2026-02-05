@@ -13,6 +13,7 @@ import adminNotificationsRouter from './routes/admin/adminNotifications.js';
 import createAnimeRouter from './routes/admin/createAnime.js';
 import updateAnimeRouter from './routes/admin/updateAnime.js';
 import updateEpisodeRouter from './routes/admin/updateEpisode.js';
+import automationRouter from './routes/automation.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
@@ -67,6 +68,7 @@ app.use(
       'Content-Type', 
       'Authorization', 
       'X-ADMIN-TOKEN',
+      'X-ADMIN-SECRET',
       'X-Requested-With'
     ],
     credentials: true,
@@ -78,7 +80,7 @@ app.use(
 app.options('*', (req: Request, res: Response) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-ADMIN-TOKEN, X-Requested-With');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-ADMIN-TOKEN, X-ADMIN-SECRET, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.sendStatus(200);
 });
@@ -99,6 +101,7 @@ app.use('/api/admin', adminNotificationsRouter);
 app.use('/api/admin', createAnimeRouter);
 app.use('/api/admin', updateAnimeRouter);
 app.use('/api/admin', updateEpisodeRouter);
+app.use('/api/automation', automationRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
