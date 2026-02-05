@@ -47,6 +47,13 @@ export interface AutomationJobStatus {
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_STATUSES = ['done', 'failed'];
 
+export interface AnimeSearchResult {
+  id: number;
+  title: string;
+  year: number | null;
+  image: string | null;
+}
+
 function getApiBase(): string | undefined {
   return (import.meta as any).env?.VITE_API_BASE_URL;
 }
@@ -94,6 +101,11 @@ export default function AdminAutomation() {
   const [jobIds, setJobIds] = useState<string[]>([]);
   const [jobStatuses, setJobStatuses] = useState<Record<string, AutomationJobStatus>>({});
   const pollDoneToastRef = useRef(false);
+  const [manualSource, setManualSource] = useState<'anilist' | 'mal'>('anilist');
+  const [manualQuery, setManualQuery] = useState('');
+  const [manualResults, setManualResults] = useState<AnimeSearchResult[]>([]);
+  const [manualSearching, setManualSearching] = useState(false);
+  const [manualImportingId, setManualImportingId] = useState<number | null>(null);
 
   const toggleSourceProvider = useCallback((p: SourceProvider) => {
     setSourceProviders((prev) =>
@@ -212,6 +224,66 @@ export default function AdminAutomation() {
     return () => clearInterval(intervalId);
   }, [jobIds.join(','), fetchJob]);
 
+  const runManualSearch = async () => {
+    const apiBase = getApiBase();
+    if (!apiBase || !manualQuery.trim()) {
+      if (!manualQuery.trim()) showToast('Arama terimi girin.', 'error');
+      return;
+    }
+    setManualSearching(true);
+    setManualResults([]);
+    try {
+      const res = await fetch(
+        `${apiBase}/api/anime/search?source=${encodeURIComponent(manualSource)}&q=${encodeURIComponent(manualQuery.trim())}`
+      );
+      const data = await res.json().catch(() => []);
+      if (!res.ok) {
+        showToast((data && data.error) || 'Arama başarısız', 'error');
+        return;
+      }
+      setManualResults(Array.isArray(data) ? data : []);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Arama başarısız', 'error');
+    } finally {
+      setManualSearching(false);
+    }
+  };
+
+  const runManualImport = async (item: AnimeSearchResult) => {
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+    setManualImportingId(item.id);
+    try {
+      const payload =
+        manualSource === 'anilist'
+          ? { source: 'anilist' as const, anilist_id: item.id }
+          : { source: 'mal' as const, mal_id: item.id };
+      const res = await fetch(`${apiBase}/api/automation/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'IMPORT_ANIME', payload }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data?.error as string) || 'Import başarısız', 'error');
+        return;
+      }
+      const ids = Array.isArray(data?.job_ids) ? data.job_ids.filter((id: unknown) => typeof id === 'string') : [];
+      if (ids.length > 0) {
+        setJobIds((prev) => [...prev, ...ids]);
+        setJobStatuses({});
+        pollDoneToastRef.current = false;
+        showToast('Job queued', 'info');
+      } else {
+        showToast('Import başlatıldı (job id yok)', 'info');
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Import başarısız', 'error');
+    } finally {
+      setManualImportingId(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <header className="pb-4 border-b border-white/5">
@@ -247,6 +319,80 @@ export default function AdminAutomation() {
             </p>
           </button>
         ))}
+      </div>
+
+      <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6">
+        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
+          Manual Import
+        </h3>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-4">
+          Kaynak seçin, arayın, listeden import edin.
+        </p>
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">Source</label>
+            <select
+              value={manualSource}
+              onChange={(e) => setManualSource(e.target.value as 'anilist' | 'mal')}
+              className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:border-brand-red outline-none"
+            >
+              <option value="anilist">AniList</option>
+              <option value="mal">MAL</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">Arama (q)</label>
+            <input
+              type="text"
+              value={manualQuery}
+              onChange={(e) => setManualQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && runManualSearch()}
+              placeholder="Anime adı..."
+              className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-brand-red outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={runManualSearch}
+            disabled={manualSearching}
+            className="px-4 py-2 rounded-xl bg-white/10 text-white text-xs font-bold uppercase tracking-wider hover:bg-white/20 disabled:opacity-50"
+          >
+            {manualSearching ? 'Aranıyor…' : 'Search'}
+          </button>
+        </div>
+        {manualResults.length > 0 && (
+          <div className="border border-white/10 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-white/5 text-[10px] uppercase tracking-wider text-gray-500">
+                  <th className="text-left p-3">Title</th>
+                  <th className="text-left p-3 w-20">Year</th>
+                  <th className="text-left p-3 w-24">ID</th>
+                  <th className="text-left p-3 w-24" />
+                </tr>
+              </thead>
+              <tbody>
+                {manualResults.map((item) => (
+                  <tr key={`${manualSource}-${item.id}`} className="border-t border-white/5">
+                    <td className="p-3 text-white font-medium">{item.title}</td>
+                    <td className="p-3 text-gray-400">{item.year ?? '—'}</td>
+                    <td className="p-3 text-gray-400 font-mono text-xs">{item.id}</td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => runManualImport(item)}
+                        disabled={manualImportingId !== null}
+                        className="px-3 py-1.5 rounded-lg bg-brand-red/20 text-brand-red text-xs font-bold uppercase hover:bg-brand-red/30 disabled:opacity-50"
+                      >
+                        {manualImportingId === item.id ? '…' : 'Import'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {selectedAction && (

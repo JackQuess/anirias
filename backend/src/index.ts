@@ -14,6 +14,7 @@ import createAnimeRouter from './routes/admin/createAnime.js';
 import updateAnimeRouter from './routes/admin/updateAnime.js';
 import updateEpisodeRouter from './routes/admin/updateEpisode.js';
 import automationRouter from './routes/automation.js';
+import animeRouter from './routes/anime.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
@@ -102,6 +103,7 @@ app.use('/api/admin', createAnimeRouter);
 app.use('/api/admin', updateAnimeRouter);
 app.use('/api/admin', updateEpisodeRouter);
 app.use('/api/automation', automationRouter);
+app.use('/api/anime', animeRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {

@@ -93,9 +93,62 @@ router.get('/job', async (req: Request, res: Response) => {
   }
 });
 
+/** Validate IMPORT_ANIME payload: { source: 'anilist'|'mal', anilist_id?: number, mal_id?: number } */
+function validateImportAnimePayload(payload: unknown): { source: 'anilist'; anilist_id: number } | { source: 'mal'; mal_id: number } | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as Record<string, unknown>;
+  const source = p.source;
+  if (source === 'anilist') {
+    const id = p.anilist_id;
+    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return null;
+    return { source: 'anilist', anilist_id: id };
+  }
+  if (source === 'mal') {
+    const id = p.mal_id;
+    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return null;
+    return { source: 'mal', mal_id: id };
+  }
+  return null;
+}
+
 router.post('/run', async (req: Request, res: Response) => {
   if (!isAuthorized(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const body = req.body as { action?: string; payload?: unknown };
+  const action = body?.action;
+
+  if (action === 'IMPORT_ANIME') {
+    const payload = validateImportAnimePayload(body.payload);
+    if (!payload) {
+      return res.status(400).json({
+        error: 'Invalid body',
+        details: 'IMPORT_ANIME requires payload: { source: "anilist", anilist_id: number } or { source: "mal", mal_id: number }',
+      });
+    }
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('jobs')
+        .insert({
+          type: 'IMPORT_ANIME',
+          status: 'queued',
+          payload: payload,
+        })
+        .select('id')
+        .single();
+      if (error) {
+        return res.status(500).json({ error: error.message || 'Failed to create job' });
+      }
+      const id = data?.id;
+      if (!id) {
+        return res.status(500).json({ error: 'Job created but no id returned' });
+      }
+      return res.status(200).json({ ok: true, job_ids: [String(id)] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create job';
+      return res.status(500).json({ error: msg });
+    }
   }
 
   const webhookUrl = process.env.N8N_WEBHOOK_CONTROL_URL;
