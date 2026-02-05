@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { showToast } from '@/components/ToastProvider';
 import type {
   AutomationAction,
@@ -32,12 +32,56 @@ const ACTION_DESCRIPTIONS: Record<AutomationAction, string> = {
   SCAN_MISSING_METADATA: 'Eksik metadata (AniList/MAL) alanlarını doldur.',
 };
 
+export interface AutomationJobStatus {
+  id: string;
+  type: string | null;
+  status: string | null;
+  created_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  last_error: string | null;
+  attempts: number | null;
+  max_attempts: number | null;
+}
+
+const POLL_INTERVAL_MS = 2000;
+const TERMINAL_STATUSES = ['done', 'failed'];
+
 function getApiBase(): string | undefined {
   return (import.meta as any).env?.VITE_API_BASE_URL;
 }
 
 function isSourceAction(action: AutomationAction): boolean {
   return SOURCE_ACTIONS.includes(action);
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return iso;
+  }
+}
+
+function durationMs(startIso: string | null, endIso: string | null): number | null {
+  if (!startIso || !endIso) return null;
+  try {
+    return new Date(endIso).getTime() - new Date(startIso).getTime();
+  } catch {
+    return null;
+  }
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms == null || ms < 0) return '—';
+  if (ms < 1000) return `${ms} ms`;
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec} s`;
+  const min = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${min} m ${s} s`;
 }
 
 export default function AdminAutomation() {
@@ -47,6 +91,9 @@ export default function AdminAutomation() {
   const [limit, setLimit] = useState(LIMIT_DEFAULT);
   const [onlyExisting, setOnlyExisting] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [jobIds, setJobIds] = useState<string[]>([]);
+  const [jobStatuses, setJobStatuses] = useState<Record<string, AutomationJobStatus>>({});
+  const pollDoneToastRef = useRef(false);
 
   const toggleSourceProvider = useCallback((p: SourceProvider) => {
     setSourceProviders((prev) =>
@@ -73,6 +120,19 @@ export default function AdminAutomation() {
     return payload;
   }, [selectedAction, sourceProviders, metadataProviders, limit, onlyExisting]);
 
+  const fetchJob = useCallback(async (id: string): Promise<AutomationJobStatus | null> => {
+    const apiBase = getApiBase();
+    if (!apiBase) return null;
+    try {
+      const res = await fetch(`${apiBase}/api/automation/job?id=${encodeURIComponent(id)}`);
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && data?.job) return data.job as AutomationJobStatus;
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const runWorkflow = async () => {
     if (!selectedAction) {
       showToast('Lütfen bir işlem seçin.', 'error');
@@ -90,6 +150,9 @@ export default function AdminAutomation() {
     }
 
     setLoading(true);
+    setJobIds([]);
+    setJobStatuses({});
+    pollDoneToastRef.current = false;
     try {
       const res = await fetch(`${apiBase}/api/automation/run`, {
         method: 'POST',
@@ -100,16 +163,54 @@ export default function AdminAutomation() {
       if (!res.ok) {
         const msg = (data && typeof data.error === 'string') ? data.error : `HTTP ${res.status}`;
         showToast(msg, 'error');
+        setLoading(false);
         return;
       }
-      showToast('Workflow was started', 'success');
+      const ids = Array.isArray(data?.job_ids) ? data.job_ids.filter((id: unknown) => typeof id === 'string') : [];
+      setJobIds(ids);
+      setLoading(false);
+      if (ids.length > 0) {
+        showToast('Job queued', 'info');
+      } else {
+        showToast('Workflow started (no job ids returned)', 'success');
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'İstek başarısız.';
       showToast(msg, 'error');
-    } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (jobIds.length === 0) return;
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+
+    const poll = async () => {
+      const fetched: AutomationJobStatus[] = [];
+      for (const id of jobIds) {
+        const job = await fetchJob(id);
+        if (job) {
+          fetched.push(job);
+          setJobStatuses((prev) => ({ ...prev, [id]: job }));
+        }
+      }
+      const allTerminal =
+        fetched.length === jobIds.length &&
+        fetched.every((j) => TERMINAL_STATUSES.includes((j.status || '').toLowerCase()));
+      if (!allTerminal) return;
+      clearInterval(intervalId);
+      const hasFailed = fetched.some((j) => (j.status || '').toLowerCase() === 'failed');
+      if (!pollDoneToastRef.current) {
+        pollDoneToastRef.current = true;
+        showToast(hasFailed ? 'Job failed' : 'Job completed', hasFailed ? 'error' : 'success');
+      }
+    };
+
+    const intervalId = setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+    return () => clearInterval(intervalId);
+  }, [jobIds.join(','), fetchJob]);
 
   return (
     <div className="space-y-8">
@@ -240,6 +341,71 @@ export default function AdminAutomation() {
           >
             {loading ? 'Çalışıyor…' : 'Run'}
           </button>
+        </div>
+      )}
+
+      {jobIds.length > 0 && (
+        <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6">
+          <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
+            Job durumu
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-gray-500">
+                  <th className="pb-2 pr-4">Type</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2 pr-4">Created</th>
+                  <th className="pb-2 pr-4">Finished</th>
+                  <th className="pb-2">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobIds.map((id) => {
+                  const job = jobStatuses[id];
+                  const status = (job?.status ?? 'queued').toLowerCase();
+                  const duration = durationMs(job?.started_at ?? null, job?.finished_at ?? null);
+                  return (
+                    <tr key={id} className="border-b border-white/5">
+                      <td className="py-3 pr-4 text-white font-medium">{job?.type ?? id.slice(0, 8)}</td>
+                      <td className="py-3 pr-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            status === 'done'
+                              ? 'bg-green-500/20 text-green-400'
+                              : status === 'failed'
+                                ? 'bg-red-500/20 text-red-400'
+                                : status === 'running'
+                                  ? 'bg-amber-500/20 text-amber-400'
+                                  : 'bg-white/10 text-gray-400'
+                          }`}
+                        >
+                          {status || 'queued'}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 text-gray-400">{formatDate(job?.created_at ?? null)}</td>
+                      <td className="py-3 pr-4 text-gray-400">{formatDate(job?.finished_at ?? null)}</td>
+                      <td className="py-3 text-gray-400">{formatDuration(duration)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {jobIds.some((id) => (jobStatuses[id]?.last_error ?? '').trim()) && (
+            <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/20 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-red-400 mb-2">Hatalar</p>
+              {jobIds.map((id) => {
+                const err = jobStatuses[id]?.last_error?.trim();
+                if (!err) return null;
+                return (
+                  <p key={id} className="text-xs text-red-300/90 font-mono break-all">
+                    {err}
+                  </p>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

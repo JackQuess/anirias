@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { supabaseAdmin } from '../services/supabaseAdmin.js';
 
 const AUTOMATION_ACTIONS = [
   'DISCOVER_NEW_ANIME',
@@ -55,6 +56,43 @@ function validateBody(
 
 const router = Router();
 
+/** GET /api/automation/job?id=<job_id> — job status from Supabase jobs table (no auth: job id is UUID) */
+router.get('/job', async (req: Request, res: Response) => {
+  const id = typeof req.query.id === 'string' ? req.query.id.trim() : null;
+  if (!id) {
+    return res.status(200).json({ ok: false, error: 'JOB_NOT_FOUND' });
+  }
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('jobs')
+      .select('id, type, status, created_at, started_at, finished_at, last_error, attempts, max_attempts')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) {
+      return res.status(200).json({ ok: false, error: 'JOB_NOT_FOUND' });
+    }
+    if (!data) {
+      return res.status(200).json({ ok: false, error: 'JOB_NOT_FOUND' });
+    }
+    return res.status(200).json({
+      ok: true,
+      job: {
+        id: data.id,
+        type: data.type ?? null,
+        status: data.status ?? null,
+        created_at: data.created_at ?? null,
+        started_at: data.started_at ?? null,
+        finished_at: data.finished_at ?? null,
+        last_error: data.last_error ?? null,
+        attempts: data.attempts ?? null,
+        max_attempts: data.max_attempts ?? null,
+      },
+    });
+  } catch {
+    return res.status(200).json({ ok: false, error: 'JOB_NOT_FOUND' });
+  }
+});
+
 router.post('/run', async (req: Request, res: Response) => {
   if (!isAuthorized(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -101,7 +139,12 @@ router.post('/run', async (req: Request, res: Response) => {
       );
     }
 
-    return res.status(200).json(data);
+    const jobIds = Array.isArray((data as { job_ids?: unknown }).job_ids)
+      ? (data as { job_ids: string[] }).job_ids.filter((id): id is string => typeof id === 'string')
+      : typeof (data as { job_id?: unknown }).job_id === 'string'
+        ? [(data as { job_id: string }).job_id]
+        : [];
+    return res.status(200).json({ ok: true, job_ids: jobIds });
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     if (err instanceof Error) {
