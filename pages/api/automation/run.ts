@@ -19,12 +19,12 @@ function isAuthorized(req: NextApiRequest): boolean {
   return false;
 }
 
-function validateBody(body: unknown): { action: string; providers?: string[]; limit?: number; only_existing?: boolean } | null {
+function validateBody(body: unknown): { action: string; providers?: string[]; limit?: number; only_existing?: boolean; job_key?: string } | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
   const action = b.action;
   if (typeof action !== 'string' || !AUTOMATION_ACTIONS.includes(action as any)) return null;
-  const out: { action: string; providers?: string[]; limit?: number; only_existing?: boolean } = { action };
+  const out: { action: string; providers?: string[]; limit?: number; only_existing?: boolean; job_key?: string } = { action };
   if (Array.isArray(b.providers) && b.providers.length > 0) {
     const providers = b.providers.filter((p): p is string => typeof p === 'string' && VALID_PROVIDERS.includes(p));
     if (providers.length > 0) out.providers = providers;
@@ -35,7 +35,20 @@ function validateBody(body: unknown): { action: string; providers?: string[]; li
   if (b.action === 'SCAN_MISSING_METADATA' && typeof b.only_existing === 'boolean') {
     out.only_existing = b.only_existing;
   }
+  if (typeof b.job_key === 'string' && b.job_key.trim()) out.job_key = b.job_key.trim();
   return out;
+}
+
+const JOB_KEY_PREFIX: Record<string, string> = {
+  DISCOVER_NEW_ANIME: 'n8n:discover:',
+  SCAN_NEW_EPISODES: 'n8n:scan_new:',
+  SCAN_MISSING_EPISODES: 'n8n:scan_missing:',
+  SCAN_MISSING_METADATA: 'n8n:scan_missing_metadata:',
+};
+
+function getJobKeyPrefix(action: string, override?: string): string {
+  if (override) return override.endsWith(':') ? override : override + ':';
+  return JOB_KEY_PREFIX[action] ?? `n8n:${action.toLowerCase()}:`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -85,7 +98,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    return res.status(200).json(data);
+    const startedAt = new Date().toISOString();
+    const jobKeyPrefix = getJobKeyPrefix(payload.action, payload.job_key);
+    const jobIds = Array.isArray((data as { job_ids?: unknown }).job_ids)
+      ? (data as { job_ids: string[] }).job_ids.filter((id: unknown): id is string => typeof id === 'string')
+      : typeof (data as { job_id?: unknown }).job_id === 'string'
+        ? [(data as { job_id: string }).job_id]
+        : [];
+    const executionId = (data as { executionId?: string; execution_id?: string }).executionId ?? (data as { execution_id?: string }).execution_id;
+
+    return res.status(200).json({
+      ok: true,
+      action: payload.action,
+      startedAt,
+      jobKeyPrefix,
+      ...(jobIds.length > 0 && { job_ids: jobIds }),
+      ...(typeof executionId === 'string' && executionId && { executionId }),
+    });
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     if (err instanceof Error) {

@@ -45,7 +45,10 @@ export interface AutomationJobStatus {
 }
 
 const POLL_INTERVAL_MS = 2000;
-const TERMINAL_STATUSES = ['done', 'failed'];
+const TERMINAL_STATUSES = ['done', 'failed', 'error', 'retry'];
+const DISCOVERY_WINDOW_SEC = 10;
+const DISCOVERY_TIMEOUT_MS = 90_000;
+const LOGS_LIMIT = 300;
 
 export interface AnimeSearchResult {
   id: number;
@@ -101,11 +104,44 @@ export default function AdminAutomation() {
   const [jobIds, setJobIds] = useState<string[]>([]);
   const [jobStatuses, setJobStatuses] = useState<Record<string, AutomationJobStatus>>({});
   const pollDoneToastRef = useRef(false);
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
+  const [runJobKeyPrefix, setRunJobKeyPrefix] = useState<string | null>(null);
+  const [runAction, setRunAction] = useState<string | null>(null);
+  const [selectedRunJobId, setSelectedRunJobId] = useState<string | null>(null);
+  const [runJobLogs, setRunJobLogs] = useState<Array<{ id: string; job_id: string; level: string | null; message: string | null; created_at: string | null }>>([]);
+  const terminalStableSinceRef = useRef<number | null>(null);
   const [manualSource, setManualSource] = useState<'anilist' | 'mal'>('anilist');
   const [manualQuery, setManualQuery] = useState('');
   const [manualResults, setManualResults] = useState<AnimeSearchResult[]>([]);
   const [manualSearching, setManualSearching] = useState(false);
   const [manualImportingId, setManualImportingId] = useState<number | null>(null);
+  const [workerControls, setWorkerControls] = useState<{
+    id: number;
+    paused?: boolean;
+    max_concurrency?: number;
+    max_per_anime?: number;
+  } | null>(null);
+  const [workerControlsLoading, setWorkerControlsLoading] = useState(false);
+  const [workerControlsPatching, setWorkerControlsPatching] = useState(false);
+  const [maxConcurrencyInput, setMaxConcurrencyInput] = useState('');
+  const [maxPerAnimeInput, setMaxPerAnimeInput] = useState('');
+  const [liveJobs, setLiveJobs] = useState<
+    Array<{
+      id: string;
+      type: string | null;
+      status: string | null;
+      created_at: string | null;
+      started_at: string | null;
+      finished_at: string | null;
+      locked_by: string | null;
+      locked_at: string | null;
+      last_error: string | null;
+    }>
+  >([]);
+  const [liveJobsLoading, setLiveJobsLoading] = useState(false);
+  const [selectedLiveJobId, setSelectedLiveJobId] = useState<string | null>(null);
+  const [jobLogs, setJobLogs] = useState<Array<{ id: string; job_id: string; level: string | null; message: string | null; created_at: string | null }>>([]);
+  const [jobLogsLoading, setJobLogsLoading] = useState(false);
 
   const toggleSourceProvider = useCallback((p: SourceProvider) => {
     setSourceProviders((prev) =>
@@ -145,6 +181,43 @@ export default function AdminAutomation() {
     }
   }, []);
 
+  const fetchRecentJobs = useCallback(
+    async (opts: { startedAt: string; jobKeyPrefix: string; type: string; limit?: number }) => {
+      const apiBase = getApiBase();
+      if (!apiBase) return [];
+      const since = new Date(new Date(opts.startedAt).getTime() - DISCOVERY_WINDOW_SEC * 1000).toISOString();
+      const params = new URLSearchParams({
+        created_after: since,
+        job_key_prefix: opts.jobKeyPrefix,
+        type: opts.type,
+        limit: String(opts.limit ?? 10),
+      });
+      try {
+        const res = await fetch(`${apiBase}/api/admin/jobs?${params}`);
+        const data = await res.json().catch(() => []);
+        if (!res.ok || !Array.isArray(data)) return [];
+        return data as Array<{ id: string }>;
+      } catch {
+        return [];
+      }
+    },
+    []
+  );
+
+  const fetchRunJobLogs = useCallback(async (jobId: string) => {
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/job-logs?job_id=${encodeURIComponent(jobId)}&limit=${LOGS_LIMIT}`
+      );
+      const data = await res.json().catch(() => []);
+      if (res.ok && Array.isArray(data)) setRunJobLogs(data);
+    } catch {
+      setRunJobLogs([]);
+    }
+  }, []);
+
   const runWorkflow = async () => {
     if (!selectedAction) {
       showToast('Lütfen bir işlem seçin.', 'error');
@@ -164,7 +237,13 @@ export default function AdminAutomation() {
     setLoading(true);
     setJobIds([]);
     setJobStatuses({});
+    setRunStartedAt(null);
+    setRunJobKeyPrefix(null);
+    setRunAction(null);
+    setSelectedRunJobId(null);
+    setRunJobLogs([]);
     pollDoneToastRef.current = false;
+    terminalStableSinceRef.current = null;
     try {
       const res = await fetch(`${apiBase}/api/automation/run`, {
         method: 'POST',
@@ -179,12 +258,20 @@ export default function AdminAutomation() {
         return;
       }
       const ids = Array.isArray(data?.job_ids) ? data.job_ids.filter((id: unknown) => typeof id === 'string') : [];
-      setJobIds(ids);
+      const startedAt = typeof data?.startedAt === 'string' ? data.startedAt : null;
+      const jobKeyPrefix = typeof data?.jobKeyPrefix === 'string' ? data.jobKeyPrefix : null;
+      const action = typeof data?.action === 'string' ? data.action : selectedAction ?? null;
       setLoading(false);
       if (ids.length > 0) {
+        setJobIds(ids);
         showToast('Job queued', 'info');
+      } else if (startedAt && jobKeyPrefix && action) {
+        setRunStartedAt(startedAt);
+        setRunJobKeyPrefix(jobKeyPrefix);
+        setRunAction(action);
+        showToast('Workflow started — searching for jobs…', 'info');
       } else {
-        showToast('Workflow started (no job ids returned)', 'success');
+        showToast('Workflow started', 'success');
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'İstek başarısız.';
@@ -192,6 +279,31 @@ export default function AdminAutomation() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!runStartedAt || !runJobKeyPrefix || !runAction || jobIds.length > 0) return;
+    const start = Date.now();
+    const poll = async () => {
+      if (Date.now() - start > DISCOVERY_TIMEOUT_MS) return;
+      const list = await fetchRecentJobs({
+        startedAt: runStartedAt,
+        jobKeyPrefix: runJobKeyPrefix,
+        type: runAction,
+        limit: 10,
+      });
+      if (list.length > 0) {
+        const ids = list.map((j) => j.id);
+        setJobIds(ids);
+        setRunStartedAt(null);
+        setRunJobKeyPrefix(null);
+        setRunAction(null);
+        showToast('Jobs found', 'info');
+      }
+    };
+    poll();
+    const intervalId = setInterval(poll, POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [runStartedAt, runJobKeyPrefix, runAction, jobIds.length, fetchRecentJobs]);
 
   useEffect(() => {
     if (jobIds.length === 0) return;
@@ -210,9 +322,17 @@ export default function AdminAutomation() {
       const allTerminal =
         fetched.length === jobIds.length &&
         fetched.every((j) => TERMINAL_STATUSES.includes((j.status || '').toLowerCase()));
-      if (!allTerminal) return;
+      if (!allTerminal) {
+        terminalStableSinceRef.current = null;
+        return;
+      }
+      const now = Date.now();
+      if (terminalStableSinceRef.current === null) terminalStableSinceRef.current = now;
+      if (now - terminalStableSinceRef.current < 10000) return;
       clearInterval(intervalId);
-      const hasFailed = fetched.some((j) => (j.status || '').toLowerCase() === 'failed');
+      const hasFailed = fetched.some(
+        (j) => ['failed', 'error', 'retry'].includes((j.status || '').toLowerCase())
+      );
       if (!pollDoneToastRef.current) {
         pollDoneToastRef.current = true;
         showToast(hasFailed ? 'Job failed' : 'Job completed', hasFailed ? 'error' : 'success');
@@ -223,6 +343,16 @@ export default function AdminAutomation() {
     poll();
     return () => clearInterval(intervalId);
   }, [jobIds.join(','), fetchJob]);
+
+  useEffect(() => {
+    if (!selectedRunJobId) {
+      setRunJobLogs([]);
+      return;
+    }
+    fetchRunJobLogs(selectedRunJobId);
+    const t = setInterval(() => fetchRunJobLogs(selectedRunJobId), POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [selectedRunJobId, fetchRunJobLogs]);
 
   const runManualSearch = async () => {
     const apiBase = getApiBase();
@@ -283,6 +413,115 @@ export default function AdminAutomation() {
       setManualImportingId(null);
     }
   };
+
+  const fetchWorkerControls = useCallback(async () => {
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+    setWorkerControlsLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/worker-controls`);
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) {
+        setWorkerControls(data);
+        setMaxConcurrencyInput(String(data.max_concurrency ?? ''));
+        setMaxPerAnimeInput(String(data.max_per_anime ?? ''));
+      }
+    } finally {
+      setWorkerControlsLoading(false);
+    }
+  }, []);
+
+  const patchWorkerControls = useCallback(
+    async (updates: { paused?: boolean; max_concurrency?: number; max_per_anime?: number }) => {
+      const apiBase = getApiBase();
+      if (!apiBase) return;
+      setWorkerControlsPatching(true);
+      try {
+        const res = await fetch(`${apiBase}/api/admin/worker-controls`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast((data?.error as string) || 'Update failed', 'error');
+          return;
+        }
+        setWorkerControls(data);
+        if (typeof updates.max_concurrency === 'number') setMaxConcurrencyInput(String(updates.max_concurrency));
+        if (typeof updates.max_per_anime === 'number') setMaxPerAnimeInput(String(updates.max_per_anime));
+        showToast('Updated', 'success');
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Update failed', 'error');
+      } finally {
+        setWorkerControlsPatching(false);
+      }
+    },
+    []
+  );
+
+  const fetchLiveJobs = useCallback(async () => {
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+    setLiveJobsLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/jobs?limit=20`);
+      const data = await res.json().catch(() => []);
+      if (res.ok && Array.isArray(data)) setLiveJobs(data);
+    } finally {
+      setLiveJobsLoading(false);
+    }
+  }, []);
+
+  const fetchJobLogs = useCallback(async (jobId: string) => {
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+    setJobLogsLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/job-logs?job_id=${encodeURIComponent(jobId)}&limit=100`);
+      const data = await res.json().catch(() => []);
+      if (res.ok && Array.isArray(data)) setJobLogs(data);
+    } finally {
+      setJobLogsLoading(false);
+    }
+  }, []);
+
+  const runReclaimStale = useCallback(async () => {
+    const apiBase = getApiBase();
+    if (!apiBase) return;
+    try {
+      const res = await fetch(`${apiBase}/api/admin/reclaim-stale`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data?.error as string) || 'Reclaim failed', 'error');
+        return;
+      }
+      showToast('Updated', 'success');
+      fetchLiveJobs();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Reclaim failed', 'error');
+    }
+  }, [fetchLiveJobs]);
+
+  useEffect(() => {
+    fetchWorkerControls();
+  }, [fetchWorkerControls]);
+
+  useEffect(() => {
+    fetchLiveJobs();
+    const t = setInterval(fetchLiveJobs, 2000);
+    return () => clearInterval(t);
+  }, [fetchLiveJobs]);
+
+  useEffect(() => {
+    if (!selectedLiveJobId) {
+      setJobLogs([]);
+      return;
+    }
+    fetchJobLogs(selectedLiveJobId);
+    const t = setInterval(() => fetchJobLogs(selectedLiveJobId), 2000);
+    return () => clearInterval(t);
+  }, [selectedLiveJobId, fetchJobLogs]);
 
   return (
     <div className="space-y-8">
@@ -395,6 +634,165 @@ export default function AdminAutomation() {
         )}
       </div>
 
+      <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6">
+        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
+          Worker Controls
+        </h3>
+        {workerControlsLoading ? (
+          <p className="text-gray-500 text-sm">Loading…</p>
+        ) : workerControls ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`inline-block px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                  workerControls.paused ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                }`}
+              >
+                {workerControls.paused ? 'PAUSED' : 'RUNNING'}
+              </span>
+              <button
+                type="button"
+                onClick={() => patchWorkerControls({ paused: !workerControls.paused })}
+                disabled={workerControlsPatching}
+                className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-bold uppercase hover:bg-white/20 disabled:opacity-50"
+              >
+                {workerControls.paused ? 'Resume' : 'Pause'}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">max_concurrency (1–10)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={maxConcurrencyInput}
+                  onChange={(e) => setMaxConcurrencyInput(e.target.value)}
+                  className="w-20 rounded-xl bg-white/5 border border-white/10 px-2 py-1.5 text-sm text-white focus:border-brand-red outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">max_per_anime (1–10)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={maxPerAnimeInput}
+                  onChange={(e) => setMaxPerAnimeInput(e.target.value)}
+                  className="w-20 rounded-xl bg-white/5 border border-white/10 px-2 py-1.5 text-sm text-white focus:border-brand-red outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const mc = parseInt(maxConcurrencyInput, 10);
+                  const mp = parseInt(maxPerAnimeInput, 10);
+                  const up: { max_concurrency?: number; max_per_anime?: number } = {};
+                  if (mc >= 1 && mc <= 10) up.max_concurrency = mc;
+                  if (mp >= 1 && mp <= 10) up.max_per_anime = mp;
+                  if (Object.keys(up).length) patchWorkerControls(up);
+                }}
+                disabled={workerControlsPatching}
+                className="px-3 py-1.5 rounded-lg bg-brand-red/20 text-brand-red text-xs font-bold uppercase hover:bg-brand-red/30 disabled:opacity-50"
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={runReclaimStale}
+                className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-bold uppercase hover:bg-white/20"
+              >
+                Reclaim stale locks
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">Worker controls not found</p>
+        )}
+      </div>
+
+      <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6">
+        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
+          Live Jobs
+        </h3>
+        {liveJobsLoading && liveJobs.length === 0 ? (
+          <p className="text-gray-500 text-sm">Loading…</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-gray-500">
+                  <th className="pb-2 pr-4">Type</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2 pr-4">Created</th>
+                  <th className="pb-2 pr-4">Started</th>
+                  <th className="pb-2 pr-4">Finished</th>
+                  <th className="pb-2">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {liveJobs.map((job) => {
+                  const status = (job.status ?? '').toLowerCase();
+                  const duration = durationMs(job.started_at, job.finished_at);
+                  const isSelected = selectedLiveJobId === job.id;
+                  return (
+                    <tr
+                      key={job.id}
+                      onClick={() => setSelectedLiveJobId(isSelected ? null : job.id)}
+                      className={`border-b border-white/5 cursor-pointer ${isSelected ? 'bg-white/5' : 'hover:bg-white/[0.03]'}`}
+                    >
+                      <td className="py-2 pr-4 text-white font-medium">{job.type ?? '—'}</td>
+                      <td className="py-2 pr-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            status === 'done' ? 'bg-green-500/20 text-green-400' :
+                            status === 'error' || status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                            status === 'running' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-white/10 text-gray-400'
+                          }`}
+                        >
+                          {status || 'queued'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-gray-400">{formatDate(job.created_at)}</td>
+                      <td className="py-2 pr-4 text-gray-400">{formatDate(job.started_at)}</td>
+                      <td className="py-2 pr-4 text-gray-400">{formatDate(job.finished_at)}</td>
+                      <td className="py-2 text-gray-400">{formatDuration(duration)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {selectedLiveJobId && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">
+              Logs — {selectedLiveJobId.slice(0, 8)}…
+            </p>
+            {jobLogsLoading && jobLogs.length === 0 ? (
+              <p className="text-gray-500 text-sm">Loading logs…</p>
+            ) : (
+              <ul className="space-y-1 font-mono text-xs text-gray-300 max-h-60 overflow-y-auto">
+                {jobLogs.map((log) => (
+                  <li key={log.id} className="flex gap-2">
+                    <span
+                      className={`shrink-0 w-12 uppercase ${
+                        log.level === 'error' ? 'text-red-400' : log.level === 'warn' ? 'text-amber-400' : 'text-gray-500'
+                      }`}
+                    >
+                      [{log.level ?? 'info'}]
+                    </span>
+                    <span className="text-gray-400 shrink-0">{formatDate(log.created_at)}</span>
+                    <span className="break-all">{log.message ?? ''}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
       {selectedAction && (
         <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6 max-w-xl">
           <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
@@ -490,67 +888,119 @@ export default function AdminAutomation() {
         </div>
       )}
 
-      {jobIds.length > 0 && (
+      {(jobIds.length > 0 || runStartedAt) && (
         <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-6">
-          <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
-            Job durumu
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-gray-500">
-                  <th className="pb-2 pr-4">Type</th>
-                  <th className="pb-2 pr-4">Status</th>
-                  <th className="pb-2 pr-4">Created</th>
-                  <th className="pb-2 pr-4">Finished</th>
-                  <th className="pb-2">Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobIds.map((id) => {
-                  const job = jobStatuses[id];
-                  const status = (job?.status ?? 'queued').toLowerCase();
-                  const duration = durationMs(job?.started_at ?? null, job?.finished_at ?? null);
-                  return (
-                    <tr key={id} className="border-b border-white/5">
-                      <td className="py-3 pr-4 text-white font-medium">{job?.type ?? id.slice(0, 8)}</td>
-                      <td className="py-3 pr-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-black text-white uppercase tracking-widest">
+              Job durumu
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setJobIds([]);
+                setJobStatuses({});
+                setRunStartedAt(null);
+                setRunJobKeyPrefix(null);
+                setRunAction(null);
+                setSelectedRunJobId(null);
+                setRunJobLogs([]);
+                pollDoneToastRef.current = false;
+                terminalStableSinceRef.current = null;
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white/10 text-gray-400 text-xs font-bold uppercase hover:bg-white/20 hover:text-white"
+            >
+              Clear
+            </button>
+          </div>
+          {runStartedAt && jobIds.length === 0 ? (
+            <p className="text-gray-500 text-sm">Searching for jobs…</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-gray-500">
+                      <th className="pb-2 pr-4">Type</th>
+                      <th className="pb-2 pr-4">Status</th>
+                      <th className="pb-2 pr-4">Created</th>
+                      <th className="pb-2 pr-4">Finished</th>
+                      <th className="pb-2">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobIds.map((id) => {
+                      const job = jobStatuses[id];
+                      const status = (job?.status ?? 'queued').toLowerCase();
+                      const duration = durationMs(job?.started_at ?? null, job?.finished_at ?? null);
+                      const isSelected = selectedRunJobId === id;
+                      return (
+                        <tr
+                          key={id}
+                          onClick={() => setSelectedRunJobId(isSelected ? null : id)}
+                          className={`border-b border-white/5 cursor-pointer ${isSelected ? 'bg-white/5' : 'hover:bg-white/[0.03]'}`}
+                        >
+                          <td className="py-3 pr-4 text-white font-medium">{job?.type ?? id.slice(0, 8)}</td>
+                          <td className="py-3 pr-4">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                status === 'done'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : status === 'failed' || status === 'error' || status === 'retry'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : status === 'running'
+                                      ? 'bg-amber-500/20 text-amber-400'
+                                      : 'bg-white/10 text-gray-400'
+                              }`}
+                            >
+                              {status || 'queued'}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-gray-400">{formatDate(job?.created_at ?? null)}</td>
+                          <td className="py-3 pr-4 text-gray-400">{formatDate(job?.finished_at ?? null)}</td>
+                          <td className="py-3 text-gray-400">{formatDuration(duration)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {jobIds.some((id) => (jobStatuses[id]?.last_error ?? '').trim()) && (
+                <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/20 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-red-400 mb-2">Hatalar</p>
+                  {jobIds.map((id) => {
+                    const err = jobStatuses[id]?.last_error?.trim();
+                    if (!err) return null;
+                    return (
+                      <p key={id} className="text-xs text-red-300/90 font-mono break-all">
+                        {err}
+                      </p>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedRunJobId && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">
+                    Logs — {selectedRunJobId.slice(0, 8)}…
+                  </p>
+                  <ul className="space-y-1 font-mono text-xs text-gray-300 max-h-60 overflow-y-auto">
+                    {runJobLogs.map((log) => (
+                      <li key={log.id} className="flex gap-2">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            status === 'done'
-                              ? 'bg-green-500/20 text-green-400'
-                              : status === 'failed'
-                                ? 'bg-red-500/20 text-red-400'
-                                : status === 'running'
-                                  ? 'bg-amber-500/20 text-amber-400'
-                                  : 'bg-white/10 text-gray-400'
+                          className={`shrink-0 w-12 uppercase ${
+                            log.level === 'error' ? 'text-red-400' : log.level === 'warn' ? 'text-amber-400' : 'text-gray-500'
                           }`}
                         >
-                          {status || 'queued'}
+                          [{log.level ?? 'info'}]
                         </span>
-                      </td>
-                      <td className="py-3 pr-4 text-gray-400">{formatDate(job?.created_at ?? null)}</td>
-                      <td className="py-3 pr-4 text-gray-400">{formatDate(job?.finished_at ?? null)}</td>
-                      <td className="py-3 text-gray-400">{formatDuration(duration)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {jobIds.some((id) => (jobStatuses[id]?.last_error ?? '').trim()) && (
-            <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/20 p-4">
-              <p className="text-[10px] font-black uppercase tracking-wider text-red-400 mb-2">Hatalar</p>
-              {jobIds.map((id) => {
-                const err = jobStatuses[id]?.last_error?.trim();
-                if (!err) return null;
-                return (
-                  <p key={id} className="text-xs text-red-300/90 font-mono break-all">
-                    {err}
-                  </p>
-                );
-              })}
-            </div>
+                        <span className="text-gray-400 shrink-0">{formatDate(log.created_at)}</span>
+                        <span className="break-all">{log.message ?? ''}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

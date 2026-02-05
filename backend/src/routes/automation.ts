@@ -22,7 +22,7 @@ function isAuthorized(req: Request): boolean {
 
 function validateBody(
   body: unknown
-): { action: string; providers?: string[]; limit?: number; only_existing?: boolean } | null {
+): { action: string; providers?: string[]; limit?: number; only_existing?: boolean; job_key?: string } | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
   const action = b.action;
@@ -33,6 +33,7 @@ function validateBody(
     providers?: string[];
     limit?: number;
     only_existing?: boolean;
+    job_key?: string;
   } = { action };
   if (Array.isArray(b.providers) && b.providers.length > 0) {
     const providers = b.providers.filter(
@@ -51,6 +52,7 @@ function validateBody(
   if (b.action === 'SCAN_MISSING_METADATA' && typeof b.only_existing === 'boolean') {
     out.only_existing = b.only_existing;
   }
+  if (typeof b.job_key === 'string' && b.job_key.trim()) out.job_key = b.job_key.trim();
   return out;
 }
 
@@ -192,12 +194,30 @@ router.post('/run', async (req: Request, res: Response) => {
       );
     }
 
+    const startedAt = new Date().toISOString();
+    const jobKeyPrefixMap: Record<string, string> = {
+      DISCOVER_NEW_ANIME: 'n8n:discover:',
+      SCAN_NEW_EPISODES: 'n8n:scan_new:',
+      SCAN_MISSING_EPISODES: 'n8n:scan_missing:',
+      SCAN_MISSING_METADATA: 'n8n:scan_missing_metadata:',
+    };
+    const jobKeyPrefix = payload.job_key
+      ? (payload.job_key.endsWith(':') ? payload.job_key : payload.job_key + ':')
+      : jobKeyPrefixMap[payload.action] ?? `n8n:${payload.action.toLowerCase()}:`;
     const jobIds = Array.isArray((data as { job_ids?: unknown }).job_ids)
       ? (data as { job_ids: string[] }).job_ids.filter((id): id is string => typeof id === 'string')
       : typeof (data as { job_id?: unknown }).job_id === 'string'
         ? [(data as { job_id: string }).job_id]
         : [];
-    return res.status(200).json({ ok: true, job_ids: jobIds });
+    const executionId = (data as { executionId?: string }).executionId ?? (data as { execution_id?: string }).execution_id;
+    return res.status(200).json({
+      ok: true,
+      action: payload.action,
+      startedAt,
+      jobKeyPrefix,
+      ...(jobIds.length > 0 && { job_ids: jobIds }),
+      ...(typeof executionId === 'string' && executionId && { executionId }),
+    });
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     if (err instanceof Error) {

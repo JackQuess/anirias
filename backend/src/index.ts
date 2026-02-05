@@ -13,6 +13,7 @@ import adminNotificationsRouter from './routes/admin/adminNotifications.js';
 import createAnimeRouter from './routes/admin/createAnime.js';
 import updateAnimeRouter from './routes/admin/updateAnime.js';
 import updateEpisodeRouter from './routes/admin/updateEpisode.js';
+import jobsRouter from './routes/admin/jobs.js';
 import automationRouter from './routes/automation.js';
 import animeRouter from './routes/anime.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
@@ -102,6 +103,7 @@ app.use('/api/admin', adminNotificationsRouter);
 app.use('/api/admin', createAnimeRouter);
 app.use('/api/admin', updateAnimeRouter);
 app.use('/api/admin', updateEpisodeRouter);
+app.use('/api/admin', jobsRouter);
 app.use('/api/automation', automationRouter);
 app.use('/api/anime', animeRouter);
 

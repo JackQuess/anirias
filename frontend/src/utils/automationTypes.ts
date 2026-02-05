@@ -28,6 +28,14 @@ export const AUTOMATION_ACTIONS: AutomationAction[] = [
 export const SOURCE_PROVIDERS: SourceProvider[] = ['diziwatch', 'animecix'];
 export const METADATA_PROVIDERS: MetadataProvider[] = ['anilist', 'mal'];
 
+/** Tüm provider'lar (worker ile uyumlu) */
+export const ALL_PROVIDERS: (SourceProvider | MetadataProvider)[] = [
+  'diziwatch',
+  'animecix',
+  'anilist',
+  'mal',
+];
+
 /** Source aksiyonları: provider olarak SourceProvider kullanır */
 export const SOURCE_ACTIONS: AutomationAction[] = [
   'DISCOVER_NEW_ANIME',
