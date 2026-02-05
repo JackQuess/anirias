@@ -6,7 +6,7 @@ const AUTOMATION_ACTIONS = [
   'SCAN_MISSING_EPISODES',
   'SCAN_MISSING_METADATA',
 ] as const;
-const VALID_PROVIDERS = ['anilist', 'mal'];
+const VALID_PROVIDERS = ['diziwatch', 'animecix', 'anilist', 'mal'];
 const LIMIT_MIN = 1;
 const LIMIT_MAX = 500;
 const FETCH_TIMEOUT_MS = 10_000;

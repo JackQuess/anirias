@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './services/auth';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
@@ -53,7 +53,7 @@ const App: React.FC = () => {
   if (isLoading) return <GlobalLoader />;
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
           <AnnouncementBanner />
@@ -105,7 +105,7 @@ const App: React.FC = () => {
         </Routes>
         </ToastProvider>
       </AuthProvider>
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 

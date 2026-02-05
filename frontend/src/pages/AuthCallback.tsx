@@ -24,7 +24,7 @@ const AuthCallback: React.FC = () => {
 
     const handleAuthCallback = async () => {
       try {
-        // URL'den hash fragment'ini al (HashRouter kullanıldığı için)
+        // OAuth redirect'te token'lar genelde hash'te gelir (access_token, refresh_token)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');

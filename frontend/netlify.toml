@@ -1,0 +1,8 @@
+# SPA fallback: tüm path'ler index.html'e (BrowserRouter için F5 / direkt link çalışsın)
+[build]
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -49,9 +49,8 @@ const Signup: React.FC = () => {
         return;
       }
 
-      // Production domain için email doğrulama redirect URL'i
-      // HashRouter kullanıldığı için /#/auth/callback formatında
-      const emailRedirectTo = 'https://anirias.vercel.app/#/auth/callback';
+      // Email doğrulama redirect URL'i (BrowserRouter: path-based)
+      const emailRedirectTo = `${window.location.origin}/auth/callback`;
       
       const { data, error: authError } = await supabase.auth.signUp({
         email,

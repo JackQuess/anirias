@@ -2,15 +2,20 @@ import React, { useState, useCallback } from 'react';
 import { showToast } from '@/components/ToastProvider';
 import type {
   AutomationAction,
-  AutomationProvider,
+  SourceProvider,
+  MetadataProvider,
   AutomationRunPayload,
 } from '@/utils/automationTypes';
 import {
   AUTOMATION_ACTIONS,
-  AUTOMATION_PROVIDERS,
+  SOURCE_PROVIDERS,
+  METADATA_PROVIDERS,
+  SOURCE_ACTIONS,
   LIMIT_MIN,
   LIMIT_MAX,
   LIMIT_DEFAULT,
+  DEFAULT_SOURCE_PROVIDERS,
+  DEFAULT_METADATA_PROVIDERS,
 } from '@/utils/automationTypes';
 
 const ACTION_LABELS: Record<AutomationAction, string> = {
@@ -31,15 +36,26 @@ function getApiBase(): string | undefined {
   return (import.meta as any).env?.VITE_API_BASE_URL;
 }
 
+function isSourceAction(action: AutomationAction): boolean {
+  return SOURCE_ACTIONS.includes(action);
+}
+
 export default function AdminAutomation() {
   const [selectedAction, setSelectedAction] = useState<AutomationAction | null>(null);
-  const [providers, setProviders] = useState<AutomationProvider[]>([]);
+  const [sourceProviders, setSourceProviders] = useState<SourceProvider[]>(() => [...DEFAULT_SOURCE_PROVIDERS]);
+  const [metadataProviders, setMetadataProviders] = useState<MetadataProvider[]>(() => [...DEFAULT_METADATA_PROVIDERS]);
   const [limit, setLimit] = useState(LIMIT_DEFAULT);
   const [onlyExisting, setOnlyExisting] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  const toggleProvider = useCallback((p: AutomationProvider) => {
-    setProviders((prev) =>
+  const toggleSourceProvider = useCallback((p: SourceProvider) => {
+    setSourceProviders((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
+  }, []);
+
+  const toggleMetadataProvider = useCallback((p: MetadataProvider) => {
+    setMetadataProviders((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
     );
   }, []);
@@ -47,11 +63,15 @@ export default function AdminAutomation() {
   const buildPayload = useCallback((): AutomationRunPayload => {
     const action = selectedAction!;
     const payload: AutomationRunPayload = { action };
-    if (providers.length > 0) payload.providers = [...providers];
+    if (isSourceAction(action)) {
+      if (sourceProviders.length > 0) payload.providers = [...sourceProviders];
+    } else {
+      if (metadataProviders.length > 0) payload.providers = [...metadataProviders];
+    }
     if (limit >= LIMIT_MIN && limit <= LIMIT_MAX) payload.limit = limit;
     if (action === 'SCAN_MISSING_METADATA') payload.only_existing = onlyExisting;
     return payload;
-  }, [selectedAction, providers, limit, onlyExisting]);
+  }, [selectedAction, sourceProviders, metadataProviders, limit, onlyExisting]);
 
   const runWorkflow = async () => {
     if (!selectedAction) {
@@ -135,27 +155,51 @@ export default function AdminAutomation() {
           </h3>
 
           <div className="space-y-4">
-            <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
-                Providers (opsiyonel)
-              </p>
-              <div className="flex gap-4">
-                {AUTOMATION_PROVIDERS.map((p) => (
-                  <label
-                    key={p}
-                    className="flex items-center gap-2 cursor-pointer text-sm text-white"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={providers.includes(p)}
-                      onChange={() => toggleProvider(p)}
-                      className="rounded border-white/30 bg-white/5 text-brand-red focus:ring-brand-red"
-                    />
-                    {p}
-                  </label>
-                ))}
+            {isSourceAction(selectedAction) ? (
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
+                  Kaynak sağlayıcılar (Source)
+                </p>
+                <div className="flex gap-4">
+                  {SOURCE_PROVIDERS.map((p) => (
+                    <label
+                      key={p}
+                      className="flex items-center gap-2 cursor-pointer text-sm text-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={sourceProviders.includes(p)}
+                        onChange={() => toggleSourceProvider(p)}
+                        className="rounded border-white/30 bg-white/5 text-brand-red focus:ring-brand-red"
+                      />
+                      {p}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
+                  Metadata sağlayıcılar
+                </p>
+                <div className="flex gap-4">
+                  {METADATA_PROVIDERS.map((p) => (
+                    <label
+                      key={p}
+                      className="flex items-center gap-2 cursor-pointer text-sm text-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={metadataProviders.includes(p)}
+                        onChange={() => toggleMetadataProvider(p)}
+                        className="rounded border-white/30 bg-white/5 text-brand-red focus:ring-brand-red"
+                      />
+                      {p}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-2">
