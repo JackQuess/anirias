@@ -30,6 +30,7 @@ import AdminFeedback from './pages/AdminFeedback';
 import AdminMascotSettings from './pages/AdminMascotSettings';
 import AdminAnnouncement from './pages/AdminAnnouncement';
 import AdminErrors from './pages/AdminErrors';
+import AdminAutomation from './pages/AdminAutomation';
 import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
@@ -96,6 +97,7 @@ const App: React.FC = () => {
             <Route path="site-settings/mascots" element={<AdminMascotSettings />} />
             <Route path="announcement" element={<AdminAnnouncement />} />
             <Route path="errors" element={<AdminErrors />} />
+            <Route path="automation" element={<AdminAutomation />} />
           </Route>
 
           {/* 404 Route */}
