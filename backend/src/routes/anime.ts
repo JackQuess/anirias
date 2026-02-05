@@ -28,7 +28,7 @@ router.get('/search', async (req: Request, res: Response) => {
       const media = await searchAniList(q);
       const results: AnimeSearchResult[] = (media || []).slice(0, 10).map((m) => ({
         id: m.id,
-        title: m.title?.romaji || m.title?.english || m.title?.native || String(m.id),
+        title: m.title?.english || m.title?.romaji || m.title?.native || String(m.id),
         year: m.seasonYear ?? null,
         image: m.coverImage?.extraLarge || m.coverImage?.large || null,
       }));
