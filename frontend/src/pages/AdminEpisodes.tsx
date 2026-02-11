@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLoad } from '@/services/useLoad';
@@ -6,6 +5,16 @@ import { db } from '@/services/db';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { Season, Episode } from '../types';
 import { getDisplayTitle } from '@/utils/title';
+import {
+  OpsBar,
+  EpisodeRow,
+  EpisodeDrawer,
+  PausedResolver,
+  useJobs,
+} from '@/components/admin/episodes';
+import type { FilterChip } from '@/components/admin/episodes';
+import { automationClient } from '@/lib/automationClient';
+import { showToast } from '@/components/ToastProvider';
 
 const ANILIST_API = 'https://graphql.anilist.co';
 const ANILIST_SEARCH_QUERY = `
@@ -100,6 +109,13 @@ const AdminEpisodes: React.FC = () => {
   const [hlsInput, setHlsInput] = useState<string>('');
   const [airDateInput, setAirDateInput] = useState<string>(new Date().toISOString().slice(0,16));
 
+  // Ops UI state
+  const [opsSearch, setOpsSearch] = useState('');
+  const [opsFilters, setOpsFilters] = useState<FilterChip[]>([]);
+  const [drawerEpisode, setDrawerEpisode] = useState<Episode | null>(null);
+  const [drawerJobId, setDrawerJobId] = useState<string | null>(null);
+  const [pausedEpisode, setPausedEpisode] = useState<Episode | null>(null);
+
   // Fetch anime data
   const { data: anime, loading: animeLoading } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
   
@@ -147,6 +163,43 @@ const AdminEpisodes: React.FC = () => {
   
   const [editEp, setEditEp] = useState<Partial<Episode> | null>(null);
   const hasSeasons = seasons.length > 0;
+
+  const { jobs: automationJobs, reload: reloadJobs } = useJobs({ pollInterval: 5000, limit: 10 });
+
+  const findMatchingJobId = useCallback(
+    (ep: Episode) => {
+      const list = automationJobs || [];
+      const j = list.find(
+        (job) =>
+          (job.season_id === ep.season_id && job.episode_number === ep.episode_number) ||
+          (typeof (job as any).season_id === 'string' &&
+            (job as any).season_id === ep.season_id &&
+            (job as any).episode_number === ep.episode_number)
+      );
+      return j?.id || null;
+    },
+    [automationJobs]
+  );
+
+  const handleOpsFilterToggle = (f: FilterChip) => {
+    setOpsFilters((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
+    );
+  };
+
+  const handleRetryEpisode = async (ep: Episode) => {
+    try {
+      await automationClient.createImportMissing({
+        season_id: selectedSeasonId,
+        episode_number: ep.episode_number,
+      });
+      showToast('Import Missing tetiklendi', 'success');
+      reloadJobs();
+      reload();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Retry başarısız', 'error');
+    }
+  };
 
   // Initialize selected season: auto-select first season when seasons load
   useEffect(() => {
@@ -873,6 +926,25 @@ const AdminEpisodes: React.FC = () => {
         </div>
       </div>
 
+      {/* Ops Bar - Automation server integration */}
+      {selectedSeason && hasSeasons && (
+        <OpsBar
+          search={opsSearch}
+          onSearchChange={setOpsSearch}
+          activeFilters={opsFilters}
+          onFilterToggle={handleOpsFilterToggle}
+          onRefresh={() => {
+            reload();
+            reloadJobs();
+          }}
+          payload={{
+            animeId: animeId || undefined,
+            seasonId: selectedSeasonId || undefined,
+            seasonNumber: selectedSeason?.season_number,
+          }}
+        />
+      )}
+
       {/* Season Creation Modal */}
       {isSeasonModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
@@ -1087,71 +1159,27 @@ const AdminEpisodes: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-border">
-                    {episodes.map(ep => (
-                      <tr key={ep.id} className="hover:bg-white/[0.03] transition-colors group">
-                        <td className="px-10 py-6 font-black text-brand-red italic text-xl">
-                          {ep.episode_number < 10 ? `0${ep.episode_number}` : ep.episode_number}
-                        </td>
-                        <td className="px-10 py-6">
-                          <p className="text-white font-black text-base uppercase tracking-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${
-                              ep.status === 'ready' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                              ep.status === 'patched' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                              ep.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                              ep.status === 'pending_download' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                              ep.status === 'downloading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                              ep.status === 'uploading' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                              ep.status === 'source_missing' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                              ep.status === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                              ep.status === 'missing' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
-                              'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                            }`}>
-                              {ep.status === 'ready' ? '✓ Hazır' :
-                               ep.status === 'patched' ? '✓ Hazır' :
-                               ep.status === 'pending' ? '⏳ Bekliyor' :
-                               ep.status === 'pending_download' ? '⏬ İndirilecek' :
-                               ep.status === 'downloading' ? '⬇️ İndiriliyor' :
-                               ep.status === 'uploading' ? '⬆️ Yükleniyor' :
-                               ep.status === 'source_missing' ? '❌ Kaynak Yok' :
-                               ep.status === 'error' ? '❌ Hata' :
-                               ep.status === 'missing' ? '⚠ Henüz eklenmemiş' :
-                               '⚠ Henüz eklenmemiş'}
-                            </span>
-                            {ep.video_url && (
-                              <span className="text-[9px] text-gray-500 font-mono max-w-xs truncate">
-                                {ep.video_url}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-10 py-6 text-xs text-gray-500 font-bold italic">{Math.floor(ep.duration_seconds / 60)} DAKİKA</td>
-                        <td className="px-10 py-6 text-right">
-                           <div className="flex items-center justify-end gap-4">
-                              <button 
-                                disabled
-                                title="Bu işlem artık Desktop App üzerinden yapılır."
-                                className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
-                              >
-                                DÜZENLE
-                              </button>
-                              <button 
-                                disabled
-                                title="Bu işlem artık Desktop App üzerinden yapılır."
-                                className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
-                              >
-                                VİDEO PATCH
-                              </button>
-                              <button 
-                                disabled
-                                title="Bu işlem artık Desktop App üzerinden yapılır."
-                                className="text-[10px] font-black text-gray-600 uppercase tracking-widest opacity-50 cursor-not-allowed"
-                              >
-                                SİL
-                              </button>
-                           </div>
-                        </td>
-                      </tr>
+                    {episodes.map((ep) => (
+                      <EpisodeRow
+                        key={ep.id}
+                        episode={ep}
+                        seasonNumber={selectedSeason?.season_number ?? 1}
+                        search={opsSearch}
+                        activeFilters={opsFilters}
+                        onLogs={(episode) => {
+                          setDrawerEpisode(episode);
+                          setDrawerJobId(findMatchingJobId(episode));
+                          setPausedEpisode(null);
+                        }}
+                        onEdit={handleEditClick}
+                        onVideoPatch={handleEpisodeVideoPatch}
+                        onRetry={handleRetryEpisode}
+                        onDelete={(ep) => handleDelete(ep.id)}
+                        onPausedResolve={(episode) => {
+                          setPausedEpisode(episode);
+                          setDrawerEpisode(null);
+                        }}
+                      />
                     ))}
                     {episodes.length === 0 && !episodesLoading && selectedSeasonId && (
                       <tr>
@@ -1331,6 +1359,76 @@ const AdminEpisodes: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Episode Logs Drawer - opens for episode (with optional job) or job-only */}
+      <EpisodeDrawer
+        open={!!drawerEpisode || !!drawerJobId}
+        onClose={() => {
+          setDrawerEpisode(null);
+          setDrawerJobId(null);
+        }}
+        episode={drawerEpisode}
+        seasonNumber={selectedSeason?.season_number ?? 1}
+        jobId={drawerJobId}
+      />
+
+      {/* Paused Resolver (slug onayı) */}
+      {pausedEpisode && (
+        <PausedResolver
+          episode={pausedEpisode}
+          seasonId={selectedSeasonId || ''}
+          jobId={findMatchingJobId(pausedEpisode)}
+          onResolved={() => {
+            reload();
+            reloadJobs();
+          }}
+          onClose={() => setPausedEpisode(null)}
+        />
+      )}
+
+      {/* Jobs Section - son 10 automation job */}
+      {hasSeasons && Array.isArray(automationJobs) && automationJobs.length > 0 && (
+        <div className="bg-brand-dark border border-brand-border rounded-2xl p-6">
+          <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4">
+            Son İşler (Automation)
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-brand-border">
+                  <th className="pb-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">ID</th>
+                  <th className="pb-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Tip</th>
+                  <th className="pb-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Durum</th>
+                  <th className="pb-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Güncelleme</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border">
+                {automationJobs.slice(0, 10).map((job) => (
+                  <tr
+                    key={job.id}
+                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    onClick={() => {
+                      setDrawerEpisode(null);
+                      setDrawerJobId(job.id);
+                      setPausedEpisode(null);
+                    }}
+                  >
+                    <td className="py-2 text-xs font-mono text-gray-400">{String(job.id).slice(0, 8)}…</td>
+                    <td className="py-2 text-xs text-gray-300">{job.type || '-'}</td>
+                    <td className="py-2 text-xs text-gray-300">{job.status || '-'}</td>
+                    <td className="py-2 text-xs text-gray-500">
+                      {job.updated_at ? new Date(job.updated_at).toLocaleString('tr-TR') : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2 font-black uppercase tracking-widest">
+            Job satırına tıklayarak detay ve loglara erişebilirsiniz.
+          </p>
         </div>
       )}
 
