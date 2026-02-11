@@ -51,7 +51,7 @@ router.post('/delete-anime', async (req: Request, res: Response) => {
   try {
     // Read admin token from header (case-insensitive)
     const adminToken = req.headers['x-admin-token'] || req.header('x-admin-token');
-    if (!adminToken || adminToken !== process.env.ADMIN_DELETE_TOKEN) {
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 

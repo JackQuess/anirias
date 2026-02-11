@@ -19,7 +19,8 @@ router.use(async (req: Request, res: Response) => {
   }
 
   const path = (req.path || '').replace(/^\/+/, '') || 'api/health';
-  const targetUrl = `${baseUrl.replace(/\/+$/, '')}/${path}`;
+  const query = req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const targetUrl = `${baseUrl.replace(/\/+$/, '')}/${path}${query}`;
   const method = req.method;
 
   const headers: Record<string, string> = {
@@ -36,6 +37,26 @@ router.use(async (req: Request, res: Response) => {
     });
 
     const contentType = fetchRes.headers.get('content-type') || '';
+
+    if (contentType.includes('text/event-stream') && fetchRes.body) {
+      res.status(fetchRes.status);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      const reader = fetchRes.body.getReader();
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          return;
+        }
+        res.write(value);
+        return pump();
+      };
+      await pump();
+      return;
+    }
+
     if (contentType.includes('application/json')) {
       const data = await fetchRes.json();
       return res.status(fetchRes.status).json(data);

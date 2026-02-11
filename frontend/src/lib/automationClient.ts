@@ -81,5 +81,21 @@ export const automationClient = {
   cancelJob: (id: string) => request<{ ok?: boolean }>(`api/jobs/${id}/cancel`, { method: 'POST' }),
 
   replyPaused: (payload: { jobId: string; season_id: string; source_id: string; source_slug: string }) =>
-    request<{ ok?: boolean }>('api/reply', { method: 'POST', body: payload }),
+    request<{ ok?: boolean }>('jobs/reply', { method: 'POST', body: payload }),
+
+  runJob: (id: string) => request<{ ok?: boolean }>(`api/jobs/${id}/run`, { method: 'POST' }),
+
+  addAnime: (payload: { query?: string; anilistId?: number }) =>
+    request<{ job_id?: string; id?: string }>('jobs/add-anime', { method: 'POST', body: payload }),
+
+  manualImport: (payload: { animeSlug: string; seasonNumber: number; sourceId: string; sourceSlug: string }) =>
+    request<{ job_id?: string; id?: string }>('jobs/manual-import', { method: 'POST', body: payload }),
 };
+
+/** SSE logs stream URL (use with fetch + ReadableStream or EventSource) */
+export function getLogsStreamUrl(jobId?: string | null): string {
+  const base = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (!base) throw new Error('VITE_API_BASE_URL not configured');
+  const url = `${base.replace(/\/+$/, '')}/api/automation-proxy/api/logs/stream`;
+  return jobId ? `${url}?jobId=${encodeURIComponent(jobId)}` : url;
+}
