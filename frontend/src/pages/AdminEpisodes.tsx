@@ -799,12 +799,21 @@ const AdminEpisodes: React.FC = () => {
   };
 
   const handleDeleteSeason = async (seasonId: string) => {
-    if (!window.confirm('Sezonu silmek istediğine emin misin?')) return;
+    const target = seasons.find((s) => s.id === seasonId);
+    const ok = window.confirm(
+      `Sezon ${target?.season_number ?? ''} silinecek. Bu sezondaki tüm bölümler de silinir. Devam?`
+    );
+    if (!ok) return;
     try {
       await db.deleteSeason(seasonId);
-      window.location.reload();
+      showToast('Sezon silindi', 'success');
+      if (selectedSeasonId === seasonId) {
+        setSelectedSeasonId('');
+      }
+      await reloadSeasons();
+      reload();
     } catch (err) {
-      alert('Sezon silinemedi.');
+      showToast('Sezon silinemedi.', 'error');
     }
   };
 
@@ -1174,9 +1183,8 @@ const AdminEpisodes: React.FC = () => {
                         ⚡ LINK PATCH
                   </button>
                   <button
-                        disabled
-                        title="Bu işlem artık Desktop App üzerinden yapılır."
-                        className="bg-red-500/10 text-gray-600 text-[10px] font-black uppercase tracking-widest px-2 py-2 rounded-xl border border-red-500/30 opacity-50 cursor-not-allowed"
+                        onClick={() => handleDeleteSeason(s.id)}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest px-2 py-2 rounded-xl border border-red-500/30 transition-all"
                   >
                         🗑️
                   </button>

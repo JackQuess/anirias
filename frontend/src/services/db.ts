@@ -447,12 +447,28 @@ export const db = {
   },
 
   deleteSeason: async (id: string, adminToken?: string): Promise<void> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'deleteSeason: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: DELETE /api/admin/delete-season/:id'
-    );
+    const apiBase = getApiBase();
+    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    if (!token) {
+      throw new Error('Admin token is required');
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/admin/delete-season/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `HTTP ${res.status}: Failed to delete season`);
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to delete season: ${error?.message || 'Unknown error'}`);
+    }
   },
 
   bindAniListSeason: async (

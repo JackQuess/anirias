@@ -8,7 +8,7 @@ router.use((req, res, next) => {
   const origin = normalizeOrigin(process.env.CORS_ORIGIN) || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
@@ -193,5 +193,64 @@ router.post('/create-season', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+/**
+ * DELETE /api/admin/delete-season/:id
+ *
+ * Delete a season (and its episodes via cascade).
+ * Admin only.
+ */
+router.delete('/delete-season/:id', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
+    const seasonId = req.params.id;
+    if (!seasonId || typeof seasonId !== 'string') {
+      return res.status(400).json({ success: false, error: 'seasonId is required' });
+    }
+
+    const { data: season, error: seasonError } = await supabaseAdmin
+      .from('seasons')
+      .select('id, anime_id, season_number')
+      .eq('id', seasonId)
+      .maybeSingle();
+
+    if (seasonError) {
+      return res.status(500).json({ success: false, error: `Failed to fetch season: ${seasonError.message}` });
+    }
+    if (!season) {
+      return res.status(404).json({ success: false, error: 'Season not found' });
+    }
+
+    const { count: episodeCount, error: countError } = await supabaseAdmin
+      .from('episodes')
+      .select('id', { count: 'exact', head: true })
+      .eq('season_id', seasonId);
+
+    if (countError) {
+      return res.status(500).json({ success: false, error: `Failed to count season episodes: ${countError.message}` });
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('seasons')
+      .delete()
+      .eq('id', seasonId);
+
+    if (deleteError) {
+      return res.status(500).json({ success: false, error: `Failed to delete season: ${deleteError.message}` });
+    }
+
+    return res.json({
+      success: true,
+      deletedSeasonId: seasonId,
+      deletedSeasonNumber: season.season_number,
+      deletedEpisodes: episodeCount || 0,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Delete season failed' });
+  }
+});
+
+export default router;
