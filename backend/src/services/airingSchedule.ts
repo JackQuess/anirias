@@ -301,7 +301,7 @@ export async function getCalendarRange(fromDate: string, days: number): Promise<
 
   const { data, error } = await supabaseAdmin
     .from('airing_schedule')
-    .select('anime_id, episode_number, airing_at, is_released, released_at, animes!inner(id,slug,title,cover_image)')
+    .select('anime_id, episode_number, airing_at, is_released, released_at')
     .gte('airing_at', fromIso)
     .lt('airing_at', toIso)
     .order('airing_at', { ascending: true });
@@ -310,18 +310,34 @@ export async function getCalendarRange(fromDate: string, days: number): Promise<
     throw new Error(`Failed to read calendar range: ${error.message}`);
   }
 
+  const animeIds = Array.from(new Set((data || []).map((row: any) => row.anime_id)));
+  const { data: animeRows, error: animeError } = await supabaseAdmin
+    .from('animes')
+    .select('id, slug, title, cover_image')
+    .in('id', animeIds);
+
+  if (animeError) {
+    throw new Error(`Failed to read anime data for calendar: ${animeError.message}`);
+  }
+
+  const animeMap = new Map<string, any>();
+  for (const row of animeRows || []) animeMap.set((row as any).id, row);
+
   const nowTs = Date.now();
-  const items: CalendarApiItem[] = (data || []).map((row: any) => ({
-    animeId: row.anime_id,
-    slug: row.animes?.slug || null,
-    title: resolveTitle(row.animes?.title),
-    episodeNumber: row.episode_number,
-    airingAt: row.airing_at,
-    isReleased: Boolean(row.is_released),
-    releasedAt: row.released_at || null,
-    coverImage: row.animes?.cover_image || null,
-    statusBadge: resolveStatusBadge(row, nowTs),
-  }));
+  const items: CalendarApiItem[] = (data || []).map((row: any) => {
+    const anime = animeMap.get(row.anime_id);
+    return {
+      animeId: row.anime_id,
+      slug: anime?.slug || null,
+      title: resolveTitle(anime?.title),
+      episodeNumber: row.episode_number,
+      airingAt: row.airing_at,
+      isReleased: Boolean(row.is_released),
+      releasedAt: row.released_at || null,
+      coverImage: anime?.cover_image || null,
+      statusBadge: resolveStatusBadge(row, nowTs),
+    };
+  });
 
   if (days === 7) {
     await supabaseAdmin
