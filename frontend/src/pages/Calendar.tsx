@@ -19,18 +19,26 @@ const Calendar: React.FC = () => {
   }, [todayDate]);
   const tomorrowDateStr = tomorrowDate.toISOString().split('T')[0];
 
-  // Build day buttons from all calendar dates (and keep today visible)
+  // Build day buttons for every day from today to the last scheduled air date.
   const days = useMemo(() => {
-    const daySet = new Set<string>([todayDateStr]);
+    const calendarDateStrs = (calendar || [])
+      .map((entry) => entry.air_date.split('T')[0])
+      .filter(Boolean);
 
-    (calendar || []).forEach((entry) => {
-      const dateStr = entry.air_date.split('T')[0];
-      if (dateStr) daySet.add(dateStr);
-    });
+    const lastDateStr = calendarDateStrs.length
+      ? calendarDateStrs.reduce((max, curr) => (curr > max ? curr : max), todayDateStr)
+      : todayDateStr;
 
-    const sortedDateStrs = Array.from(daySet).sort((a, b) => a.localeCompare(b));
+    const allDateStrs: string[] = [];
+    const cursor = new Date(`${todayDateStr}T00:00:00`);
+    const end = new Date(`${lastDateStr}T00:00:00`);
 
-    return sortedDateStrs.map((dateStr, i) => {
+    while (cursor <= end) {
+      allDateStrs.push(cursor.toISOString().split('T')[0]);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return allDateStrs.map((dateStr, i) => {
       const date = new Date(`${dateStr}T00:00:00`);
       const dayName = date.toLocaleDateString('tr-TR', { weekday: 'long' });
       const dayShort = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
