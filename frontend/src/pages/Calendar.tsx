@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import LoadingSkeleton from '../components/LoadingSkeleton';
@@ -9,31 +9,56 @@ import { Link } from 'react-router-dom';
 
 const Calendar: React.FC = () => {
   const { data: calendar, loading, error, reload } = useLoad<CalendarEntry[]>(db.getCalendar);
-  const today = new Date();
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0); // 0 = Today, 1 = Tomorrow, etc.
+  const todayDate = useMemo(() => new Date(), []);
+  const todayDateStr = todayDate.toISOString().split('T')[0];
+  const tomorrowDate = useMemo(() => {
+    const date = new Date(todayDate);
+    date.setDate(date.getDate() + 1);
+    return date;
+  }, [todayDate]);
+  const tomorrowDateStr = tomorrowDate.toISOString().split('T')[0];
 
-  // Generate next 7 days dynamically
+  // Build day buttons from all calendar dates (and keep today visible)
   const days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
+    const daySet = new Set<string>([todayDateStr]);
+
+    (calendar || []).forEach((entry) => {
+      const dateStr = entry.air_date.split('T')[0];
+      if (dateStr) daySet.add(dateStr);
+    });
+
+    const sortedDateStrs = Array.from(daySet).sort((a, b) => a.localeCompare(b));
+
+    return sortedDateStrs.map((dateStr, i) => {
+      const date = new Date(`${dateStr}T00:00:00`);
       const dayName = date.toLocaleDateString('tr-TR', { weekday: 'long' });
       const dayShort = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-      
       let label = dayName.toUpperCase();
-      if (i === 0) label = 'BUGÜN';
-      if (i === 1) label = 'YARIN';
+      if (dateStr === todayDateStr) label = 'BUGÜN';
+      if (dateStr === tomorrowDateStr) label = 'YARIN';
 
-      return { index: i, label, dateStr: date.toISOString().split('T')[0], subLabel: dayShort };
+      return { index: i, label, dateStr, subLabel: dayShort };
     });
-  }, []);
+  }, [calendar, todayDateStr, tomorrowDateStr]);
+
+  useEffect(() => {
+    if (days.length === 0) return;
+    if (selectedDayIndex > days.length - 1) {
+      setSelectedDayIndex(0);
+    }
+  }, [days, selectedDayIndex]);
 
   const filteredCalendar = useMemo(() => {
-    if (!calendar) return [];
+    if (!calendar || !days.length) return [];
     // Filter by the selected date string (YYYY-MM-DD)
     const targetDateStr = days[selectedDayIndex].dateStr;
-    return calendar.filter(entry => entry.air_date.startsWith(targetDateStr));
+    return calendar.filter((entry) => entry.air_date.startsWith(targetDateStr));
   }, [calendar, selectedDayIndex, days]);
+
+  const emptyStateTitle = days[selectedDayIndex]?.label
+    ? `${days[selectedDayIndex].label} İÇİN KAYIT YOK`
+    : 'KAYIT YOK';
 
   return (
     <div className="min-h-screen bg-brand-black pb-32">
@@ -45,7 +70,7 @@ const Calendar: React.FC = () => {
             YAYIN <span className="text-brand-red">TAKVİMİ</span>
           </h1>
           <p className="text-gray-500 text-xs font-black uppercase tracking-[0.4em] max-w-lg leading-relaxed">
-            Haftalık anime programı. Favori serilerinin yeni bölümlerini kaçırma.
+            Yayın planındaki tüm tarihleri görüntüle. Favori serilerinin yeni bölümlerini kaçırma.
           </p>
         </div>
       </section>
@@ -152,7 +177,7 @@ const Calendar: React.FC = () => {
             ) : (
               <div className="py-40 text-center bg-brand-dark/50 rounded-[3rem] border border-dashed border-white/5">
                 <div className="text-6xl mb-6 opacity-20 grayscale">📅</div>
-                <h3 className="text-2xl font-black text-gray-700 uppercase italic tracking-widest">BUGÜN İÇİN KAYIT YOK</h3>
+                <h3 className="text-2xl font-black text-gray-700 uppercase italic tracking-widest">{emptyStateTitle}</h3>
                 <p className="text-gray-600 text-[10px] font-black uppercase tracking-widest mt-2">DİĞER GÜNLERİ KONTROL ET</p>
               </div>
             )}
