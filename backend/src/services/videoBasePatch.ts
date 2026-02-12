@@ -37,17 +37,26 @@ function ensureBaseUrl(value: string | undefined, fallback: string) {
 }
 
 async function getExistingUrlColumns(): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .schema('information_schema')
-    .from('columns')
-    .select('column_name')
-    .eq('table_schema', 'public')
-    .eq('table_name', 'episodes');
+  // PostgREST environments may not expose information_schema.
+  // Probe each optional column directly against episodes and keep only valid ones.
+  const existing: string[] = [];
 
-  if (error) throw new Error(`Failed to inspect episodes columns: ${error.message}`);
+  for (const col of URL_COLUMNS_CANDIDATES) {
+    const { error } = await supabaseAdmin.from('episodes').select(`id,${col}`).limit(1);
+    if (!error) {
+      existing.push(col);
+      continue;
+    }
 
-  const existing = new Set((data || []).map((row: any) => String(row.column_name)));
-  return URL_COLUMNS_CANDIDATES.filter((c) => existing.has(c));
+    const msg = String(error.message || '').toLowerCase();
+    const isMissingColumn =
+      msg.includes('column') && (msg.includes('does not exist') || msg.includes('not found'));
+    if (!isMissingColumn) {
+      throw new Error(`Failed to inspect episodes columns: ${error.message}`);
+    }
+  }
+
+  return existing;
 }
 
 function rewriteUrl(value: unknown, oldBase: string, newBase: string): string | null {
