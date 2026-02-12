@@ -43,6 +43,11 @@ const AdminEpisodes: React.FC = () => {
     sampleWillUpdate: Array<{ episodeId: string; before: string; after: string }>;
   } | null>(null);
   const [isFixingSeasons, setIsFixingSeasons] = useState(false);
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [isMovingEpisodes, setIsMovingEpisodes] = useState(false);
+  const [moveTargetSeasonId, setMoveTargetSeasonId] = useState<string>('');
+  const [moveRenumberMode, setMoveRenumberMode] = useState<'append' | 'preserve'>('append');
+  const [moveSelectedEpisodeIds, setMoveSelectedEpisodeIds] = useState<string[]>([]);
   const [isAniListModalOpen, setIsAniListModalOpen] = useState(false);
   const [anilistSearch, setAnilistSearch] = useState('');
   const [anilistResults, setAnilistResults] = useState<any[]>([]);
@@ -840,7 +845,8 @@ const AdminEpisodes: React.FC = () => {
       const message = `Sezonlar başarıyla düzeltildi!\n\n` +
         `✅ Sezonlar düzeltildi: ${data.seasonsFixed}\n` +
         `🗑️ Boş sezonlar silindi: ${data.seasonsRemoved}\n` +
-        `🔄 Bölümler yeniden atandı: ${data.episodesReassigned}`;
+        `🔄 Bölümler yeniden atandı: ${data.episodesReassigned}\n` +
+        `⏭️ Çakışma nedeniyle atlanan: ${data.episodesSkippedConflicts || 0}`;
       
       alert(message);
       
@@ -854,6 +860,94 @@ const AdminEpisodes: React.FC = () => {
       alert(err?.message || 'Sezon düzeltme başarısız');
     } finally {
       setIsFixingSeasons(false);
+    }
+  };
+
+  const openMoveModal = () => {
+    if (!selectedSeason) {
+      showToast('Önce kaynak sezonu seç.', 'error');
+      return;
+    }
+    if (seasons.length < 2) {
+      showToast('Taşımak için en az 2 sezon olmalı.', 'error');
+      return;
+    }
+    const defaultTarget = seasons.find((s) => s.id !== selectedSeason.id);
+    if (!defaultTarget) {
+      showToast('Hedef sezon bulunamadı.', 'error');
+      return;
+    }
+    setMoveTargetSeasonId(defaultTarget.id);
+    setMoveRenumberMode('append');
+    setMoveSelectedEpisodeIds(episodes.map((ep) => ep.id));
+    setIsMoveModalOpen(true);
+  };
+
+  const toggleMoveEpisode = (episodeId: string) => {
+    setMoveSelectedEpisodeIds((prev) =>
+      prev.includes(episodeId) ? prev.filter((id) => id !== episodeId) : [...prev, episodeId]
+    );
+  };
+
+  const handleMoveEpisodes = async () => {
+    if (!animeId || !selectedSeason) return;
+    if (!moveTargetSeasonId) {
+      showToast('Hedef sezon seç.', 'error');
+      return;
+    }
+    if (moveTargetSeasonId === selectedSeason.id) {
+      showToast('Kaynak ve hedef sezon aynı olamaz.', 'error');
+      return;
+    }
+    if (moveSelectedEpisodeIds.length === 0) {
+      showToast('Taşınacak en az bir bölüm seç.', 'error');
+      return;
+    }
+
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (!apiBase) {
+      showToast('VITE_API_BASE_URL tanımlı değil.', 'error');
+      return;
+    }
+    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    if (!token) {
+      showToast('Admin token gerekli.', 'error');
+      return;
+    }
+
+    setIsMovingEpisodes(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/move-episodes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token,
+        },
+        body: JSON.stringify({
+          animeId,
+          targetSeasonId: moveTargetSeasonId,
+          episodeIds: moveSelectedEpisodeIds,
+          renumberMode: moveRenumberMode,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+
+      showToast(
+        `Taşıma tamam: ${data.moved} taşındı, ${data.skippedConflicts} çakışma, ${data.skippedAlreadyInTarget} zaten hedefte`,
+        'success'
+      );
+      setIsMoveModalOpen(false);
+      setMoveSelectedEpisodeIds([]);
+      reload();
+      reloadSeasons();
+    } catch (err: any) {
+      showToast(err?.message || 'Bölüm taşıma başarısız', 'error');
+    } finally {
+      setIsMovingEpisodes(false);
     }
   };
 
@@ -892,6 +986,15 @@ const AdminEpisodes: React.FC = () => {
           >
               🔧 Link Patch
           </button>
+          )}
+          {selectedSeason && (
+            <button
+              onClick={openMoveModal}
+              disabled={isMovingEpisodes || episodes.length === 0 || seasons.length < 2}
+              className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-amber-500/30 transition-all disabled:opacity-50"
+            >
+              🚚 Bölüm Taşı Botu
+            </button>
           )}
           <Link
             to="/admin/automation"
@@ -1286,6 +1389,106 @@ const AdminEpisodes: React.FC = () => {
                 className="flex-1 bg-brand-red text-white font-black py-3 rounded-xl uppercase tracking-widest text-[10px] disabled:opacity-60"
               >
                 {isBunnyPatching ? 'Uygulanıyor...' : 'Devam Et'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isMoveModalOpen && selectedSeason && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsMoveModalOpen(false)} />
+          <div className="relative w-full max-w-3xl bg-brand-dark border border-brand-border p-8 rounded-[2rem]">
+            <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Bölüm Taşı Botu</h3>
+            <p className="text-gray-400 text-sm mt-2">
+              Kaynak: Sezon {selectedSeason.season_number} • Bölüm seçip hedef sezona taşı.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Hedef Sezon</label>
+                <select
+                  value={moveTargetSeasonId}
+                  onChange={(e) => setMoveTargetSeasonId(e.target.value)}
+                  className="w-full mt-2 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                >
+                  {seasons
+                    .filter((s) => s.id !== selectedSeason.id)
+                    .map((s) => (
+                      <option key={s.id} value={s.id} className="bg-brand-dark">
+                        Sezon {s.season_number}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Numara Stratejisi</label>
+                <select
+                  value={moveRenumberMode}
+                  onChange={(e) => setMoveRenumberMode(e.target.value as 'append' | 'preserve')}
+                  className="w-full mt-2 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white"
+                >
+                  <option value="append" className="bg-brand-dark">Sona ekle (önerilen)</option>
+                  <option value="preserve" className="bg-brand-dark">Mevcut numarayı koru</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Taşınacak Bölümler ({moveSelectedEpisodeIds.length}/{episodes.length})
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMoveSelectedEpisodeIds(episodes.map((ep) => ep.id))}
+                    className="text-[10px] px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"
+                  >
+                    Hepsini Seç
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMoveSelectedEpisodeIds([])}
+                    className="text-[10px] px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"
+                  >
+                    Temizle
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-72 overflow-auto rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+                {episodes.map((ep) => (
+                  <label key={ep.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={moveSelectedEpisodeIds.includes(ep.id)}
+                      onChange={() => toggleMoveEpisode(ep.id)}
+                    />
+                    <span className="text-white text-sm font-semibold">
+                      Bölüm {ep.episode_number} {ep.title ? `• ${ep.title}` : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsMoveModalOpen(false)}
+                className="flex-1 bg-white/5 text-gray-400 font-black py-3 rounded-xl uppercase tracking-widest text-[10px]"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleMoveEpisodes}
+                disabled={isMovingEpisodes}
+                className="flex-1 bg-amber-500 text-brand-black font-black py-3 rounded-xl uppercase tracking-widest text-[10px] disabled:opacity-60"
+              >
+                {isMovingEpisodes ? 'Taşınıyor...' : 'Sezona Taşı'}
               </button>
             </div>
           </div>

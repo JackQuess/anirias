@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { fixSeasonsForAnime } from '../../services/fixSeasons.js';
+import { moveEpisodesToSeason } from '../../services/moveEpisodes.js';
 import { normalizeOrigin } from '../../utils/cors.js';
 
 const router = Router();
@@ -64,6 +65,7 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
           seasonsFixed: result.seasonsFixed,
           seasonsRemoved: result.seasonsRemoved,
           episodesReassigned: result.episodesReassigned,
+          episodesSkippedConflicts: result.episodesSkippedConflicts,
           message: result.errors.join(', '),
           warnings: result.errors,
         });
@@ -77,6 +79,7 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
         seasonsFixed: result.seasonsFixed,
         seasonsRemoved: result.seasonsRemoved,
         episodesReassigned: result.episodesReassigned,
+        episodesSkippedConflicts: result.episodesSkippedConflicts,
       });
     }
 
@@ -85,6 +88,7 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
       seasonsFixed: result.seasonsFixed,
       seasonsRemoved: result.seasonsRemoved,
       episodesReassigned: result.episodesReassigned,
+      episodesSkippedConflicts: result.episodesSkippedConflicts,
       message: 'Sezonlar başarıyla düzeltildi',
     });
   } catch (err: any) {
@@ -114,5 +118,51 @@ router.post('/fix-seasons', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+/**
+ * POST /api/admin/move-episodes
+ *
+ * Move selected episodes to another season.
+ * Body:
+ * {
+ *   animeId: string,
+ *   targetSeasonId: string,
+ *   episodeIds: string[],
+ *   renumberMode?: 'append' | 'preserve'
+ * }
+ */
+router.post('/move-episodes', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
+    const { animeId, targetSeasonId, episodeIds, renumberMode } = req.body || {};
+
+    if (!animeId || typeof animeId !== 'string') {
+      return res.status(400).json({ success: false, error: 'animeId (string) is required' });
+    }
+    if (!targetSeasonId || typeof targetSeasonId !== 'string') {
+      return res.status(400).json({ success: false, error: 'targetSeasonId (string) is required' });
+    }
+    if (!Array.isArray(episodeIds) || episodeIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'episodeIds (array) is required' });
+    }
+    if (renumberMode && renumberMode !== 'append' && renumberMode !== 'preserve') {
+      return res.status(400).json({ success: false, error: 'renumberMode must be append or preserve' });
+    }
+
+    const result = await moveEpisodesToSeason({
+      animeId,
+      targetSeasonId,
+      episodeIds: episodeIds.map((id: any) => String(id)),
+      renumberMode,
+    });
+
+    return res.json({ success: true, ...result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Move episodes failed' });
+  }
+});
+
+export default router;

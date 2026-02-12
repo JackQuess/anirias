@@ -18,6 +18,7 @@ export interface FixSeasonsResult {
   seasonsFixed: number;
   seasonsRemoved: number;
   episodesReassigned: number;
+  episodesSkippedConflicts: number;
   errors: string[];
 }
 
@@ -37,6 +38,7 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
   let seasonsFixed = 0;
   let seasonsRemoved = 0;
   let episodesReassigned = 0;
+  let episodesSkippedConflicts = 0;
 
   try {
     // Validate supabaseAdmin is initialized
@@ -70,6 +72,7 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
         seasonsFixed: 0,
         seasonsRemoved: 0,
         episodesReassigned: 0,
+        episodesSkippedConflicts: 0,
         errors: [`Anime not found: ${animeId}`],
       };
     }
@@ -96,6 +99,7 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
         seasonsFixed: 0,
         seasonsRemoved: 0,
         episodesReassigned: 0,
+        episodesSkippedConflicts: 0,
         errors: ['No episodes found for this anime'],
       };
     }
@@ -308,22 +312,50 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
         continue;
       }
 
-      // Update all episodes in this season
-      const episodeIds = episodes.map(ep => ep.id);
-      
-      const { error: updateError } = await supabaseAdmin
-        .from('episodes')
-        .update({
-          season_id: seasonId,
-          season_number: newSeasonNumber,
-          updated_at: new Date().toISOString(),
-        })
-        .in('id', episodeIds);
+      // Update episodes one by one to avoid whole-batch failure on unique conflicts
+      for (const ep of episodes) {
+        const { data: conflictRow, error: conflictErr } = await supabaseAdmin
+          .from('episodes')
+          .select('id')
+          .eq('anime_id', animeId)
+          .eq('season_id', seasonId)
+          .eq('episode_number', ep.episode_number)
+          .neq('id', ep.id)
+          .maybeSingle();
 
-      if (updateError) {
-        errors.push(`Failed to update episodes for season ${newSeasonNumber}: ${updateError.message}`);
-      } else {
-        episodesReassigned += episodeIds.length;
+        if (conflictErr) {
+          errors.push(
+            `Failed conflict check for episode ${ep.id} (S${newSeasonNumber}E${ep.episode_number}): ${conflictErr.message}`
+          );
+          continue;
+        }
+
+        if (conflictRow?.id) {
+          // Keep existing row in target season; skip conflicting move.
+          episodesSkippedConflicts += 1;
+          continue;
+        }
+
+        const { error: updateError } = await supabaseAdmin
+          .from('episodes')
+          .update({
+            season_id: seasonId,
+            season_number: newSeasonNumber,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', ep.id);
+
+        if (updateError) {
+          // Fail-soft on unique conflicts that may appear due to race conditions
+          const msg = String(updateError.message || '').toLowerCase();
+          if (msg.includes('duplicate key value') || msg.includes('unique constraint')) {
+            episodesSkippedConflicts += 1;
+            continue;
+          }
+          errors.push(`Failed to update episode ${ep.id} for season ${newSeasonNumber}: ${updateError.message}`);
+        } else {
+          episodesReassigned += 1;
+        }
       }
     }
 
@@ -361,6 +393,7 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       seasonsFixed,
       seasonsRemoved,
       episodesReassigned,
+      episodesSkippedConflicts,
       errors,
     };
   } catch (error: any) {
@@ -376,8 +409,8 @@ export async function fixSeasonsForAnime(animeId: string): Promise<FixSeasonsRes
       seasonsFixed,
       seasonsRemoved,
       episodesReassigned,
+      episodesSkippedConflicts,
       errors: [...errors, error?.message || 'Unknown error', error?.stack || 'No stack trace'],
     };
   }
 }
-
