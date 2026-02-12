@@ -6,10 +6,10 @@ import {
   supabaseAdmin,
   ensureAnimeSlug,
   expectedCdn,
-  getEpisodeByKey,
   updateEpisodePath,
 } from './supabaseAdmin.js';
 import { notifyDownloadFailed } from './adminNotifications.js';
+import { markEpisodeReleased } from './airingSchedule.js';
 
 const TMP_ROOT = process.env.DOWNLOAD_TMP_ROOT || '/tmp/anirias-downloads';
 const MAX_CONCURRENT_DOWNLOADS = parseInt(process.env.MAX_CONCURRENT_DOWNLOADS || '2', 10);
@@ -141,6 +141,12 @@ async function processEpisodeDownload(
 
     // Update episode with CDN URL and set status to ready
     await updateEpisodePath(episodeId, cdnUrl);
+    await markEpisodeReleased({
+      animeId,
+      episodeNumber,
+      importedEpisodeId: episodeId,
+      releasedAt: new Date().toISOString(),
+    });
 
     // Clean up temp file
     await rm(tempFile, { force: true });
@@ -302,4 +308,3 @@ export async function processDownloadQueue(
     errors,
   };
 }
-

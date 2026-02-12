@@ -146,6 +146,18 @@ export interface CalendarEntry {
   short_note?: string | null;
 }
 
+export interface PublicCalendarEntry {
+  animeId: string;
+  slug: string | null;
+  title: string;
+  episodeNumber: number;
+  airingAt: string;
+  isReleased: boolean;
+  releasedAt: string | null;
+  coverImage: string | null;
+  statusBadge: 'YAYINLANDI' | 'BUGÜN' | 'YAKINDA';
+}
+
 export interface CommentProfile {
   username?: string | null;
   avatar_id?: string | null;

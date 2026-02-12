@@ -1,6 +1,6 @@
 
 import { supabase, hasSupabaseEnv } from './supabaseClient';
-import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback } from '../types';
+import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry } from '../types';
 
 // Helper to ensure Supabase is configured
 const checkEnv = () => {
@@ -1241,6 +1241,25 @@ export const db = {
       if (import.meta.env.DEV) console.error('[db.getCalendar] Unexpected error:', err);
       return [];
     }
+  },
+
+  getPublicCalendar: async (from?: string, days: number = 14): Promise<PublicCalendarEntry[]> => {
+    const apiBase = getApiBase();
+    const dateFrom = from || new Date().toISOString().slice(0, 10);
+    const query = new URLSearchParams({ from: dateFrom, days: String(days) });
+
+    const res = await fetch(`${apiBase}/api/calendar?${query.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `Calendar API failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    return Array.isArray(data) ? (data as PublicCalendarEntry[]) : [];
   },
 
   getCalendarEpisodes: async (): Promise<(Episode & { anime: Anime | null })[]> => {

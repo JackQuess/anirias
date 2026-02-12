@@ -18,9 +18,12 @@ import automationRouter from './routes/automation.js';
 import automationProxyRouter from './routes/automationProxy.js';
 import animeRouter from './routes/anime.js';
 import watchPageRouter from './routes/watchPage.js';
+import calendarRouter from './routes/calendar.js';
+import calendarSyncRouter from './routes/admin/calendarSync.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
+import { startAiringScheduleSyncJob } from './jobs/syncAiringSchedule.js';
 
 const app = express();
 
@@ -106,10 +109,12 @@ app.use('/api/admin', createAnimeRouter);
 app.use('/api/admin', updateAnimeRouter);
 app.use('/api/admin', updateEpisodeRouter);
 app.use('/api/admin', jobsRouter);
+app.use('/api/admin', calendarSyncRouter);
 app.use('/api/automation', automationRouter);
 app.use('/api/automation-proxy', automationProxyRouter);
 app.use('/api/anime', animeRouter);
 app.use('/api/watch', watchPageRouter);
+app.use('/api', calendarRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
@@ -124,4 +129,7 @@ app.listen(PORT, () => {
   
   // Start auto download worker (processes pending downloads every 15 min)
   startAutoDownloadWorker();
+
+  // Start AniList schedule sync job (default: every 6h, configurable by env)
+  startAiringScheduleSyncJob();
 });
