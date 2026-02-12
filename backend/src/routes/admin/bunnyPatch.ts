@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
+import { runVideoBasePatch } from '../../services/videoBasePatch.js';
 
 const router = Router();
 
@@ -129,6 +130,30 @@ router.post('/bunny-patch', async (req: Request, res: Response) => {
     return res.json({ success: true, patched, errors });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Patch failed' });
+  }
+});
+
+router.post('/video-base-patch', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { animeId, seasonId, dryRun } = req.body || {};
+    if (!animeId || typeof animeId !== 'string') {
+      return res.status(400).json({ success: false, error: 'animeId required' });
+    }
+
+    const result = await runVideoBasePatch({
+      animeId,
+      seasonId: seasonId || null,
+      dryRun: Boolean(dryRun),
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Video base patch failed' });
   }
 });
 

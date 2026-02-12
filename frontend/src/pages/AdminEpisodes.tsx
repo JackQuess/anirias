@@ -5,6 +5,7 @@ import { db } from '@/services/db';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { Season, Episode } from '../types';
 import { getDisplayTitle } from '@/utils/title';
+import { showToast } from '@/components/ToastProvider';
 
 const ANILIST_API = 'https://graphql.anilist.co';
 const ANILIST_SEARCH_QUERY = `
@@ -32,6 +33,15 @@ const AdminEpisodes: React.FC = () => {
   const [isPatching, setIsPatching] = useState(false);
   const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
   const [isBunnyPatching, setIsBunnyPatching] = useState(false);
+  const [isVideoPatchConfirmOpen, setIsVideoPatchConfirmOpen] = useState(false);
+  const [videoPatchPreview, setVideoPatchPreview] = useState<{
+    scanned: number;
+    willUpdate: number;
+    updated: number;
+    alreadyNew: number;
+    skipped: number;
+    sampleWillUpdate: Array<{ episodeId: string; before: string; after: string }>;
+  } | null>(null);
   const [isFixingSeasons, setIsFixingSeasons] = useState(false);
   const [isAniListModalOpen, setIsAniListModalOpen] = useState(false);
   const [anilistSearch, setAnilistSearch] = useState('');
@@ -467,9 +477,7 @@ const AdminEpisodes: React.FC = () => {
   };
 
   const handlePatchMissingOnly = async () => {
-    const season = Array.isArray(seasons) ? seasons.find((s) => s.id === selectedSeasonId) : null;
-    if (!season) return;
-    await handleBunnyPatch(season.season_number);
+    await handleVideoBasePatchDryRun();
     setIsMissingModalOpen(false);
   };
 
@@ -581,22 +589,9 @@ const AdminEpisodes: React.FC = () => {
     }
   };
 
-  const handleBunnyPatch = async (seasonNumber?: number) => {
-    if (!animeId || !selectedSeasonId) return;
-    
-    const targetSeason = selectedSeason;
-    if (!targetSeason) {
-      alert('Lütfen önce bir sezon seçin.');
-      return;
-    }
-    
-    if (episodes.length === 0) {
-      alert('Bu sezonda patch edilecek bölüm yok. Önce bölümleri oluşturun.');
-      return;
-    }
-    
-    if (!window.confirm(`Sezon ${targetSeason.season_number} için mevcut ${episodes.length} bölümün Bunny Patch'i çalıştırılsın mı? (Sadece DB'deki bölümler patch edilir)`)) return;
-    
+  const handleVideoBasePatchDryRun = async () => {
+    if (!animeId) return;
+
     const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
     if (!apiBase) {
       alert('VITE_API_BASE_URL tanımlı değil.');
@@ -609,7 +604,7 @@ const AdminEpisodes: React.FC = () => {
     }
     setIsBunnyPatching(true);
     try {
-      const res = await fetch(`${apiBase}/api/admin/bunny-patch`, {
+      const res = await fetch(`${apiBase}/api/admin/video-base-patch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -617,33 +612,62 @@ const AdminEpisodes: React.FC = () => {
         },
         body: JSON.stringify({
           animeId,
-          seasonNumber: targetSeason.season_number,
-          checkCdn: true
+          seasonId: selectedSeasonId || null,
+          dryRun: true
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      
-      const patched = data?.patched ?? 0;
-      const errors = data?.errors ?? [];
-      const missing = errors.length;
-      const total = episodes.length;
-      
-      const summary = [
-        `Toplam: ${total} bölüm`,
-        `✅ Patch edildi: ${patched}`,
-        `⚠ CDN 404 (eksik): ${missing}`,
-        ...(errors.length > 0 ? errors.slice(0, 3).map((e: any) => `   Ep ${e.episode_number}: ${e.error?.replace('CDN 404: ', '') || '404'}`) : [])
-      ].join('\n');
-      
-      if (errors.length > 0) {
-        alert(`Bunny Patch Sonuçları:\n\n${summary}${errors.length > 3 ? `\n...ve ${errors.length - 3} bölüm daha eksik` : ''}`);
-      } else {
-        alert(`✅ Bunny Patch Başarılı!\n\n${summary}`);
-      }
+
+      setVideoPatchPreview(data);
+      setIsVideoPatchConfirmOpen(true);
+    } catch (err: any) {
+      showToast(err?.message || 'Dry-run başarısız', 'error');
+    } finally {
+      setIsBunnyPatching(false);
+    }
+  };
+
+  const handleVideoBasePatchApply = async () => {
+    if (!animeId) return;
+
+    const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (!apiBase) {
+      alert('VITE_API_BASE_URL tanımlı değil.');
+      return;
+    }
+    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    if (!token) {
+      alert('Admin token gerekli.');
+      return;
+    }
+
+    setIsBunnyPatching(true);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/video-base-patch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token
+        },
+        body: JSON.stringify({
+          animeId,
+          seasonId: selectedSeasonId || null,
+          dryRun: false
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+
+      showToast(
+        `Patch tamam: ${data.updated} güncellendi, ${data.alreadyNew} zaten yeni, ${data.skipped} atlandı`,
+        'success'
+      );
+      setIsVideoPatchConfirmOpen(false);
+      setVideoPatchPreview(null);
       reload();
     } catch (err: any) {
-      alert(err?.message || 'Bunny Patch başarısız');
+      showToast(err?.message || 'Patch başarısız', 'error');
     } finally {
       setIsBunnyPatching(false);
     }
@@ -862,11 +886,11 @@ const AdminEpisodes: React.FC = () => {
           </button>
           {selectedSeason && (
           <button
-            onClick={() => handleBunnyPatch()}
+            onClick={handleVideoBasePatchDryRun}
               disabled={isBunnyPatching || !episodes || episodes.length === 0}
             className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 px-8 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all disabled:opacity-50"
           >
-              🔧 Bunny Patch
+              🔧 Link Patch
           </button>
           )}
           <Link
@@ -1039,12 +1063,12 @@ const AdminEpisodes: React.FC = () => {
                   >
                         {s.anilist_id ? '✓ BAĞLI' : '🔗 ANILIST BAĞLA'}
                   </button>
-                  <button
+                      <button
                         disabled
-                        title="Bu işlem artık Desktop App üzerinden yapılır."
+                        title="Bu sezonda URL patch için üstteki LINK PATCH butonunu kullanın."
                         className="bg-emerald-500/10 text-gray-600 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-emerald-500/30 opacity-50 cursor-not-allowed flex-1"
                       >
-                        ⚡ BUNNY PATCH
+                        ⚡ LINK PATCH
                   </button>
                   <button
                         disabled
@@ -1213,6 +1237,57 @@ const AdminEpisodes: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isVideoPatchConfirmOpen && videoPatchPreview && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsVideoPatchConfirmOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-brand-dark border border-brand-border p-8 rounded-[2rem]">
+            <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">
+              Video Base Patch Onayı
+            </h3>
+            <p className="text-gray-400 text-sm mt-4">
+              {videoPatchPreview.willUpdate} bölüm linki Hetzner base URL&apos;ine çevrilecek. Devam?
+            </p>
+            <div className="mt-4 text-xs text-gray-500 space-y-1">
+              <p>Tarandı: {videoPatchPreview.scanned}</p>
+              <p>Güncellenecek: {videoPatchPreview.willUpdate}</p>
+              <p>Zaten yeni: {videoPatchPreview.alreadyNew}</p>
+              <p>Atlanacak: {videoPatchPreview.skipped}</p>
+            </div>
+            {videoPatchPreview.sampleWillUpdate.length > 0 && (
+              <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 max-h-56 overflow-auto">
+                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Örnek Değişiklikler</p>
+                <div className="space-y-3">
+                  {videoPatchPreview.sampleWillUpdate.map((sample) => (
+                    <div key={sample.episodeId} className="text-[11px] text-gray-300 break-all">
+                      <p className="text-gray-500">Episode: {sample.episodeId}</p>
+                      <p>Önce: {sample.before}</p>
+                      <p>Sonra: {sample.after}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-8 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsVideoPatchConfirmOpen(false)}
+                className="flex-1 bg-white/5 text-gray-400 font-black py-3 rounded-xl uppercase tracking-widest text-[10px]"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleVideoBasePatchApply}
+                disabled={isBunnyPatching}
+                className="flex-1 bg-brand-red text-white font-black py-3 rounded-xl uppercase tracking-widest text-[10px] disabled:opacity-60"
+              >
+                {isBunnyPatching ? 'Uygulanıyor...' : 'Devam Et'}
+              </button>
+            </div>
           </div>
         </div>
       )}
