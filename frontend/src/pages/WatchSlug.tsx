@@ -1,17 +1,34 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
 import { useAuth } from '../services/auth';
 import LoadingSkeleton from '../components/LoadingSkeleton';
-import Comments from '../components/Comments';
 import VideoPlayer from '../components/VideoPlayer';
 import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
-import { WatchProgress } from '../types';
+import type { WatchProgress, Anime, Season, Episode } from '../types';
 import NotFound from './NotFound';
 import { parseSeasonSlug, generateSeasonSlug } from '@/utils/seasonSlug';
+
+const Comments = lazy(() => import('../components/Comments'));
+
+interface WatchPagePayload {
+  anime: Anime;
+  season: Season;
+  episode: Episode;
+  seasons: Season[];
+  episodes: Episode[];
+}
+
+const getApiBase = (): string => {
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (!apiBase) {
+    throw new Error('Backend API URL not configured (VITE_API_BASE_URL)');
+  }
+  return apiBase.replace(/\/+$/, '');
+};
 
 const WatchSlug: React.FC = () => {
   const { animeSlug, seasonNumber, episodeNumber } = useParams<{
@@ -52,45 +69,30 @@ const WatchSlug: React.FC = () => {
     return parsed;
   }, [animeSlug]);
 
-  const { data: anime, loading: animeLoading, error: animeError } = useLoad(
-    () => {
+  const { data: watchData, loading: watchLoading, error: watchError } = useLoad<WatchPagePayload | null>(
+    async () => {
       if (!seasonSlugInfo) throw new Error('Invalid season slug');
-      return db.getAnimeBySlug(seasonSlugInfo.animeSlug);
+      if (!seasonNum || !episodeNum) throw new Error('Invalid season/episode');
+      const apiBase = getApiBase();
+      const res = await fetch(
+        `${apiBase}/api/watch/${encodeURIComponent(seasonSlugInfo.animeSlug)}/${seasonNum}/${episodeNum}`
+      );
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('NOT_FOUND');
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      return (await res.json()) as WatchPagePayload;
     },
-    [seasonSlugInfo]
+    [seasonSlugInfo?.animeSlug, seasonNum, episodeNum]
   );
 
-  const { data: season, loading: seasonLoading, error: seasonError } = useLoad(
-    () => {
-      if (!anime?.id || !seasonNum) throw new Error('Anime and season required');
-      return db.getSeasonByAnimeAndNumber(anime.id, seasonNum);
-    },
-    [anime?.id, seasonNum]
-  );
-
-  const { data: episode, loading: episodeLoading, error: episodeError } = useLoad(
-    () => {
-      if (!season?.id || !episodeNum) throw new Error('Season and episode required');
-      return db.getEpisodeBySeasonAndNumber(season.id, episodeNum);
-    },
-    [season?.id, episodeNum]
-  );
-
-  const { data: seasons } = useLoad(
-    () => {
-      if (!anime?.id) throw new Error('Anime required');
-      return db.getSeasons(anime.id);
-    },
-    [anime?.id]
-  );
-
-  const { data: episodes } = useLoad(
-    () => {
-      if (!season?.id) throw new Error('Season required');
-      return db.getEpisodesBySeasonId(season.id);
-    },
-    [season?.id]
-  );
+  const anime = watchData?.anime ?? null;
+  const season = watchData?.season ?? null;
+  const seasons = watchData?.seasons ?? [];
+  const episodes = watchData?.episodes ?? [];
+  const episode = watchData?.episode ?? null;
 
   const { data: progressList } = useLoad(
     () => {
@@ -109,13 +111,13 @@ const WatchSlug: React.FC = () => {
   }, [episode?.id, currentEpisodeId]);
 
   const isNotFound = useMemo(() => {
-    if (animeLoading || seasonLoading || episodeLoading) return false;
-    if (animeError || !anime) return true;
-    if (seasonError || !season) return true;
-    if (episodeError || !episode) return true;
+    if (watchLoading) return false;
+    if (watchError?.message === 'NOT_FOUND') return true;
+    if (watchError) return false;
+    if (!anime || !season || !episode) return true;
     if (!anime.slug) return true;
     return false;
-  }, [animeLoading, seasonLoading, episodeLoading, animeError, seasonError, episodeError, anime, season, episode]);
+  }, [watchLoading, watchError, anime, season, episode]);
 
   // OPTIMIZED: Episode switch - instant switching with React Router
   const navigateToEpisode = useCallback((targetSeasonNum: number, targetEpisodeNum: number) => {
@@ -212,7 +214,7 @@ const WatchSlug: React.FC = () => {
     }
     // Check if there's a next season
     if (seasons && seasonNum) {
-      const nextSeason = seasons.find(s => s.season_number === seasonNum + 1);
+      const nextSeason = seasons.find((s) => s.season_number === seasonNum + 1);
       if (nextSeason) {
         return { seasonNumber: nextSeason.season_number, episodeNumber: 1 };
       }
@@ -290,7 +292,7 @@ const WatchSlug: React.FC = () => {
     return <NotFound />;
   }
 
-  if (animeLoading || seasonLoading || episodeLoading || !anime || !season || !episode) {
+  if (watchLoading || !anime || !season || !episode) {
     return (
       <div className="min-h-screen bg-brand-black pt-20">
         <LoadingSkeleton type="banner" />

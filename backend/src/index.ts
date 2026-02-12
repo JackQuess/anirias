@@ -17,6 +17,7 @@ import jobsRouter from './routes/admin/jobs.js';
 import automationRouter from './routes/automation.js';
 import automationProxyRouter from './routes/automationProxy.js';
 import animeRouter from './routes/anime.js';
+import watchPageRouter from './routes/watchPage.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
@@ -108,6 +109,7 @@ app.use('/api/admin', jobsRouter);
 app.use('/api/automation', automationRouter);
 app.use('/api/automation-proxy', automationProxyRouter);
 app.use('/api/anime', animeRouter);
+app.use('/api/watch', watchPageRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
