@@ -29,7 +29,13 @@ const callBackendApi = async (
   adminToken?: string
 ): Promise<any> => {
   const apiBase = getApiBase();
-  const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+  const token =
+    (adminToken ||
+      localStorage.getItem('adminToken') ||
+      localStorage.getItem('ADMIN_TOKEN') ||
+      localStorage.getItem('admin_token') ||
+      window.prompt('Admin Token (X-ADMIN-TOKEN)') ||
+      '').trim();
   if (!token) {
     throw new Error('Admin token is required');
   }
