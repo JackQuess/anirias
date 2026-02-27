@@ -61,7 +61,11 @@ const Browse: React.FC = () => {
 
   const years = useMemo(() => {
     const s = new Set<string>(['Hepsi']);
-    allAnimes?.forEach(a => a.year && s.add(a.year.toString()));
+    allAnimes?.forEach(a => {
+      if (a.year !== null && a.year !== undefined) {
+        s.add(String(a.year));
+      }
+    });
     return Array.from(s).sort((a,b) => b.localeCompare(a));
   }, [allAnimes]);
 
@@ -76,7 +80,8 @@ const Browse: React.FC = () => {
       const genreToMatch = selectedGenre === 'Hepsi' ? 'Hepsi' : translateGenreToEnglish(selectedGenre);
       const matchesGenre = genreToMatch === 'Hepsi' || anime.genres?.includes(genreToMatch);
       
-      const matchesYear = selectedYear === 'Hepsi' || anime.year.toString() === selectedYear;
+      const animeYear = anime.year !== null && anime.year !== undefined ? String(anime.year) : '';
+      const matchesYear = selectedYear === 'Hepsi' || animeYear === selectedYear;
       return matchesSearch && matchesGenre && matchesYear;
     });
 
