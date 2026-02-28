@@ -41,6 +41,7 @@ const Home: React.FC = () => {
   const heroPool = featuredList.length > 0 ? featuredList : allAnimeList;
   const popularPool = featuredList.length > 0 ? featuredList : allAnimeList.slice(0, 12);
   const noPublicContent = !featLoading && !allAnimesLoading && featuredList.length === 0 && allAnimeList.length === 0;
+  const showHeroLoading = featLoading || allAnimesLoading;
 
   // Auto-play logic
   useEffect(() => {
@@ -69,7 +70,7 @@ const Home: React.FC = () => {
         onMouseEnter={() => setIsAutoPlaying(false)}
         onMouseLeave={() => setIsAutoPlaying(true)}
       >
-        {featLoading ? (
+        {showHeroLoading ? (
            <div className="absolute inset-0 bg-brand-surface animate-pulse" />
         ) : heroAnime ? (
           <>
@@ -180,7 +181,31 @@ const Home: React.FC = () => {
               )}
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="relative z-20 w-full h-full flex items-center justify-center px-4">
+            <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-brand-surface/80 backdrop-blur-md p-6 md:p-8 text-center">
+              <p className="text-brand-red font-black text-[10px] uppercase tracking-[0.25em] mb-3">
+                Veri Yuklenemedi
+              </p>
+              <h2 className="text-white text-xl md:text-2xl font-black uppercase tracking-tight mb-3">
+                Ana sayfa icerigi su an alinamiyor
+              </h2>
+              <p className="text-gray-300 text-sm md:text-base mb-6">
+                {featError?.message ||
+                  (hasSupabaseEnv
+                    ? 'Icerik sorgusu bos dondu veya baglanti hatasi olustu.'
+                    : 'Supabase baglanti env ayarlari eksik gorunuyor (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).')}
+              </p>
+              <button
+                type="button"
+                onClick={reload}
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-redHover text-white font-black text-xs uppercase tracking-[0.18em] transition-all"
+              >
+                Yeniden Dene
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 space-y-16 md:space-y-24 -mt-12 md:-mt-20 relative z-20">

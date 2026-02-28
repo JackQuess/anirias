@@ -112,6 +112,19 @@ function extractAnimeIdFromFkErrorMessage(message: string | undefined): string |
   return uuidMatch ? uuidMatch[0] : null;
 }
 
+function isAiringScheduleAnimeFkError(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  const details = String(error?.details || '').toLowerCase();
+  const constraint = String(error?.constraint || '').toLowerCase();
+  const code = String(error?.code || '');
+
+  if (constraint.includes('airing_schedule_anime_id_fkey')) return true;
+  if (code === '23503' && (message.includes('airing_schedule_anime_id_fkey') || details.includes('airing_schedule_anime_id_fkey'))) {
+    return true;
+  }
+  return message.includes('airing_schedule_anime_id_fkey');
+}
+
 async function upsertScheduleRowsSafely(
   rows: Array<Record<string, any>>
 ): Promise<{ syncedRows: number; error: any | null }> {
@@ -127,18 +140,29 @@ async function upsertScheduleRowsSafely(
       return { syncedRows: pending.length, error: null };
     }
 
-    if (!String(error.message || '').includes('airing_schedule_anime_id_fkey')) {
+    if (!isAiringScheduleAnimeFkError(error)) {
       return { syncedRows: 0, error };
     }
 
-    const invalidAnimeId = extractAnimeIdFromFkErrorMessage(error.message);
+    const invalidAnimeId = extractAnimeIdFromFkErrorMessage(
+      `${String(error?.message || '')} ${String(error?.details || '')}`
+    );
     if (!invalidAnimeId) {
-      return { syncedRows: 0, error };
+      // Error text may not include the offending UUID.
+      // Re-validate all anime IDs and keep only rows that still exist.
+      const next = await filterExistingAnimeRows(pending as Array<{ anime_id: string }>);
+      if (next.length === pending.length) {
+        break;
+      }
+      console.warn(`[AiringSchedule] Removed ${pending.length - next.length} stale rows after FK check`);
+      pending = next;
+      removedAny = true;
+      continue;
     }
 
     const next = pending.filter((row) => row.anime_id !== invalidAnimeId);
     if (next.length === pending.length) {
-      return { syncedRows: 0, error };
+      break;
     }
 
     console.warn(`[AiringSchedule] Dropping rows with missing anime_id: ${invalidAnimeId}`);
@@ -146,9 +170,28 @@ async function upsertScheduleRowsSafely(
     removedAny = true;
   }
 
-  return removedAny
-    ? { syncedRows: pending.length, error: null }
-    : { syncedRows: 0, error: new Error('FK-safe upsert failed after retries') };
+  // Last-resort fallback: row-by-row upsert, skip only FK-invalid rows.
+  let successCount = 0;
+  for (const row of pending) {
+    const { error } = await supabaseAdmin
+      .from('airing_schedule')
+      .upsert([row], { onConflict: 'anime_id,episode_number' });
+
+    if (!error) {
+      successCount++;
+      continue;
+    }
+
+    if (isAiringScheduleAnimeFkError(error)) {
+      console.warn(`[AiringSchedule] Skipping FK-invalid row anime_id=${row.anime_id} ep=${row.episode_number}`);
+      removedAny = true;
+      continue;
+    }
+
+    return { syncedRows: successCount, error };
+  }
+
+  return removedAny ? { syncedRows: successCount, error: null } : { syncedRows: successCount, error: null };
 }
 
 export async function syncAiringSchedule(): Promise<SyncResult> {
@@ -177,8 +220,16 @@ export async function syncAiringSchedule(): Promise<SyncResult> {
 
   const fetched: AniListMediaSchedule[] = [];
   for (const chunk of chunks) {
-    const media = await fetchAniListChunk(chunk);
-    fetched.push(...media);
+    try {
+      const media = await fetchAniListChunk(chunk);
+      fetched.push(...media);
+    } catch (error: any) {
+      // Keep sync job alive even if one AniList chunk fails.
+      console.warn('[AiringSchedule] AniList chunk fetch failed, skipping chunk:', {
+        chunkSize: chunk.length,
+        error: error?.message || String(error),
+      });
+    }
     await sleep(150);
   }
 
