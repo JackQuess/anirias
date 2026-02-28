@@ -43,7 +43,7 @@ export function useLoad<T>(
         setError(new Error('İstek zaman aşımına uğradı. Lütfen bağlantınızı kontrol edin.'));
         setLoading(false);
       }
-    }, 15000); // PERFORMANCE FIX: Increased from 8s to 15s to reduce false timeouts on slower connections
+    }, 25000); // Generous timeout so slow connections don't hit "İstek zaman aşımına uğradı"
 
     const executeFetch = async () => {
       try {

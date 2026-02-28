@@ -8,6 +8,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getDisplayTitle } from '@/utils/title';
 import { ActivityLog } from '@/types';
 import AdminNotificationBell from '@/components/AdminNotificationBell';
+import { getAdminToken } from '@/utils/adminToken';
 
 interface DashboardStats {
   totalUsers: number;
@@ -47,8 +48,8 @@ const Admin: React.FC = () => {
       })
     : [];
 
-  // Get admin token from localStorage (assuming it's stored there)
-  const adminToken = localStorage.getItem('adminToken') || '';
+  // Admin token from central store (for notification bell)
+  const adminToken = getAdminToken() ?? '';
 
   return (
     <div className="space-y-6 lg:space-y-12 pb-20">

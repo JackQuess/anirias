@@ -38,15 +38,14 @@ import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
 import AuthCallback from './pages/AuthCallback';
+import UpdatePassword from './pages/UpdatePassword';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate initial asset loading / "booting"
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 600);
+    // Minimal boot delay so UI doesn't flash; content shows as soon as possible
+    const timer = setTimeout(() => setIsLoading(false), 150);
     return () => clearTimeout(timer);
   }, []);
 
@@ -83,6 +82,7 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
 
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Admin />} />

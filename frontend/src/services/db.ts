@@ -1,5 +1,6 @@
 
 import { supabase, hasSupabaseEnv } from './supabaseClient';
+import { getAdminToken } from '../utils/adminToken';
 import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry } from '../types';
 
 // Helper to ensure Supabase is configured
@@ -34,25 +35,37 @@ const getOptionalApiBase = (): string | null => {
   return apiBase.trim();
 };
 
-const fetchPublicJson = async (endpoint: string, timeoutMs = 4500): Promise<any> => {
+const fetchPublicJson = async (endpoint: string, timeoutMs = 12000): Promise<any> => {
   const apiBase = getOptionalApiBase();
   if (!apiBase) throw new Error('Backend API URL not configured (VITE_API_BASE_URL)');
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${apiBase}${endpoint}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || `HTTP ${res.status}`);
+  const doFetch = async (): Promise<any> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${apiBase}${endpoint}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      return await res.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return await res.json();
-  } finally {
-    clearTimeout(timeoutId);
+  };
+
+  try {
+    return await doFetch();
+  } catch (err: any) {
+    // Retry once on timeout/abort so slow or flaky networks get a second chance
+    if (err?.name === 'AbortError') {
+      return await doFetch();
+    }
+    throw err;
   }
 };
 
@@ -65,10 +78,8 @@ const callBackendApi = async (
   const apiBase = getApiBase();
   const token =
     (adminToken ||
-      localStorage.getItem('adminToken') ||
-      localStorage.getItem('ADMIN_TOKEN') ||
-      localStorage.getItem('admin_token') ||
-      window.prompt('Admin Token (X-ADMIN-TOKEN)') ||
+      getAdminToken() ||
+      (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) ||
       '').trim();
   if (!token) {
     throw new Error('Admin token is required');
@@ -385,7 +396,7 @@ export const db = {
   toggleFeatured: async (animeId: string, status: boolean, adminToken?: string): Promise<Anime> => {
     // Admin operation - use backend API
     const apiBase = getApiBase();
-    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    const token = adminToken || getAdminToken() || (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) || '';
     if (!token) {
       throw new Error('Admin token is required');
     }
@@ -470,7 +481,7 @@ export const db = {
   createSeason: async (season: Partial<Season>, adminToken?: string): Promise<Season> => {
     // Admin operation - use backend API
     const apiBase = getApiBase();
-    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    const token = adminToken || getAdminToken() || (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) || '';
     if (!token) {
       throw new Error('Admin token is required');
     }
@@ -519,7 +530,7 @@ export const db = {
 
   deleteSeason: async (id: string, adminToken?: string): Promise<void> => {
     const apiBase = getApiBase();
-    const token = adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    const token = adminToken || getAdminToken() || (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) || '';
     if (!token) {
       throw new Error('Admin token is required');
     }
@@ -558,10 +569,8 @@ export const db = {
     try {
       const apiBase = getApiBase();
       const token =
-        (localStorage.getItem('adminToken') ||
-          localStorage.getItem('ADMIN_TOKEN') ||
-          localStorage.getItem('admin_token') ||
-          window.prompt('Admin Token (X-ADMIN-TOKEN)') ||
+        (getAdminToken() ||
+          (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) ||
           '').trim();
       if (!token) {
         throw new Error('Admin token is required');
@@ -1174,7 +1183,7 @@ export const db = {
       throw new Error('Supabase environment not configured');
     }
 
-    const token = adminToken || localStorage.getItem('admin_token') || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+    const token = adminToken || getAdminToken() || (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) || '';
     if (!token) {
       throw new Error('Admin token is required');
     }

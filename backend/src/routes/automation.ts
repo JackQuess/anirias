@@ -10,7 +10,7 @@ const AUTOMATION_ACTIONS = [
 const VALID_PROVIDERS = ['diziwatch', 'animecix', 'anilist', 'mal'];
 const LIMIT_MIN = 1;
 const LIMIT_MAX = 500;
-const FETCH_TIMEOUT_MS = 10_000;
+const FETCH_TIMEOUT_MS = 20_000;
 
 function isAuthorized(req: Request): boolean {
   const secret = req.headers['x-admin-secret'];

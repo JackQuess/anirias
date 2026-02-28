@@ -6,6 +6,7 @@ import ErrorState from '../components/ErrorState';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { getAdminToken, setAdminToken } from '@/utils/adminToken';
 import { Anime } from '../types';
 
 const AdminAnimes: React.FC = () => {
@@ -31,13 +32,7 @@ const AdminAnimes: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
-  const [adminToken, setAdminToken] = useState(
-    () =>
-      localStorage.getItem('adminToken') ||
-      localStorage.getItem('ADMIN_TOKEN') ||
-      localStorage.getItem('admin_token') ||
-      ''
-  );
+  const [adminToken, setAdminTokenState] = useState(() => getAdminToken() ?? '');
 
   // Filtered animes - always array
   const filteredAnimes = useMemo(() => {
@@ -55,7 +50,7 @@ const AdminAnimes: React.FC = () => {
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
     
-    const token = (adminToken || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '').trim();
+    const token = (getAdminToken() || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '').trim();
     if (!token) {
       alert('Admin token gerekli.');
       setDeleteConfirm(null);
@@ -333,7 +328,7 @@ const AdminAnimes: React.FC = () => {
                   onChange={(e) => {
                     const value = e.target.value;
                     setAdminToken(value);
-                    localStorage.setItem('adminToken', value);
+                    setAdminTokenState(value);
                   }}
                   placeholder="ADMIN_TOKEN"
                   className="w-full bg-brand-black border border-brand-border rounded-lg lg:rounded-xl px-3 lg:px-4 py-2.5 lg:py-3 text-[10px] lg:text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"

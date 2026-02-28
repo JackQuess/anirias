@@ -6,6 +6,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { Season, Episode } from '../types';
 import { getDisplayTitle } from '@/utils/title';
 import { showToast } from '@/components/ToastProvider';
+import { getAdminToken, setAdminToken } from '@/utils/adminToken';
 
 const ANILIST_API = 'https://graphql.anilist.co';
 const ANILIST_SEARCH_QUERY = `
@@ -60,7 +61,7 @@ const AdminEpisodes: React.FC = () => {
   const [autoResult, setAutoResult] = useState<any | null>(null);
   const [autoError, setAutoError] = useState<string | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
-  const [adminTokenInput, setAdminTokenInput] = useState('');
+  const [adminTokenInput, setAdminTokenInput] = useState(() => getAdminToken() ?? '');
   const [cdnTestUrl, setCdnTestUrl] = useState('');
   const [cdnToken, setCdnToken] = useState('');
   const [cdnTestResult, setCdnTestResult] = useState<{ exists: boolean; status: number } | null>(null);
@@ -325,7 +326,7 @@ const AdminEpisodes: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-ADMIN-TOKEN': adminTokenInput || ''
+          'X-ADMIN-TOKEN': getAdminToken() || cdnToken || ''
         },
         body: JSON.stringify({
           animeId,
@@ -523,7 +524,7 @@ const AdminEpisodes: React.FC = () => {
     setIsCreatingSeason(true);
     try {
       // Get admin token
-      const adminToken = window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
+      const adminToken = getAdminToken() || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '';
       if (!adminToken) {
         alert('Admin token gerekli.');
         setIsCreatingSeason(false);
@@ -602,7 +603,7 @@ const AdminEpisodes: React.FC = () => {
       alert('VITE_API_BASE_URL tanımlı değil.');
       return;
     }
-    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    const token = getAdminToken() || window.prompt('Admin Token') || '';
     if (!token) {
       alert('Admin token gerekli.');
       return;
@@ -641,7 +642,7 @@ const AdminEpisodes: React.FC = () => {
       alert('VITE_API_BASE_URL tanımlı değil.');
       return;
     }
-    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    const token = getAdminToken() || window.prompt('Admin Token') || '';
     if (!token) {
       alert('Admin token gerekli.');
       return;
@@ -828,7 +829,7 @@ const AdminEpisodes: React.FC = () => {
       alert('VITE_API_BASE_URL tanımlı değil.');
       return;
     }
-    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    const token = getAdminToken() || window.prompt('Admin Token') || '';
     if (!token) {
       alert('Admin token gerekli.');
       return;
@@ -918,7 +919,7 @@ const AdminEpisodes: React.FC = () => {
       showToast('VITE_API_BASE_URL tanımlı değil.', 'error');
       return;
     }
-    const token = adminTokenInput || window.prompt('Admin Token') || '';
+    const token = getAdminToken() || window.prompt('Admin Token') || '';
     if (!token) {
       showToast('Admin token gerekli.', 'error');
       return;
@@ -1665,7 +1666,11 @@ const AdminEpisodes: React.FC = () => {
                 <input
                   type="password"
                   value={adminTokenInput}
-                  onChange={(e) => setAdminTokenInput(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setAdminToken(v);
+                    setAdminTokenInput(v);
+                  }}
                   placeholder="ADMIN_TOKEN"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-xs outline-none focus:border-emerald-400"
                 />

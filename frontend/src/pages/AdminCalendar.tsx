@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { Episode, Anime } from '@/types';
+import { getAdminToken } from '@/utils/adminToken';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import { getDisplayTitle } from '@/utils/title';
@@ -37,10 +38,7 @@ const AdminCalendar: React.FC = () => {
     if (!editing) return;
     setIsSaving(true);
     try {
-      const adminToken =
-        localStorage.getItem('admin_token') ||
-        localStorage.getItem('ADMIN_TOKEN') ||
-        undefined;
+      const adminToken = getAdminToken() ?? undefined;
       await db.updateEpisode(editing.id, {
         status: form.status,
         air_date: form.air_date || null,

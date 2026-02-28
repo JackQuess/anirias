@@ -17,7 +17,7 @@ const Signup: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  const AUTH_TIMEOUT_MS = 10000;
+  const AUTH_TIMEOUT_MS = 20000;
   // TODO [v2]: Re-enable email verification
   // const [showEmailVerification, setShowEmailVerification] = useState(false);
   // const [signedUpEmail, setSignedUpEmail] = useState('');
