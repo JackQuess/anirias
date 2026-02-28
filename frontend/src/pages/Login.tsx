@@ -7,14 +7,6 @@ import { useAuth } from '@/services/auth';
 // import EmailVerificationCard from '@/components/EmailVerificationCard';
 // import MascotLayer from '@/components/decorative/MascotLayer';
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
-import { useAuth } from '@/services/auth';
-// TODO [v2]: Re-enable email verification
-// import EmailVerificationCard from '@/components/EmailVerificationCard';
-// import MascotLayer from '@/components/decorative/MascotLayer';
-
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -33,7 +25,8 @@ const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
-  const AUTH_TIMEOUT_MS = 15000; // 15 sn - takilmayi onlemek icin
+  const AUTH_TIMEOUT_MS = 20000; // 20 sn - giriş isteği
+  const USERNAME_RPC_TIMEOUT_MS = 25000; // 25 sn - kullanıcı adı → e-posta (canlıda yavaş olabiliyor)
 
   const configMissing = !hasSupabaseEnv;
   if (typeof window !== 'undefined') {
@@ -64,12 +57,12 @@ const Login: React.FC = () => {
       return null;
     }
     console.log('[Anirias:Login] getEmailByUsername start', { username });
-    try {
+    const runRpc = async (): Promise<string | null> => {
       const rpcPromise = supabase.rpc('get_email_by_username', {
         username_input: username.trim()
       });
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Username sorgusu zaman asimina ugradi')), AUTH_TIMEOUT_MS)
+        setTimeout(() => reject(new Error('Username sorgusu zaman asimina ugradi')), USERNAME_RPC_TIMEOUT_MS)
       );
       const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
 
@@ -85,9 +78,23 @@ const Login: React.FC = () => {
 
       console.log('[Anirias:Login] getEmailByUsername: no email found', { username });
       return null;
-    } catch (err) {
+    };
+    try {
+      const result = await runRpc();
+      return result;
+    } catch (err: any) {
+      // Zaman aşımı ise bir kez daha dene (canlıda Supabase bazen yavaş yanıt veriyor)
+      if (err?.message?.includes('zaman asimina')) {
+        console.warn('[Anirias:Login] getEmailByUsername timeout, retrying once...');
+        try {
+          return await runRpc();
+        } catch (retryErr: any) {
+          console.error('[Anirias:Login] getEmailByUsername retry failed', retryErr);
+          throw retryErr; // Kullanıcıya zaman aşımı mesajı göstermek için yukarı fırlat
+        }
+      }
       console.error('[Anirias:Login] getEmailByUsername error', err);
-      return null;
+      throw err; // Timeout dışı hataları da yukarı fırlat ki doğru mesaj gösterilsin
     }
   };
 
@@ -112,15 +119,18 @@ const Login: React.FC = () => {
         emailToUse = emailToUse;
       } else {
         // Username olarak kabul et, RPC function ile email'i bul
-        const foundEmail = await getEmailByUsername(emailToUse);
-        
+        let foundEmail: string | null = null;
+        try {
+          foundEmail = await getEmailByUsername(emailToUse);
+        } catch (rpcErr: any) {
+          // Zaman aşımı veya RPC hatası: kullanıcıya anlamlı mesaj göster (aşağıdaki catch'e düşecek)
+          throw rpcErr;
+        }
         if (!foundEmail) {
-          setError('Kullanıcı bulunamadı veya bağlantı yavaş. E-posta adresinizle deneyin veya Supabase\'de get_email_by_username fonksiyonunu kontrol edin.');
+          setError('Kullanıcı bulunamadı. Lütfen e-posta adresinizi veya kullanıcı adınızı kontrol edin.');
           setLoading(false);
           return;
         }
-        
-        // Bulunan email'i kullan
         emailToUse = foundEmail;
       }
 
@@ -151,7 +161,7 @@ const Login: React.FC = () => {
           err.message?.includes('User not found')) {
         setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.');
       } else if (err.message?.includes('zaman asimina') || err.message?.includes('timeout')) {
-        setError('Bağlantı zaman aşımına uğradı. İnterneti kontrol edip e-posta adresinizle tekrar deneyin.');
+        setError('Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin veya e-posta adresinizle giriş yapın.');
       } else {
         setError(err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.');
       }
@@ -257,7 +267,7 @@ const Login: React.FC = () => {
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  GİRİŞ YAPILIYOR... (en fazla 15 sn)
+                  GİRİŞ YAPILIYOR... (en fazla 20 sn)
                 </>
               ) : 'HESABINA GİRİŞ YAP'}
             </button>

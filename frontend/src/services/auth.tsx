@@ -15,7 +15,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const AUTH_REQUEST_TIMEOUT_MS = 12000; // 12 sn - admin takilmasin
+const AUTH_REQUEST_TIMEOUT_MS = 8000;  // 8 sn - getSession icin (Supabase yavassa hizlica UNAUTH)
+const PROFILE_REQUEST_TIMEOUT_MS = 10000; // 10 sn - profil sorgusu
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -47,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const prof = await withTimeout(
         fetchProfile(currentUser.id),
-        AUTH_REQUEST_TIMEOUT_MS,
+        PROFILE_REQUEST_TIMEOUT_MS,
         'Profil isteği zaman aşımına uğradı'
       );
       if (prof) {
@@ -116,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       console.log('[Anirias:Auth] no session or timeout, retrying getSession (fallback)...');
       try {
-        const fallbackTimeout = 8000;
+        const fallbackTimeout = 5000; // 5 sn daha
         const { data: { session } } = await Promise.race([
           supabase!.auth.getSession(),
           new Promise<{ data: { session: null } }>((_, reject) =>

@@ -1095,86 +1095,77 @@ export const db = {
   // --- PROFILE ---
   updateProfile: async (userId: string, updates: Partial<Profile>): Promise<Profile> => {
     if (!checkEnv()) throw new Error("Backend connection failed");
-    
-    // Filter out undefined/null values and only include fields that exist
-    const safeUpdates: Record<string, any> = {
-      id: userId, // Include id for upsert
-    };
-    if (updates.bio !== undefined) safeUpdates.bio = updates.bio;
-    if (updates.avatar_id !== undefined) safeUpdates.avatar_id = updates.avatar_id;
-    if (updates.banner_id !== undefined) safeUpdates.banner_id = updates.banner_id;
-    if (updates.username !== undefined) safeUpdates.username = updates.username;
-    if (updates.avatar_url !== undefined) safeUpdates.avatar_url = updates.avatar_url;
-    if (updates.banner_url !== undefined) safeUpdates.banner_url = updates.banner_url;
-    
-    // Always update updated_at (required for tracking)
-    safeUpdates.updated_at = new Date().toISOString();
-    
-    // First check if profile exists
-    const { data: existingProfile } = await supabase!
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-    
-    let data, error;
-    
-    if (existingProfile) {
-      // Profile exists - use UPDATE
-      const result = await supabase!
+
+    const PROFILE_UPDATE_TIMEOUT_MS = 15000;
+
+    const run = async (): Promise<Profile> => {
+      // Filter out undefined/null values and only include fields that exist
+      const safeUpdates: Record<string, any> = {
+        id: userId, // Include id for upsert
+      };
+      if (updates.bio !== undefined) safeUpdates.bio = updates.bio;
+      if (updates.avatar_id !== undefined) safeUpdates.avatar_id = updates.avatar_id;
+      if (updates.banner_id !== undefined) safeUpdates.banner_id = updates.banner_id;
+      if (updates.username !== undefined) safeUpdates.username = updates.username;
+      if (updates.avatar_url !== undefined) safeUpdates.avatar_url = updates.avatar_url;
+      if (updates.banner_url !== undefined) safeUpdates.banner_url = updates.banner_url;
+
+      safeUpdates.updated_at = new Date().toISOString();
+
+      const { data: existingProfile } = await supabase!
         .from('profiles')
-        .update(safeUpdates)
+        .select('id')
         .eq('id', userId)
-        .select()
         .maybeSingle();
-      data = result.data;
-      error = result.error;
-    } else {
-      // Profile doesn't exist - use INSERT
-      // Include required fields for new profile
-      safeUpdates.username = safeUpdates.username || `user_${userId.substring(0, 8)}`;
-      safeUpdates.role = safeUpdates.role || 'user';
-      safeUpdates.created_at = new Date().toISOString();
-      
-      const result = await supabase!
-        .from('profiles')
-        .insert(safeUpdates)
-        .select()
-        .maybeSingle();
-      data = result.data;
-      error = result.error;
-    }
-    
-    if (error) {
-      console.error('[db.updateProfile] Full Error:', error);
-      console.error('[db.updateProfile] Error Code:', error.code);
-      console.error('[db.updateProfile] Error Message:', error.message);
-      console.error('[db.updateProfile] Error Details:', error.details);
-      console.error('[db.updateProfile] Error Hint:', error.hint);
-      console.error('[db.updateProfile] Update Payload:', safeUpdates);
-      
-      // Check for specific error types
-      if (error.code === '42703' || (error.message?.includes('column') && error.message?.includes('does not exist'))) {
-        throw new Error(`Sütun bulunamadı: ${error.message}. Lütfen migration'ı kontrol edin: supabase/sql/add_profile_columns.sql`);
+
+      let data, error;
+
+      if (existingProfile) {
+        const result = await supabase!
+          .from('profiles')
+          .update(safeUpdates)
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
+      } else {
+        safeUpdates.username = safeUpdates.username || `user_${userId.substring(0, 8)}`;
+        safeUpdates.role = safeUpdates.role || 'user';
+        safeUpdates.created_at = new Date().toISOString();
+        const result = await supabase!
+          .from('profiles')
+          .insert(safeUpdates)
+          .select()
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
       }
-      
-      if (error.code === '42P01' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-        throw new Error(`Tablo bulunamadı: ${error.message}`);
+
+      if (error) {
+        console.error('[Anirias:DB] updateProfile error', error);
+        if (error.code === '42703' || (error.message?.includes('column') && error.message?.includes('does not exist'))) {
+          throw new Error(`Sütun bulunamadı: ${error.message}`);
+        }
+        if (error.code === '42P01' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+          throw new Error(`Tablo bulunamadı: ${error.message}`);
+        }
+        if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
+          throw new Error(`İzin hatası: Profil güncelleme yetkiniz yok.`);
+        }
+        throw new Error(`Profil güncellenemedi: ${error.message || error.code || 'Bilinmeyen hata'}`);
       }
-      
-      if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
-        throw new Error(`İzin hatası: Profil güncelleme yetkiniz yok. RLS politikalarını kontrol edin.`);
-      }
-      
-      // Generic error with full details
-      throw new Error(`Profil güncellenemedi: ${error.message || error.code || 'Bilinmeyen hata'}`);
-    }
-    
-    if (!data) {
-      throw new Error('Profil güncellendi ancak veri alınamadı');
-    }
-    
-    return data as Profile;
+
+      if (!data) throw new Error('Profil güncellendi ancak veri alınamadı');
+      return data as Profile;
+    };
+
+    return await Promise.race([
+      run(),
+      new Promise<Profile>((_, reject) =>
+        setTimeout(() => reject(new Error('Profil güncellemesi zaman aşımına uğradı. Lütfen tekrar deneyin.')), PROFILE_UPDATE_TIMEOUT_MS)
+      ),
+    ]);
   },
   
   getAdminUsers: async (): Promise<Profile[]> => {

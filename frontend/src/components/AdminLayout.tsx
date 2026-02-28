@@ -6,6 +6,7 @@ import { hasSupabaseEnv } from '@/services/supabaseClient';
 import BackendNotConfiguredBanner from '@/components/BackendNotConfiguredBanner';
 
 const ADMIN_LOADING_MAX_MS = 20000; // 20 sn sonra giris sayfasina yonlendir
+const ADMIN_PROFILE_WAIT_MS = 15000; // Profil 15 sn icinde gelmezse login'e yonlendir
 
 const AdminLayout: React.FC = () => {
   const { user, profile, status } = useAuth();
@@ -15,6 +16,7 @@ const AdminLayout: React.FC = () => {
   // Mobile'da default kapalı, desktop'ta açık
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [profileWaitTimeout, setProfileWaitTimeout] = useState(false);
 
   // Yetkiler cok uzun surerse (Supabase yanit vermiyorsa) giris sayfasina yonlendir
   useEffect(() => {
@@ -30,6 +32,16 @@ const AdminLayout: React.FC = () => {
       loadingStartRef.current = null;
     }
   }, [status]);
+
+  // Profil yuklenirken cok uzun surerse yonlendir (auth ok, profil gelmedi - SQL yavassa)
+  useEffect(() => {
+    if (status === 'AUTHENTICATED' && user && profile === null && hasSupabaseEnv) {
+      const t = setTimeout(() => setProfileWaitTimeout(true), ADMIN_PROFILE_WAIT_MS);
+      return () => clearTimeout(t);
+    } else {
+      setProfileWaitTimeout(false);
+    }
+  }, [status, user, profile, hasSupabaseEnv]);
 
   // Body scroll lock when sidebar is open on mobile
   useEffect(() => {
@@ -49,9 +61,9 @@ const AdminLayout: React.FC = () => {
 
   console.log('[Anirias:Admin] AdminLayout render', { hasSupabaseEnv, isTestMode, status, loadingTimeout, hasUser: !!user, role: profile?.role });
 
-  // Yetkiler cok uzun surdu, giris sayfasina yonlendir
-  if (loadingTimeout) {
-    console.log('[Anirias:Admin] redirect: loading timeout -> /login');
+  // Yetkiler cok uzun surdu, giris sayfasina yonlendir (veya profil gelmedi)
+  if (loadingTimeout || profileWaitTimeout) {
+    console.log('[Anirias:Admin] redirect: loading/profile timeout -> /login');
     return <Navigate to="/login?admin_timeout=1" replace />;
   }
 
@@ -72,7 +84,18 @@ const AdminLayout: React.FC = () => {
       console.log('[Anirias:Admin] redirect: not authenticated -> /login');
       return <Navigate to="/login" replace />;
     }
-    if (profile?.role !== 'admin') {
+    // Profil hala yukleniyorsa bekle (Supabase yavassa takilmasin diye ayri mesaj)
+    if (profile === null) {
+      console.log('[Anirias:Admin] showing profile loading (user ok, profile null)');
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-brand-black text-white px-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-red"></div>
+          <span className="mt-4 font-bold tracking-widest uppercase text-xs">Profil Yükleniyor...</span>
+          <p className="mt-2 text-[10px] text-gray-500 max-w-xs text-center">Veritabanı yanıt bekleniyor. Takılı kalırsanız giriş sayfasına yönlendirileceksiniz.</p>
+        </div>
+      );
+    }
+    if (profile.role !== 'admin') {
       console.log('[Anirias:Admin] redirect: not admin role -> /');
       return <Navigate to="/" replace />;
     }

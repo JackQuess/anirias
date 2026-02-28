@@ -5,6 +5,11 @@
 -- veya yetkileri kaybolmuş olabilir. Bu script güvenle tekrar çalıştırılabilir.
 -- ============================================================================
 
+-- 0. Kullanıcı adı sorgusunu hızlandır (zaman aşımı azalır)
+CREATE INDEX IF NOT EXISTS idx_profiles_username_lower_trim
+  ON public.profiles (lower(trim(username)))
+  WHERE username IS NOT NULL AND trim(username) <> '';
+
 -- 1. Fonksiyonu yeniden oluştur (SECURITY DEFINER ile auth.users'a erişebilir)
 CREATE OR REPLACE FUNCTION public.get_email_by_username(username_input TEXT)
 RETURNS TEXT

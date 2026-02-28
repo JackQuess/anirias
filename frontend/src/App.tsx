@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import GlobalLoader from './components/GlobalLoader';
 import WelcomeModal from './components/WelcomeModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import FeedbackCard from './components/FeedbackCard';
 import FeedbackFloatingButton from './components/FeedbackFloatingButton';
 import AnnouncementBanner from './components/AnnouncementBanner';
@@ -53,6 +54,7 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
           <AnnouncementBanner />
@@ -107,6 +109,7 @@ const App: React.FC = () => {
         </Routes>
         </ToastProvider>
       </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 };

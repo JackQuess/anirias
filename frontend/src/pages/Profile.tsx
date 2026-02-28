@@ -30,6 +30,7 @@ const Profile: React.FC = () => {
   const [errors, setErrors] = useState<{ bio?: string; avatar?: string; banner?: string }>({});
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Memoize fetcher functions to prevent infinite loops
   // Use user?.id instead of entire user object to prevent unnecessary re-renders
@@ -119,53 +120,48 @@ const Profile: React.FC = () => {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !profile) return;
+
     const sanitizedBio = sanitizeBio(editForm.bio);
     const validationErrors: { bio?: string; avatar?: string; banner?: string } = {};
-    const bannerValid = editForm.banner_id && BANNERS.some(b => b.id === editForm.banner_id);
-    if (!bannerValid) validationErrors.banner = 'Lütfen bir banner seçin.';
-    if (!editForm.avatar_id) validationErrors.avatar = 'Lütfen bir avatar seçin.';
     if (sanitizedBio.length > 180) validationErrors.bio = 'Bio en fazla 180 karakter olabilir.';
+
+    // Mevcut profil degerlerini kullan - avatar/banner bos olsa bile onceki secimi veya varsayilani gonder
+    const avatarIdToSave = editForm.avatar_id || (profile as any)?.avatar_id || findAvatarIdBySrc(profile.avatar_url) || '';
+    const bannerIdToSave = editForm.banner_id || (profile as any)?.banner_id || 'jjk_gojo';
+    if (!avatarIdToSave) validationErrors.avatar = 'Lütfen bir avatar seçin.';
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
+    setSaving(true);
+    setErrors({});
     try {
-      // Update in database
+      console.log('[Anirias:Profile] updateProfile start', { userId: user.id });
       await db.updateProfile(user.id, {
         bio: sanitizedBio,
-        avatar_id: editForm.avatar_id,
-        banner_id: editForm.banner_id
+        avatar_id: avatarIdToSave,
+        banner_id: bannerIdToSave
       } as any);
-      
-      // CRITICAL: Refresh profile from DB to update global state
-      // This ensures Navbar and all components get updated data
+      console.log('[Anirias:Profile] updateProfile ok');
       await refreshProfile();
-      
-      // Update local form state to match
       setEditForm(prev => ({
         ...prev,
         bio: sanitizedBio,
-        avatar_id: editForm.avatar_id,
-        banner_id: editForm.banner_id
+        avatar_id: avatarIdToSave,
+        banner_id: bannerIdToSave
       }));
-      
       setIsEditing(false);
-      setErrors({});
       alert('Profil güncellendi!');
     } catch (err: any) {
-      console.error('[Profile] Update error:', err);
-      console.error('[Profile] Error details:', {
-        message: err?.message,
-        code: err?.code,
-        stack: err?.stack
-      });
-      
-      // Show detailed error to help debug
-      const errorMsg = err?.message || 'Bilinmeyen hata';
-      alert(`Güncelleme başarısız oldu: ${errorMsg}\n\nKonsolu kontrol edin (F12) daha fazla detay için.`);
+      console.error('[Anirias:Profile] updateProfile error', err);
+      const msg = err?.message || 'Bilinmeyen hata';
+      const isTimeout = msg.includes('zaman aşımı') || msg.includes('timeout');
+      alert(isTimeout ? 'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.' : `Güncelleme başarısız: ${msg}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -430,8 +426,10 @@ const Profile: React.FC = () => {
                     {errors.banner && <p className="text-brand-red text-[11px] font-semibold px-2">{errors.banner}</p>}
                  </div>
                 <div className="flex gap-4 pt-4">
-                   <button type="button" onClick={() => setIsEditing(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest">İPTAL</button>
-                   <button type="submit" className="flex-1 bg-brand-red hover:bg-brand-redHover text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-brand-red/20">KAYDET</button>
+                   <button type="button" onClick={() => setIsEditing(false)} disabled={saving} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50">İPTAL</button>
+                   <button type="submit" disabled={saving} className="flex-1 bg-brand-red hover:bg-brand-redHover text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-brand-red/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                     {saving ? (<> <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Kaydediliyor... </>) : 'KAYDET'}
+                   </button>
                 </div>
              </form>
           </div>

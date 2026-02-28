@@ -41,7 +41,8 @@ const Home: React.FC = () => {
   const heroPool = featuredList.length > 0 ? featuredList : allAnimeList;
   const popularPool = featuredList.length > 0 ? featuredList : allAnimeList.slice(0, 12);
   const noPublicContent = !featLoading && !allAnimesLoading && featuredList.length === 0 && allAnimeList.length === 0;
-  const showHeroLoading = featLoading || allAnimesLoading;
+  // Hero'yu tek veri gelince goster - iki istek de bitene kadar bekleme (yuklenme engelini kaldir)
+  const showHeroLoading = (featuredList.length === 0 && allAnimeList.length === 0) && (featLoading || allAnimesLoading);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

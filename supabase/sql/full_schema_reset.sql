@@ -68,6 +68,10 @@ CREATE TABLE public.profiles (
 
 CREATE INDEX IF NOT EXISTS idx_profiles_adult_confirmed ON public.profiles(is_adult_confirmed) WHERE is_adult_confirmed = true;
 
+-- Kullanici adi ile giris (get_email_by_username) ve RLS admin kontrolleri icin hiz
+CREATE INDEX IF NOT EXISTS idx_profiles_username_lower_trim ON public.profiles (lower(trim(username)))
+  WHERE username IS NOT NULL AND trim(username) <> '';
+
 -- Yeni kullanici kaydinda otomatik profil
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
