@@ -13,6 +13,12 @@ const checkEnv = () => {
   return true;
 };
 
+const requireSupabaseEnv = (context: string) => {
+  if (!checkEnv()) {
+    throw new Error(`[${context}] Supabase env eksik veya geçersiz (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).`);
+  }
+};
+
 // Helper for backend API calls (admin operations)
 const getApiBase = (): string => {
   const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
@@ -127,7 +133,7 @@ export const db = {
 
   // --- ANIME READ METHODS ---
   getFeaturedAnimes: async (): Promise<Anime[]> => {
-    if (!checkEnv()) return [];
+    requireSupabaseEnv('db.getFeaturedAnimes');
     
     try {
       const { data, error } = await supabase!
@@ -138,17 +144,17 @@ export const db = {
       
       if (error) {
         if (import.meta.env.DEV) console.error("[db.getFeaturedAnimes] Query error:", error);
-        return [];
+        throw new Error(`[db.getFeaturedAnimes] ${error.message}`);
       }
       return Array.isArray(data) ? data : [];
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getFeaturedAnimes] Unexpected error:', err);
-      return [];
+      throw err instanceof Error ? err : new Error('[db.getFeaturedAnimes] Unknown error');
     }
   },
 
   getAllAnimes: async (sortBy: string = 'created_at', limit?: number): Promise<Anime[]> => {
-    if (!checkEnv()) return [];
+    requireSupabaseEnv('db.getAllAnimes');
     
     try {
       // PERFORMANCE FIX: Add default limit to prevent fetching thousands of records
@@ -168,13 +174,13 @@ export const db = {
 
       if (error) {
         if (import.meta.env.DEV) console.error('[db.getAllAnimes] Query error:', error);
-        return [];
+        throw new Error(`[db.getAllAnimes] ${error.message}`);
       }
       
       return Array.isArray(data) ? data : [];
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getAllAnimes] Unexpected error:', err);
-      return [];
+      throw err instanceof Error ? err : new Error('[db.getAllAnimes] Unknown error');
     }
   },
 
@@ -691,7 +697,7 @@ export const db = {
   },
 
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
-    if (!checkEnv()) return [];
+    requireSupabaseEnv('db.getLatestEpisodes');
     
     try {
       // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
@@ -713,7 +719,7 @@ export const db = {
         
       if (error) {
         if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Query error:', error);
-        return [];
+        throw new Error(`[db.getLatestEpisodes] ${error.message}`);
       }
       
       if (!data || !Array.isArray(data)) {
@@ -754,7 +760,7 @@ export const db = {
       return sorted as unknown as (Episode & { anime: Anime })[];
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Unexpected error:', err);
-      return [];
+      throw err instanceof Error ? err : new Error('[db.getLatestEpisodes] Unknown error');
     }
   },
 
