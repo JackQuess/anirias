@@ -39,7 +39,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [status, setStatus] = useState<AuthStatus>('LOADING');
 
   const loadUserProfile = async (currentUser: User) => {
-    if (!supabase) return;
+    if (!supabase) {
+      console.warn('[Anirias:Auth] loadUserProfile skipped: supabase null');
+      return;
+    }
+    console.log('[Anirias:Auth] loadUserProfile start', { userId: currentUser.id });
     try {
       const prof = await withTimeout(
         fetchProfile(currentUser.id),
@@ -48,47 +52,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       if (prof) {
         setProfile(prof);
-        if (import.meta.env.DEV) {
-          console.log('[Auth] Profile loaded:', { id: prof.id, username: prof.username, role: prof.role, avatar_id: prof.avatar_id, avatar_url: prof.avatar_url });
-        }
+        console.log('[Anirias:Auth] loadUserProfile ok', { id: prof.id, username: prof.username, role: prof.role });
       } else {
-        console.warn('[Auth] Profile fetch returned null for user:', currentUser.id);
+        console.warn('[Anirias:Auth] loadUserProfile: fetchProfile returned null', { userId: currentUser.id });
       }
     } catch (e) {
-      console.error("[Auth] Profil yüklenirken hata:", e);
+      console.error('[Anirias:Auth] loadUserProfile error', e);
     }
   };
 
   const refreshProfile = async () => {
     if (user) {
+      console.log('[Anirias:Auth] refreshProfile called', { userId: user.id });
       await loadUserProfile(user);
     } else {
-      console.warn('[Auth] refreshProfile called but user is null');
+      console.warn('[Anirias:Auth] refreshProfile called but user is null');
     }
   };
 
   const signOut = async () => {
+    console.log('[Anirias:Auth] signOut called');
     try {
       if (supabase) {
         await supabase.auth.signOut();
       }
     } catch (e) {
-      console.error("Çıkış hatası:", e);
+      console.error('[Anirias:Auth] signOut error', e);
     } finally {
       localStorage.clear();
       sessionStorage.clear();
       setUser(null);
       setProfile(null);
       setStatus('UNAUTHENTICATED');
+      console.log('[Anirias:Auth] signOut done, status=UNAUTHENTICATED');
     }
   };
 
   useEffect(() => {
     if (!supabase) {
+      console.log('[Anirias:Auth] init: supabase null, setting UNAUTHENTICATED');
       setStatus('UNAUTHENTICATED');
       return;
     }
 
+    console.log('[Anirias:Auth] init: starting getSession...');
     const initAuth = async () => {
       try {
         const { data: { session } } = await withTimeout(
@@ -96,26 +103,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           AUTH_REQUEST_TIMEOUT_MS,
           'Oturum kontrolü zaman aşımına uğradı'
         );
+        console.log('[Anirias:Auth] getSession result', { hasSession: !!session, userId: session?.user?.id });
         if (session?.user) {
           setUser(session.user);
           setStatus('AUTHENTICATED');
+          console.log('[Anirias:Auth] status=AUTHENTICATED');
           void loadUserProfile(session.user);
           return;
         }
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('[Auth] initAuth first attempt failed:', error);
-        }
+        console.error('[Anirias:Auth] initAuth first getSession failed', error);
       }
-      // Yenilemede timeout veya ag yavassa: bir kez daha dene (localStorage'dan okur)
+      console.log('[Anirias:Auth] no session or timeout, retrying getSession (fallback)...');
       try {
-        const fallbackTimeout = 8000; // en fazla 8 sn daha bekle
+        const fallbackTimeout = 8000;
         const { data: { session } } = await Promise.race([
           supabase!.auth.getSession(),
           new Promise<{ data: { session: null } }>((_, reject) =>
             setTimeout(() => reject(new Error('timeout')), fallbackTimeout)
           ),
         ]);
+        console.log('[Anirias:Auth] fallback getSession result', { hasSession: !!session });
         if (session?.user) {
           setUser(session.user);
           setStatus('AUTHENTICATED');
@@ -123,14 +131,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
       } catch (_) {
-        // ignore
+        console.log('[Anirias:Auth] fallback getSession failed or timeout');
       }
+      console.log('[Anirias:Auth] setting status=UNAUTHENTICATED');
       setStatus('UNAUTHENTICATED');
     };
 
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Anirias:Auth] onAuthStateChange', { event, hasSession: !!session, userId: session?.user?.id });
       if (session?.user) {
         setUser(session.user);
         setStatus('AUTHENTICATED');

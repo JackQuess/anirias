@@ -7,6 +7,9 @@ import { hasSupabaseEnv } from '@/services/supabaseClient';
 import MascotLayer from './decorative/MascotLayer';
 
 const Layout: React.FC = () => {
+  if (typeof window !== 'undefined' && !hasSupabaseEnv) {
+    console.log('[Anirias:Layout] BackendNotConfiguredBanner shown (hasSupabaseEnv=false)');
+  }
   return (
     <div className="flex flex-col min-h-screen bg-brand-black">
       <Navbar />

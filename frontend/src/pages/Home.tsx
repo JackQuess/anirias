@@ -43,6 +43,19 @@ const Home: React.FC = () => {
   const noPublicContent = !featLoading && !allAnimesLoading && featuredList.length === 0 && allAnimeList.length === 0;
   const showHeroLoading = featLoading || allAnimesLoading;
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    console.log('[Anirias:Home] load state', {
+      hasSupabaseEnv,
+      featLoading,
+      allAnimesLoading,
+      featuredCount: featuredList.length,
+      allAnimesCount: allAnimeList.length,
+      noPublicContent,
+      featError: featError?.message,
+    });
+  }, [hasSupabaseEnv, featLoading, allAnimesLoading, featuredList.length, allAnimeList.length, noPublicContent, featError]);
+
   // Auto-play logic
   useEffect(() => {
     if (!isAutoPlaying || heroPool.length <= 1) return;

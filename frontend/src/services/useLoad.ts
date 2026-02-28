@@ -42,6 +42,7 @@ export function useLoad<T>(
         controller.abort();
         setError(new Error('İstek zaman aşımına uğradı. Lütfen bağlantınızı kontrol edin.'));
         setLoading(false);
+        console.warn('[Anirias:useLoad] request timeout (25s)');
       }
     }, 25000); // Generous timeout so slow connections don't hit "İstek zaman aşımına uğradı"
 
@@ -64,6 +65,7 @@ export function useLoad<T>(
           return;
         }
         setError(err instanceof Error ? err : new Error('Beklenmedik bir hata oluştu'));
+        console.error('[Anirias:useLoad] fetch error', err?.message || err);
         // Only clear data on error if there's no existing data
         // This prevents clearing good data if a subsequent request fails
       } finally {
