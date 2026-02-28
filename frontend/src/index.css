@@ -288,3 +288,28 @@ video::-webkit-media-text-track-display {
   -webkit-box-orient: vertical;  
   overflow: hidden;
 }
+
+/* Player fullscreen: body is fullscreened; hide nav/footer/sidebar and show only player */
+body.anirias-player-fullscreen nav,
+body.anirias-player-fullscreen footer {
+  display: none !important;
+}
+body.anirias-player-fullscreen main {
+  position: fixed !important;
+  inset: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+body.anirias-player-fullscreen [data-watch-page] [data-watch-desktop] aside {
+  display: none !important;
+}
+body.anirias-player-fullscreen [data-watch-page] .watch-player-area {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  z-index: 10;
+}

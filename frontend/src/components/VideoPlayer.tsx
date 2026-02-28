@@ -727,7 +727,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
 
-  // CRITICAL: Fullscreen change handling for all browsers (iOS Safari, Android, Desktop)
+  // CRITICAL: Fullscreen change handling - sync body class and state (e.g. user presses Esc)
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFullscreenActive = !!(
@@ -736,15 +736,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         (document as any).mozFullScreenElement ||
         (document as any).msFullscreenElement
       );
+      if (!isFullscreenActive) {
+        document.body.classList.remove('anirias-player-fullscreen');
+      }
       setIsFullscreen(isFullscreenActive);
     };
 
-    // Listen to all fullscreen change events (cross-browser support)
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-    
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -812,31 +814,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           });
       }
     } else {
-      // CRITICAL: Hard stop - ensure video and audio stop COMPLETELY
-      // Step 1: Store original muted state BEFORE muting (for restore on play)
+      // CRITICAL: Stop playback and audio at the same time - pause first so pipeline stops, then mute
       originalMutedStateRef.current = video.muted;
 
-      // Step 2: Mute and zero volume FIRST so audio stops immediately
+      video.pause();
       video.muted = true;
       video.volume = 0;
 
-      // Step 3: Pause video (synchronous)
-      video.pause();
-
-      // Step 4: Update state
       setIsPlaying(false);
       setIsMuted(true);
       setShowControls(true);
 
       if (import.meta.env.DEV) {
-        console.log('[VideoPlayer] Video paused, audio completely stopped', {
+        console.log('[VideoPlayer] Video paused, audio stopped', {
           originalMuted: originalMutedStateRef.current,
           currentMuted: video.muted,
           currentVolume: video.volume,
         });
       }
 
-      // Step 5: Restore volume level after a short delay (keep muted until play)
       setTimeout(() => {
         if (video && video.paused) {
           video.volume = volume;
@@ -922,14 +918,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     showControlsTemporary();
   }, [volume, isMuted, showControlsTemporary]);
 
-  // CRITICAL: Fullscreen implementation for iOS Safari, Android, and Desktop
-  // iOS Safari requires video.webkitEnterFullscreen() instead of container.requestFullscreen()
+  // CRITICAL: Fullscreen implementation - fullscreen BODY so header/sidebar hide; use CSS class to show only player
   const toggleFullscreen = useCallback(() => {
     const video = videoRef.current;
     const container = containerRef.current;
     if (!video && !container) return;
 
-    // Check if already in fullscreen
     const isCurrentlyFullscreen = !!(
       document.fullscreenElement ||
       (document as any).webkitFullscreenElement ||
@@ -938,56 +932,59 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     );
 
     if (!isCurrentlyFullscreen) {
-      // CRITICAL: Always use container.requestFullscreen() for proper fullscreen
-      // This ensures the entire player container goes fullscreen, not just the video element
-      if (container && container.requestFullscreen) {
-        // Container fullscreen (preferred - hides all other page elements)
-        container.requestFullscreen().then(() => {
-          setIsFullscreen(true);
-        }).catch(() => {
-          // Fallback to video fullscreen if container fails
-          if (video && video.requestFullscreen) {
-            video.requestFullscreen().then(() => {
-              setIsFullscreen(true);
-            }).catch(() => {
-              // Fullscreen failed
-            });
+      // Prefer fullscreen on body so we can hide nav/sidebar via CSS; fallback to container then video
+      const target =
+        document.body.requestFullscreen ? document.body
+        : container && container.requestFullscreen ? container
+        : video && (video.requestFullscreen || (video as any).webkitEnterFullscreen) ? video
+        : null;
+      if (!target) return;
+
+      const onEntered = () => {
+        setIsFullscreen(true);
+        if (target === document.body) {
+          document.body.classList.add('anirias-player-fullscreen');
+        }
+      };
+
+      if (target === document.body) {
+        document.body.requestFullscreen().then(onEntered).catch(() => {
+          if (container && container.requestFullscreen) {
+            container.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+          } else if (video && video.requestFullscreen) {
+            video.requestFullscreen().then(onEntered).catch(() => {});
           } else if (video && (video as any).webkitEnterFullscreen) {
-            // iOS Safari native fullscreen (last resort)
             (video as any).webkitEnterFullscreen();
             setIsFullscreen(true);
           }
         });
-      } else if (video && (video as any).webkitEnterFullscreen) {
-        // iOS Safari native fullscreen
-        (video as any).webkitEnterFullscreen();
-        setIsFullscreen(true);
-      } else if (video && video.requestFullscreen) {
-        // Video fullscreen fallback
-        video.requestFullscreen().then(() => {
-          setIsFullscreen(true);
-        }).catch(() => {
-          // Fullscreen failed
+      } else if (target === container) {
+        container!.requestFullscreen().then(onEntered).catch(() => {
+          if (video && video.requestFullscreen) {
+            video.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+          } else if (video && (video as any).webkitEnterFullscreen) {
+            (video as any).webkitEnterFullscreen();
+            setIsFullscreen(true);
+          }
         });
+      } else if (target === video) {
+        if ((video as any).webkitEnterFullscreen) {
+          (video as any).webkitEnterFullscreen();
+          setIsFullscreen(true);
+        } else if (video.requestFullscreen) {
+          video.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+        }
       }
     } else {
-      // Exit fullscreen
+      document.body.classList.remove('anirias-player-fullscreen');
       if (document.exitFullscreen) {
-        document.exitFullscreen().then(() => {
-          setIsFullscreen(false);
-        }).catch(() => {});
+        document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
       } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen().then(() => {
-          setIsFullscreen(false);
-        }).catch(() => {});
+        (document as any).webkitExitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
       } else if ((document as any).mozCancelFullScreen) {
-        (document as any).mozCancelFullScreen().then(() => {
-          setIsFullscreen(false);
-        }).catch(() => {});
+        (document as any).mozCancelFullScreen().then(() => setIsFullscreen(false)).catch(() => {});
       } else if ((document as any).msExitFullscreen) {
-        (document as any).msExitFullscreen().then(() => {
-          setIsFullscreen(false);
-        }).catch(() => {});
+        (document as any).msExitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
       }
     }
     showControlsTemporary();

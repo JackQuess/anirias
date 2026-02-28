@@ -334,7 +334,7 @@ const WatchSlug: React.FC = () => {
   const initialTime = savedProgress && savedProgress.progress_seconds > 0 ? savedProgress.progress_seconds : 0;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a]" data-watch-page>
       {/* Mobile-First Layout */}
       <div className="xl:hidden">
         {/* Mobile Player - Full Width */}
@@ -466,7 +466,7 @@ const WatchSlug: React.FC = () => {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden xl:block relative">
+      <div className="hidden xl:block relative" data-watch-desktop>
         {/* Lightning Mascot - Far right background (1440px+ only, outside content) */}
         <div className="fixed top-20 right-0 z-0 pointer-events-none hidden 2xl:block">
           <MascotLayer type="lightning" />
@@ -474,7 +474,7 @@ const WatchSlug: React.FC = () => {
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40 relative z-10">
           <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
             {/* Main Player Area */}
-            <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10">
+            <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10 watch-player-area">
               {shouldRenderPlayer ? (
                 <VideoPlayer
                   src={playbackUrl}
