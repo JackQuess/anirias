@@ -59,18 +59,47 @@ async function getExistingUrlColumns(): Promise<string[]> {
   return existing;
 }
 
-function rewriteUrl(value: unknown, oldBase: string, newBase: string): string | null {
+const ANIRIAS_MEDIA_OLD_BASE = 'https://anirias-media.nbg1.your-objectstorage.com';
+
+function rewriteUrl(value: unknown, oldBases: string[], newBase: string): string | null {
   if (typeof value !== 'string' || !value) return null;
-  if (!value.startsWith(oldBase)) return null;
-  return `${newBase}${value.slice(oldBase.length)}`;
+  for (const oldBase of oldBases) {
+    if (!value.startsWith(oldBase)) continue;
+    let path = value.slice(oldBase.length).replace(/^\/+/, '');
+    // Eski media deposu: /animes/slug/season-1/... → yeni: /slug/season-1/...
+    if (oldBase === ANIRIAS_MEDIA_OLD_BASE && path.startsWith('animes/')) {
+      path = path.replace(/^animes\/?/, '');
+    }
+    return `${newBase}/${path}`;
+  }
+  return null;
+}
+
+/** Yeni base ile başlayan ama path'te animes/ olan URL'i animes'siz hale getirir. */
+function normalizeNewBaseUrl(value: unknown, newBase: string): string | null {
+  if (typeof value !== 'string' || !value || !value.startsWith(newBase)) return null;
+  const path = value.slice(newBase.length).replace(/^\/+/, '');
+  if (!path.startsWith('animes/')) return null;
+  const normalizedPath = path.replace(/^animes\/?/, '');
+  return `${newBase}/${normalizedPath}`;
 }
 
 export async function runVideoBasePatch(params: VideoBasePatchParams): Promise<VideoBasePatchResult> {
-  const oldBase = ensureBaseUrl(process.env.OLD_VIDEO_BASE_URL, 'https://anirias-videos.b-cdn.net');
   const newBase = ensureBaseUrl(
     process.env.NEW_VIDEO_BASE_URL,
     'https://anirias-videos.nbg1.your-objectstorage.com'
   );
+  const envOld = (process.env.OLD_VIDEO_BASE_URL || 'https://anirias-videos.b-cdn.net').trim();
+  const fromEnv = envOld
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => ensureBaseUrl(s, 'https://anirias-videos.b-cdn.net'));
+  const knownLegacy = [
+    'https://anirias-videos.b-cdn.net',
+    ANIRIAS_MEDIA_OLD_BASE,
+  ];
+  const oldBases = [...new Set([...fromEnv, ...knownLegacy])];
 
   const columns = await getExistingUrlColumns();
   if (columns.length === 0) {
@@ -102,11 +131,8 @@ export async function runVideoBasePatch(params: VideoBasePatchParams): Promise<V
 
     for (const col of columns) {
       const rawValue = row[col];
-      if (typeof rawValue === 'string' && rawValue.startsWith(newBase)) {
-        hasNew = true;
-      }
-
-      const replaced = rewriteUrl(rawValue, oldBase, newBase);
+      const replaced =
+        rewriteUrl(rawValue, oldBases, newBase) ?? normalizeNewBaseUrl(rawValue, newBase);
       if (replaced) {
         hasOld = true;
         patch[col] = replaced;
@@ -114,6 +140,8 @@ export async function runVideoBasePatch(params: VideoBasePatchParams): Promise<V
           firstBefore = rawValue as string;
           firstAfter = replaced;
         }
+      } else if (typeof rawValue === 'string' && rawValue.startsWith(newBase)) {
+        hasNew = true;
       }
     }
 
