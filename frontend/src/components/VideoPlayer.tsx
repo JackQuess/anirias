@@ -781,25 +781,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
     if (video.paused) {
+      // HLS kullanılıyorsa yeniden yüklemeyi başlat (önceki pause'da stopLoad çağrılmış olabilir)
+      const hls = hlsRef.current;
+      if (hls && hls.media === video && typeof hls.startLoad === 'function') {
+        hls.startLoad(video.currentTime);
+      }
+
       // CRITICAL: Restore audio before playing
-      // Restore the original muted state that was saved before pause
       if (originalMutedStateRef.current !== null) {
         video.muted = originalMutedStateRef.current;
         setIsMuted(originalMutedStateRef.current);
-        originalMutedStateRef.current = null; // Clear after restore
+        originalMutedStateRef.current = null;
       } else {
-        // Fallback: If we muted during pause, restore based on current state
         if (video.muted && !isMuted) {
           video.muted = false;
           setIsMuted(false);
         }
       }
-      
-      // Restore volume if it was set to 0 during pause
       if (video.volume === 0 && volume > 0) {
         video.volume = volume;
       }
-      
+
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
@@ -814,13 +816,26 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           });
       }
     } else {
-      // Sesin anında kesilmesi: önce mute + volume=0 (çıkış kesilir), sonra pause; iki kez pause ile emin ol
+      // Sesin anında kesilmesi (Mac/Safari dahil): HLS beslemeyi durdur, mute+volume0+pause, sonra bir frame sonra tekrar zorla
       originalMutedStateRef.current = video.muted;
+
+      const hls = hlsRef.current;
+      if (hls && hls.media === video && typeof hls.stopLoad === 'function') {
+        hls.stopLoad();
+      }
 
       video.muted = true;
       video.volume = 0;
       video.pause();
-      video.pause(); // Bazı tarayıcılar/HLS için tekrar pause
+
+      requestAnimationFrame(() => {
+        const v = videoRef.current;
+        if (v && v.paused) {
+          v.muted = true;
+          v.volume = 0;
+          v.pause();
+        }
+      });
 
       setIsPlaying(false);
       setIsMuted(true);
@@ -834,13 +849,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         });
       }
 
-      // Sadece bir sonraki play için volume seviyesini sakla; sesi açma
       setTimeout(() => {
-        if (video && video.paused) {
-          video.volume = volume;
-          video.muted = true;
+        const v = videoRef.current;
+        if (v && v.paused) {
+          v.volume = volume;
+          v.muted = true;
         }
-      }, 100);
+      }, 150);
     }
   }, [bootState, showControlsTemporary, volume, isMuted]);
 
