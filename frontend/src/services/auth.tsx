@@ -15,7 +15,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const AUTH_REQUEST_TIMEOUT_MS = 35000;
+const AUTH_REQUEST_TIMEOUT_MS = 12000; // 12 sn - admin takilmasin
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -100,15 +100,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(session.user);
           setStatus('AUTHENTICATED');
           void loadUserProfile(session.user);
-        } else {
-          setStatus('UNAUTHENTICATED');
+          return;
         }
       } catch (error) {
         if (import.meta.env.DEV) {
-          console.error('[Auth] initAuth failed:', error);
+          console.error('[Auth] initAuth first attempt failed:', error);
         }
-        setStatus('UNAUTHENTICATED');
       }
+      // Yenilemede timeout veya ag yavassa: bir kez daha dene (localStorage'dan okur)
+      try {
+        const fallbackTimeout = 8000; // en fazla 8 sn daha bekle
+        const { data: { session } } = await Promise.race([
+          supabase!.auth.getSession(),
+          new Promise<{ data: { session: null } }>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), fallbackTimeout)
+          ),
+        ]);
+        if (session?.user) {
+          setUser(session.user);
+          setStatus('AUTHENTICATED');
+          void loadUserProfile(session.user);
+          return;
+        }
+      } catch (_) {
+        // ignore
+      }
+      setStatus('UNAUTHENTICATED');
     };
 
     initAuth();

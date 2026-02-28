@@ -137,9 +137,6 @@ async function upsertScheduleRowsSafely(
       .upsert(pending, { onConflict: 'anime_id,episode_number' });
 
     if (!error) {
-      if (droppedAnimeIds.size > 0) {
-        console.warn(`[AiringSchedule] Skipped ${droppedAnimeIds.size} anime (not in DB): ${[...droppedAnimeIds].slice(0, 5).join(', ')}${droppedAnimeIds.size > 5 ? '...' : ''}`);
-      }
       return { syncedRows: pending.length, error: null };
     }
 
@@ -191,11 +188,6 @@ async function upsertScheduleRowsSafely(
     return { syncedRows: successCount, error };
   }
 
-  if (droppedAnimeIds.size > 0 || skippedFk > 0) {
-    console.warn(
-      `[AiringSchedule] Skipped ${droppedAnimeIds.size} anime (missing in DB), ${skippedFk} rows; sample: ${skippedSample.join('; ')}`
-    );
-  }
   return { syncedRows: successCount, error: null };
 }
 

@@ -63,6 +63,10 @@ export const supabase: SupabaseClient | null = hasSupabaseEnv
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        ...(typeof window !== 'undefined' && {
+          storageKey: 'anirias-auth',
+          storage: window.localStorage,
+        }),
       },
     })
   : null;

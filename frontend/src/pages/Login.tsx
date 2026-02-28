@@ -1,6 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
+import { useAuth } from '@/services/auth';
+// TODO [v2]: Re-enable email verification
+// import EmailVerificationCard from '@/components/EmailVerificationCard';
+// import MascotLayer from '@/components/decorative/MascotLayer';
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 // TODO [v2]: Re-enable email verification
@@ -9,6 +17,8 @@ import { useAuth } from '@/services/auth';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const adminTimeout = searchParams.get('admin_timeout') === '1';
   const { user, status } = useAuth();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +33,9 @@ const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
-  const AUTH_TIMEOUT_MS = 35000;
+  const AUTH_TIMEOUT_MS = 15000; // 15 sn - takilmayi onlemek icin
+
+  const configMissing = !hasSupabaseEnv;
 
   // TODO [v2]: Re-enable email verification check
   // Temporarily disabled: Users can login immediately without email confirmation
@@ -43,17 +55,10 @@ const Login: React.FC = () => {
     return emailRegex.test(input.trim());
   };
 
-  /**
-   * Username ile email bulma
-   * Supabase RPC function kullanarak username'den email adresini getirir
-   * RPC function: get_email_by_username(username_input TEXT) -> TEXT
-   */
   const getEmailByUsername = async (username: string): Promise<string | null> => {
     if (!hasSupabaseEnv || !supabase) return null;
 
     try {
-      // Supabase RPC function çağrısı
-      // Function direkt TEXT döndürür (array değil)
       const rpcPromise = supabase.rpc('get_email_by_username', {
         username_input: username.trim()
       });
@@ -67,7 +72,6 @@ const Login: React.FC = () => {
         return null;
       }
 
-      // RPC function direkt email string'i döndürür
       if (data && typeof data === 'string') {
         return data;
       }
@@ -101,7 +105,7 @@ const Login: React.FC = () => {
         const foundEmail = await getEmailByUsername(emailToUse);
         
         if (!foundEmail) {
-          setError('Kullanıcı bulunamadı. Lütfen e-posta adresinizi veya kullanıcı adınızı kontrol edin.');
+          setError('Kullanıcı bulunamadı veya bağlantı yavaş. E-posta adresinizle deneyin veya Supabase\'de get_email_by_username fonksiyonunu kontrol edin.');
           setLoading(false);
           return;
         }
@@ -129,11 +133,11 @@ const Login: React.FC = () => {
         navigate('/');
       }
     } catch (err: any) {
-      // Supabase hatalarını kontrol et
-      // TODO [v2]: Re-enable 'Email not confirmed' error handling
-      if (err.message?.includes('Invalid login credentials') || 
+      if (err.message?.includes('Invalid login credentials') ||
           err.message?.includes('User not found')) {
         setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.');
+      } else if (err.message?.includes('zaman asimina') || err.message?.includes('timeout')) {
+        setError('Bağlantı zaman aşımına uğradı. İnterneti kontrol edip e-posta adresinizle tekrar deneyin.');
       } else {
         setError(err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.');
       }
@@ -180,6 +184,12 @@ const Login: React.FC = () => {
         </div>
 
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-10 md:p-12 rounded-[2.5rem] shadow-2xl">
+          {configMissing && (
+            <div className="mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200">
+              <p className="font-black text-xs uppercase tracking-widest mb-1">Fetch / Bağlantı çalışmıyor</p>
+              <p className="text-[11px] opacity-90">Supabase yapılandırılmamış. Build sırasında <code className="bg-black/30 px-1 rounded">VITE_SUPABASE_URL</code> ve <code className="bg-black/30 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> tanımlanmalı. Canlı sitede bu değişkenleri deploy ortamında (Vercel/Netlify vb.) ekleyip projeyi yeniden build edin.</p>
+            </div>
+          )}
           <h2 className="text-3xl font-black text-white mb-10 text-center uppercase italic tracking-tighter">
             Tekrar <span className="text-brand-red">Hoş Geldin</span>
           </h2>
@@ -190,6 +200,7 @@ const Login: React.FC = () => {
               <input
                 type="text"
                 required
+                disabled={configMissing}
                 placeholder="ornek@mail.com veya kullanici_adi"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700"
                 value={emailOrUsername}
@@ -205,6 +216,7 @@ const Login: React.FC = () => {
               <input
                 type="password"
                 required
+                disabled={configMissing}
                 placeholder="••••••••"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700"
                 value={password}
@@ -217,19 +229,38 @@ const Login: React.FC = () => {
                 {error}
               </div>
             )}
+            {adminTimeout && !error && (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-xs font-bold text-center">
+                Admin sayfası bağlantı zaman aşımına uğradı. Tekrar giriş yapın.
+              </div>
+            )}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || configMissing}
               className="w-full bg-brand-red hover:bg-brand-redHover text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-brand-red/20 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-3"
             >
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  GİRİŞ YAPILIYOR...
+                  GİRİŞ YAPILIYOR... (en fazla 15 sn)
                 </>
               ) : 'HESABINA GİRİŞ YAP'}
             </button>
+            {loading && (
+              <>
+                <p className="text-center text-[10px] text-gray-500">
+                  Takılı kalırsa alanı e-posta adresinizle değiştirip tekrar deneyin.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLoading(false)}
+                  className="w-full py-2 text-[10px] font-black text-gray-500 hover:text-white uppercase tracking-widest border border-white/10 rounded-xl hover:bg-white/5"
+                >
+                  İptal
+                </button>
+              </>
+            )}
           </form>
 
           <div className="mt-10 pt-8 border-t border-white/5 text-center">

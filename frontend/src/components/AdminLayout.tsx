@@ -1,15 +1,35 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/services/auth';
 import { hasSupabaseEnv } from '@/services/supabaseClient';
+import BackendNotConfiguredBanner from '@/components/BackendNotConfiguredBanner';
+
+const ADMIN_LOADING_MAX_MS = 20000; // 20 sn sonra giris sayfasina yonlendir
 
 const AdminLayout: React.FC = () => {
   const { user, profile, status } = useAuth();
   const location = useLocation();
-  
+  const loadingStartRef = useRef<number | null>(null);
+
   // Mobile'da default kapalı, desktop'ta açık
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  // Yetkiler cok uzun surerse (Supabase yanit vermiyorsa) giris sayfasina yonlendir
+  useEffect(() => {
+    if (status === 'LOADING' && hasSupabaseEnv) {
+      if (loadingStartRef.current === null) loadingStartRef.current = Date.now();
+      const t = setTimeout(() => {
+        if (loadingStartRef.current && Date.now() - loadingStartRef.current >= ADMIN_LOADING_MAX_MS) {
+          setLoadingTimeout(true);
+        }
+      }, ADMIN_LOADING_MAX_MS);
+      return () => clearTimeout(t);
+    } else {
+      loadingStartRef.current = null;
+    }
+  }, [status]);
 
   // Body scroll lock when sidebar is open on mobile
   useEffect(() => {
@@ -27,11 +47,17 @@ const AdminLayout: React.FC = () => {
   // Supabase bağlı değilse (Mock modu), girişi ve rolü zorunlu tutma (Test amaçlı)
   const isTestMode = !hasSupabaseEnv;
 
+  // Yetkiler cok uzun surdu, giris sayfasina yonlendir
+  if (loadingTimeout) {
+    return <Navigate to="/login?admin_timeout=1" replace />;
+  }
+
   if (status === 'LOADING' && !isTestMode) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-black text-white">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand-black text-white px-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-red"></div>
-        <span className="ml-4 font-bold tracking-widest uppercase text-xs">Yetkiler Kontrol Ediliyor...</span>
+        <span className="mt-4 font-bold tracking-widest uppercase text-xs">Yetkiler Kontrol Ediliyor...</span>
+        <p className="mt-2 text-[10px] text-gray-500 max-w-xs text-center">Bu ekranda takılı kalırsanız birkaç saniye içinde giriş sayfasına yönlendirileceksiniz.</p>
       </div>
     );
   }
@@ -169,6 +195,7 @@ const AdminLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+      {!hasSupabaseEnv && <BackendNotConfiguredBanner />}
     </div>
   );
 };

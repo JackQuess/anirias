@@ -32,6 +32,10 @@ BEGIN
 END;
 $$;
 
+-- Anon ve authenticated rollerinin RPC çağırabilmesi için yetki
+GRANT EXECUTE ON FUNCTION public.get_email_by_username(TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_email_by_username(TEXT) TO authenticated;
+
 -- RLS: Herkes bu function'ı çağırabilir (public)
 -- Güvenlik: Function SECURITY DEFINER olduğu için auth.users'a erişebilir
 -- Ama sadece email döndürür, başka bir şey yapmaz
