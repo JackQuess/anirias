@@ -13,6 +13,7 @@ export interface AnimeSearchResult {
 
 /** GET /api/anime/search?source=anilist|mal&q=... — top 10 results */
 const router = Router();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** GET /api/anime/public/featured */
 router.get('/public/featured', async (_req: Request, res: Response) => {
@@ -97,6 +98,134 @@ router.get('/public/latest-episodes', async (req: Request, res: Response) => {
     return res.json(flattened);
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Unexpected latest episodes query error' });
+  }
+});
+
+/** GET /api/anime/public/item/:identifier */
+router.get('/public/item/:identifier', async (req: Request, res: Response) => {
+  const identifier = String(req.params.identifier || '').trim();
+  if (!identifier) {
+    return res.status(400).json({ error: 'identifier is required' });
+  }
+
+  try {
+    let query = supabaseAdmin.from('animes').select('*');
+    if (UUID_RE.test(identifier)) {
+      query = query.eq('id', identifier);
+    } else {
+      query = query.eq('slug', identifier);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error) {
+      return res.status(500).json({ error: `Failed to fetch anime: ${error.message}` });
+    }
+    if (!data) {
+      return res.status(404).json({ error: 'Anime not found' });
+    }
+    return res.json(data);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Unexpected anime detail query error' });
+  }
+});
+
+/** GET /api/anime/public/:animeId/episodes?seasonId=... */
+router.get('/public/:animeId/episodes', async (req: Request, res: Response) => {
+  const animeId = String(req.params.animeId || '').trim();
+  const seasonId = typeof req.query.seasonId === 'string' ? req.query.seasonId.trim() : '';
+  if (!animeId) {
+    return res.status(400).json({ error: 'animeId is required' });
+  }
+
+  try {
+    const { data: seasons, error: seasonsError } = await supabaseAdmin
+      .from('seasons')
+      .select('id, season_number')
+      .eq('anime_id', animeId)
+      .order('season_number', { ascending: true });
+
+    if (seasonsError) {
+      return res.status(500).json({ error: `Failed to fetch seasons: ${seasonsError.message}` });
+    }
+
+    if (!seasons || seasons.length === 0) {
+      return res.json([]);
+    }
+
+    const seasonIds = seasons.map((s: any) => s.id);
+    const seasonMap = new Map(seasons.map((s: any) => [s.id, s.season_number]));
+
+    let query = supabaseAdmin
+      .from('episodes')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+      .in('season_id', seasonIds);
+
+    if (seasonId) {
+      query = query.eq('season_id', seasonId);
+    }
+
+    const { data, error } = await query.order('episode_number', { ascending: true });
+    if (error) {
+      return res.status(500).json({ error: `Failed to fetch episodes: ${error.message}` });
+    }
+
+    const episodes = (Array.isArray(data) ? data : []).map((ep: any) => ({
+      ...ep,
+      season_number: ep.season_number ?? seasonMap.get(ep.season_id) ?? 0,
+      anime_id: ep.anime_id || animeId,
+    }));
+
+    episodes.sort((a: any, b: any) => {
+      const aSeason = a.season_number ?? 0;
+      const bSeason = b.season_number ?? 0;
+      if (aSeason !== bSeason) return aSeason - bSeason;
+      return a.episode_number - b.episode_number;
+    });
+
+    return res.json(episodes);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Unexpected episodes query error' });
+  }
+});
+
+/** GET /api/anime/public/:animeId/similar?limit=6 */
+router.get('/public/:animeId/similar', async (req: Request, res: Response) => {
+  const animeId = String(req.params.animeId || '').trim();
+  const limitRaw = Number(req.query.limit);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 20) : 6;
+
+  if (!animeId) {
+    return res.status(400).json({ error: 'animeId is required' });
+  }
+
+  try {
+    const { data: current, error: currentError } = await supabaseAdmin
+      .from('animes')
+      .select('genres')
+      .eq('id', animeId)
+      .maybeSingle();
+
+    if (currentError) {
+      return res.status(500).json({ error: `Failed to fetch source anime: ${currentError.message}` });
+    }
+
+    const genres = Array.isArray((current as any)?.genres) ? (current as any).genres.slice(0, 2) : [];
+    if (genres.length === 0) return res.json([]);
+
+    const { data, error } = await supabaseAdmin
+      .from('animes')
+      .select('*')
+      .overlaps('genres', genres)
+      .neq('id', animeId)
+      .limit(limit);
+
+    if (error) {
+      return res.status(500).json({ error: `Failed to fetch similar animes: ${error.message}` });
+    }
+
+    return res.json(Array.isArray(data) ? data : []);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Unexpected similar animes query error' });
   }
 });
 

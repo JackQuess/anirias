@@ -23,6 +23,7 @@ const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const AUTH_TIMEOUT_MS = 10000;
 
   // TODO [v2]: Re-enable email verification check
   // Temporarily disabled: Users can login immediately without email confirmation
@@ -53,9 +54,13 @@ const Login: React.FC = () => {
     try {
       // Supabase RPC function çağrısı
       // Function direkt TEXT döndürür (array değil)
-      const { data, error } = await supabase.rpc('get_email_by_username', {
+      const rpcPromise = supabase.rpc('get_email_by_username', {
         username_input: username.trim()
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Username sorgusu zaman asimina ugradi')), AUTH_TIMEOUT_MS)
+      );
+      const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('[Login] RPC function error:', error);
@@ -106,10 +111,14 @@ const Login: React.FC = () => {
       }
 
       // Normal email + password login
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ 
+      const signInPromise = supabase.auth.signInWithPassword({ 
         email: emailToUse, 
         password 
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Giris istegi zaman asimina ugradi. Baglantini kontrol et.')), AUTH_TIMEOUT_MS)
+      );
+      const { data, error: authError } = await Promise.race([signInPromise, timeoutPromise]) as any;
       
       if (authError) throw authError;
       

@@ -17,6 +17,7 @@ const Signup: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  const AUTH_TIMEOUT_MS = 10000;
   // TODO [v2]: Re-enable email verification
   // const [showEmailVerification, setShowEmailVerification] = useState(false);
   // const [signedUpEmail, setSignedUpEmail] = useState('');
@@ -52,7 +53,7 @@ const Signup: React.FC = () => {
       // Email doğrulama redirect URL'i (BrowserRouter: path-based)
       const emailRedirectTo = `${window.location.origin}/auth/callback`;
       
-      const { data, error: authError } = await supabase.auth.signUp({
+      const signUpPromise = supabase.auth.signUp({
         email,
         password,
         options: {
@@ -61,6 +62,10 @@ const Signup: React.FC = () => {
           // emailRedirectTo: emailRedirectTo
         }
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Kayit istegi zaman asimina ugradi. Baglantini kontrol et.')), AUTH_TIMEOUT_MS)
+      );
+      const { data, error: authError } = await Promise.race([signUpPromise, timeoutPromise]) as any;
 
       if (authError) throw authError;
       

@@ -34,6 +34,28 @@ const getOptionalApiBase = (): string | null => {
   return apiBase.trim();
 };
 
+const fetchPublicJson = async (endpoint: string, timeoutMs = 4500): Promise<any> => {
+  const apiBase = getOptionalApiBase();
+  if (!apiBase) throw new Error('Backend API URL not configured (VITE_API_BASE_URL)');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${apiBase}${endpoint}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const callBackendApi = async (
   endpoint: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -110,31 +132,32 @@ export const db = {
   },
 
   getSimilarAnimes: async (animeId: string): Promise<Anime[]> => {
-    if (!checkEnv()) return [];
-    
     try {
-      // Gerçek bir senaryoda burada embedding vector search kullanılır.
-      // Şimdilik aynı türe sahip diğer animeleri getiriyoruz.
-      const current = await db.getAnimeById(animeId);
-      if (!current || !current.genres) return [];
-
-      const { data, error } = await supabase!
-        .from('animes')
-        .select('*')
-        .overlaps('genres', current.genres.slice(0, 2))
-        .neq('id', animeId)
-        .limit(6);
-
-      if (error) {
-        if (import.meta.env.DEV) console.error('[db.getSimilarAnimes] Query error:', error);
-        return [];
-      }
-
+      const data = await fetchPublicJson(`/api/anime/public/${animeId}/similar?limit=6`);
       return Array.isArray(data) ? data : [];
-    } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[db.getSimilarAnimes] Unexpected error:', err);
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[db.getSimilarAnimes] Backend API failed, trying Supabase:', err);
+    }
+
+    if (!checkEnv()) return [];
+    // Gerçek bir senaryoda burada embedding vector search kullanılır.
+    // Şimdilik aynı türe sahip diğer animeleri getiriyoruz.
+    const current = await db.getAnimeById(animeId);
+    if (!current || !current.genres) return [];
+
+    const { data, error } = await supabase!
+      .from('animes')
+      .select('*')
+      .overlaps('genres', current.genres.slice(0, 2))
+      .neq('id', animeId)
+      .limit(6);
+
+    if (error) {
+      if (import.meta.env.DEV) console.error('[db.getSimilarAnimes] Query error:', error);
       return [];
     }
+
+    return Array.isArray(data) ? data : [];
   },
 
   // --- ANIME READ METHODS ---
@@ -235,12 +258,19 @@ export const db = {
   },
 
   getAnimeByIdOrSlug: async (identifier: string): Promise<Anime | null> => {
-    if (!checkEnv()) return null;
     if (!identifier || identifier.trim() === '') {
       if (import.meta.env.DEV) console.warn('[db.getAnimeByIdOrSlug] Empty identifier provided');
       return null;
     }
 
+    try {
+      const data = await fetchPublicJson(`/api/anime/public/item/${encodeURIComponent(identifier)}`);
+      return data || null;
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[db.getAnimeByIdOrSlug] Backend API failed, trying Supabase:', err);
+    }
+
+    if (!checkEnv()) return null;
     // Check if identifier is a UUID
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
     
@@ -618,12 +648,19 @@ export const db = {
     if (!checkEnv()) return [];
     
     try {
-      // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
-      // New imports (e.g. Overlord) don't have direct episodes.anime_id
-      // Must use JOIN via seasons table to fetch episodes correctly
-      // Query pattern: SELECT e.* FROM episodes e JOIN seasons s ON s.id = e.season_id WHERE s.anime_id = ?
-      // ORDER BY s.season_number, e.episode_number
-      
+      const params = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : '';
+      const data = await fetchPublicJson(`/api/anime/public/${animeId}/episodes${params}`);
+      return Array.isArray(data) ? (data as Episode[]) : [];
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[db.getEpisodes] Backend API failed, trying Supabase:', err);
+    }
+
+    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+    // New imports (e.g. Overlord) don't have direct episodes.anime_id
+    // Must use JOIN via seasons table to fetch episodes correctly
+    // Query pattern: SELECT e.* FROM episodes e JOIN seasons s ON s.id = e.season_id WHERE s.anime_id = ?
+    // ORDER BY s.season_number, e.episode_number
+    try {
       // Step 1: Fetch all season IDs for this anime
       const { data: seasons, error: seasonsError } = await supabase!
         .from('seasons')
@@ -664,8 +701,6 @@ export const db = {
       if (!data || data.length === 0) {
         return [];
       }
-      
-      // Enrich episodes with season_number from seasonMap
       
       // Step 3: Enrich episodes with season_number from seasonMap (in case episode.season_number is NULL)
       const enrichedEpisodes = (data as any[]).map((ep: any) => {

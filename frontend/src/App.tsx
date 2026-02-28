@@ -46,7 +46,7 @@ const App: React.FC = () => {
     // Simulate initial asset loading / "booting"
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2500);
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
