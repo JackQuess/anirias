@@ -106,6 +106,51 @@ async function filterExistingAnimeRows<T extends { anime_id: string }>(rows: T[]
   return rows.filter((row) => existing.has(row.anime_id));
 }
 
+function extractAnimeIdFromFkErrorMessage(message: string | undefined): string | null {
+  if (!message) return null;
+  const uuidMatch = message.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return uuidMatch ? uuidMatch[0] : null;
+}
+
+async function upsertScheduleRowsSafely(
+  rows: Array<Record<string, any>>
+): Promise<{ syncedRows: number; error: any | null }> {
+  let pending = [...rows];
+  let removedAny = false;
+
+  for (let attempt = 0; attempt < 5 && pending.length > 0; attempt++) {
+    const { error } = await supabaseAdmin
+      .from('airing_schedule')
+      .upsert(pending, { onConflict: 'anime_id,episode_number' });
+
+    if (!error) {
+      return { syncedRows: pending.length, error: null };
+    }
+
+    if (!String(error.message || '').includes('airing_schedule_anime_id_fkey')) {
+      return { syncedRows: 0, error };
+    }
+
+    const invalidAnimeId = extractAnimeIdFromFkErrorMessage(error.message);
+    if (!invalidAnimeId) {
+      return { syncedRows: 0, error };
+    }
+
+    const next = pending.filter((row) => row.anime_id !== invalidAnimeId);
+    if (next.length === pending.length) {
+      return { syncedRows: 0, error };
+    }
+
+    console.warn(`[AiringSchedule] Dropping rows with missing anime_id: ${invalidAnimeId}`);
+    pending = next;
+    removedAny = true;
+  }
+
+  return removedAny
+    ? { syncedRows: pending.length, error: null }
+    : { syncedRows: 0, error: new Error('FK-safe upsert failed after retries') };
+}
+
 export async function syncAiringSchedule(): Promise<SyncResult> {
   const { data: animeRows, error: animeError } = await supabaseAdmin
     .from('animes')
@@ -197,24 +242,15 @@ export async function syncAiringSchedule(): Promise<SyncResult> {
     return { scannedAnime: animeList.length, syncedRows: 0 };
   }
 
-  let { error: upsertError } = await supabaseAdmin
-    .from('airing_schedule')
-    .upsert(safePayload, { onConflict: 'anime_id,episode_number' });
-
-  if (upsertError && upsertError.message?.includes('airing_schedule_anime_id_fkey')) {
-    const retriedPayload = await filterExistingAnimeRows(safePayload);
-    const retry = await supabaseAdmin
-      .from('airing_schedule')
-      .upsert(retriedPayload, { onConflict: 'anime_id,episode_number' });
-    upsertError = retry.error;
-  }
+  const upsertResult = await upsertScheduleRowsSafely(safePayload);
+  const upsertError = upsertResult.error;
 
   if (upsertError) {
     throw new Error(`Failed to upsert schedule rows: ${upsertError.message}`);
   }
 
   await invalidateWeeklyCache();
-  return { scannedAnime: animeList.length, syncedRows: safePayload.length };
+  return { scannedAnime: animeList.length, syncedRows: upsertResult.syncedRows };
 }
 
 export async function markEpisodeReleased(params: {
