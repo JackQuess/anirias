@@ -815,39 +815,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // CRITICAL: Hard stop - ensure video and audio stop COMPLETELY
       // Step 1: Store original muted state BEFORE muting (for restore on play)
       originalMutedStateRef.current = video.muted;
-      
-      // Step 2: Pause video immediately (synchronous, no async)
-      video.pause();
-      
-      // Step 3: CRITICAL - Mute audio IMMEDIATELY and PERMANENTLY until play
-      // This ensures audio stream is completely stopped
+
+      // Step 2: Mute and zero volume FIRST so audio stops immediately
       video.muted = true;
-      video.volume = 0; // Also set volume to 0 for extra safety
-      
-      // Step 4: Force pause again to ensure it's really paused
-      if (!video.paused) {
-        video.pause();
-      }
-      
-      // Step 5: Clear any pending play promises
-      // This prevents audio from continuing if play() was called
-      try {
-        const playPromise = video.play();
-        if (playPromise) {
-          playPromise.catch(() => {
-            // Ignore errors, we're pausing anyway
-          });
-          video.pause();
-        }
-      } catch (e) {
-        // Ignore errors
-      }
-      
-      // Step 6: Update state
+      video.volume = 0;
+
+      // Step 3: Pause video (synchronous)
+      video.pause();
+
+      // Step 4: Update state
       setIsPlaying(false);
-      setIsMuted(true); // Update muted state to reflect reality (will be restored on play)
+      setIsMuted(true);
       setShowControls(true);
-      
+
       if (import.meta.env.DEV) {
         console.log('[VideoPlayer] Video paused, audio completely stopped', {
           originalMuted: originalMutedStateRef.current,
@@ -855,14 +835,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           currentVolume: video.volume,
         });
       }
-      
-      // Step 7: Restore volume after a short delay (but keep muted until play)
-      // This allows audio buffer to clear, but keeps it muted until play
+
+      // Step 5: Restore volume level after a short delay (keep muted until play)
       setTimeout(() => {
         if (video && video.paused) {
-          // Restore volume but keep muted (will be restored on play)
-          video.volume = volume; // Restore to previous volume level
-          video.muted = true; // Keep muted until play
+          video.volume = volume;
+          video.muted = true;
         }
       }, 50);
     }
@@ -1140,6 +1118,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       switch (e.key) {
         case ' ':
           e.preventDefault();
+          e.stopPropagation();
           togglePlay();
           break;
         case 'ArrowLeft':
@@ -1178,6 +1157,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         case 'f':
         case 'F':
           e.preventDefault();
+          e.stopPropagation();
           toggleFullscreen();
           break;
         case 'm':
@@ -1188,8 +1168,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute, volume, showControlsTemporary]);
 
   // Sync video element volume and muted state
