@@ -1369,22 +1369,21 @@ export const db = {
   },
 
   getPublicCalendar: async (from?: string, days: number = 14): Promise<PublicCalendarEntry[]> => {
-    const apiBase = getApiBase();
+    const apiBase = getOptionalApiBase();
+    if (!apiBase) return [];
     const dateFrom = from || new Date().toISOString().slice(0, 10);
     const query = new URLSearchParams({ from: dateFrom, days: String(days) });
-
-    const res = await fetch(`${apiBase}/api/calendar?${query.toString()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || `Calendar API failed (${res.status})`);
+    try {
+      const res = await fetch(`${apiBase}/api/calendar?${query.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? (data as PublicCalendarEntry[]) : [];
+    } catch {
+      return [];
     }
-
-    const data = await res.json();
-    return Array.isArray(data) ? (data as PublicCalendarEntry[]) : [];
   },
 
   getCalendarEpisodes: async (): Promise<(Episode & { anime: Anime | null })[]> => {

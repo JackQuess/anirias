@@ -22,11 +22,9 @@ interface WatchPagePayload {
   episodes: Episode[];
 }
 
-const getApiBase = (): string => {
+const getApiBase = (): string | null => {
   const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
-  if (!apiBase) {
-    throw new Error('Backend API URL not configured (VITE_API_BASE_URL)');
-  }
+  if (!apiBase || typeof apiBase !== 'string' || !apiBase.trim()) return null;
   return apiBase.replace(/\/+$/, '');
 };
 
@@ -74,6 +72,7 @@ const WatchSlug: React.FC = () => {
       if (!seasonSlugInfo) throw new Error('Invalid season slug');
       if (!seasonNum || !episodeNum) throw new Error('Invalid season/episode');
       const apiBase = getApiBase();
+      if (!apiBase) throw new Error('Izleme servisi yapilandirilmamis (VITE_API_BASE_URL).');
       const res = await fetch(
         `${apiBase}/api/watch/${encodeURIComponent(seasonSlugInfo.animeSlug)}/${seasonNum}/${episodeNum}`
       );

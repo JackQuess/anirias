@@ -87,7 +87,9 @@ const App: React.FC = () => {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Admin />} />
             <Route path="animes" element={<AdminAnimes />} />
+            <Route path="animes/new" element={<AdminAnimeEdit />} />
             <Route path="animes/:id/edit" element={<AdminAnimeEdit />} />
+            <Route path="episodes" element={<Navigate to="/admin/animes" replace />} />
             <Route path="episodes/:animeId" element={<AdminEpisodes />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="users" element={<AdminUsers />} />

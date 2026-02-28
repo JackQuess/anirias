@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { db } from '@/services/db';
 import { Anime } from '../types';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 
 const AdminAnimeEdit: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id?: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
-  const isNew = id === 'new';
+  const isNew = id === 'new' || (!id && location.pathname.endsWith('/new'));
 
   const [anime, setAnime] = useState<Partial<Anime>>({
     title: { romaji: '', english: '' },
