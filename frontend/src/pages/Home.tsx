@@ -11,6 +11,7 @@ import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenres } from '@/utils/genreTranslations';
+import { hasSupabaseEnv } from '@/services/supabaseClient';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -18,8 +19,8 @@ const Home: React.FC = () => {
   // Data Loaders
   const { data: featured, loading: featLoading, error: featError, reload } = useLoad(db.getFeaturedAnimes);
   const { data: continueWatching } = useLoad(() => user ? db.getContinueWatching(user.id) : Promise.resolve([]), [user]);
-  const { data: allAnimes } = useLoad(() => db.getAllAnimes('view_count', 50)); // Limit to 50 for performance
-  const { data: latestEpisodes } = useLoad(() => db.getLatestEpisodes(12)); // Limit to 12 for home page
+  const { data: allAnimes, loading: allAnimesLoading } = useLoad(() => db.getAllAnimes('view_count', 50)); // Limit to 50 for performance
+  const { data: latestEpisodes, loading: latestEpisodesLoading } = useLoad(() => db.getLatestEpisodes(12)); // Limit to 12 for home page
   const { data: myWatchlist } = useLoad(() => user ? db.getWatchlist(user.id) : Promise.resolve([]), [user]);
   
   // Reuse allAnimes for newSeasons (no need for duplicate request)
@@ -35,20 +36,25 @@ const Home: React.FC = () => {
   // Hero Slider State
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const featuredList = featured || [];
+  const allAnimeList = allAnimes || [];
+  const heroPool = featuredList.length > 0 ? featuredList : allAnimeList;
+  const popularPool = featuredList.length > 0 ? featuredList : allAnimeList.slice(0, 12);
+  const noPublicContent = !featLoading && !allAnimesLoading && featuredList.length === 0 && allAnimeList.length === 0;
 
   // Auto-play logic
   useEffect(() => {
-    if (!isAutoPlaying || !featured || featured.length <= 1) return;
+    if (!isAutoPlaying || heroPool.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % featured.length);
+      setCurrentSlide(prev => (prev + 1) % heroPool.length);
     }, 5000); // 5 seconds per slide (Faster)
     return () => clearInterval(interval);
-  }, [isAutoPlaying, featured, currentSlide]);
+  }, [isAutoPlaying, heroPool, currentSlide]);
 
-  const heroAnime = featured?.[currentSlide];
-  const nextSlideIndex = featured ? (currentSlide + 1) % featured.length : 0;
-  const nextAnime = featured?.[nextSlideIndex];
-  const hasMultipleSlides = featured && featured.length > 1;
+  const heroAnime = heroPool[currentSlide];
+  const nextSlideIndex = heroPool.length > 0 ? (currentSlide + 1) % heroPool.length : 0;
+  const nextAnime = heroPool[nextSlideIndex];
+  const hasMultipleSlides = heroPool.length > 1;
 
   const getTitle = (anime: any) => getDisplayTitle(anime?.title);
 
@@ -68,7 +74,7 @@ const Home: React.FC = () => {
         ) : heroAnime ? (
           <>
              {/* Background Layers */}
-             {featured?.map((anime, index) => (
+             {heroPool.map((anime, index) => (
                 <div 
                   key={anime.id} 
                   className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
@@ -162,7 +168,7 @@ const Home: React.FC = () => {
                    
                    {/* Dots (Visible on Mobile too) */}
                    <div className="flex gap-3 justify-center md:justify-end w-full">
-                      {featured?.map((_, idx) => (
+                      {heroPool.map((_, idx) => (
                          <button 
                             key={idx} 
                             onClick={() => setCurrentSlide(idx)}
@@ -178,6 +184,15 @@ const Home: React.FC = () => {
       </section>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 space-y-16 md:space-y-24 -mt-12 md:-mt-20 relative z-20">
+        {noPublicContent && (
+          <section className="border border-amber-700/40 bg-amber-950/20 rounded-2xl p-5 md:p-6">
+            <p className="text-amber-300 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Veri Görünmüyor</p>
+            <p className="text-gray-300 text-sm">
+              İçerik listesi boş döndü. Bu genelde Supabase `animes` tablosunda public SELECT/RLS policy sorunu veya gerçekten kayıt olmaması nedeniyle olur.
+              {!hasSupabaseEnv && ' Ayrıca frontend Supabase env değişkenleri eksik görünüyor.'}
+            </p>
+          </section>
+        )}
         
         {/* 1. Continue Watching (Priority) */}
         {user && continueWatching && continueWatching.length > 0 && (
@@ -232,13 +247,19 @@ const Home: React.FC = () => {
           <div className="flex items-end justify-between mb-8 md:mb-12">
             <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter uppercase italic border-l-4 border-brand-red pl-4 md:pl-5">GÜNDEMDEKİ <span className="text-brand-red">TOP 10</span></h2>
           </div>
-          <div className="flex gap-6 md:gap-10 overflow-x-auto pb-12 scrollbar-hide snap-x px-2 md:px-4 -mx-4 md:mx-0">
-            {top10.map((anime, idx) => (
-              <div key={anime.id} className="w-48 md:w-64 flex-shrink-0 snap-start pl-14 md:pl-20">
-                <AnimeCard anime={anime} rank={idx + 1} />
-              </div>
-            ))}
-          </div>
+          {allAnimesLoading ? (
+            <LoadingSkeleton type="card" count={5} />
+          ) : top10.length > 0 ? (
+            <div className="flex gap-6 md:gap-10 overflow-x-auto pb-12 scrollbar-hide snap-x px-2 md:px-4 -mx-4 md:mx-0">
+              {top10.map((anime, idx) => (
+                <div key={anime.id} className="w-48 md:w-64 flex-shrink-0 snap-start pl-14 md:pl-20">
+                  <AnimeCard anime={anime} rank={idx + 1} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-500 text-xs uppercase tracking-[0.2em]">Top 10 için içerik bulunamadı.</div>
+          )}
         </section>
 
         {/* 3. Popular Content */}
@@ -254,12 +275,15 @@ const Home: React.FC = () => {
 
           {featLoading && <LoadingSkeleton type="card" count={5} />}
           {featError && <ErrorState message={featError.message} onRetry={reload} />}
-          {!featLoading && featured && (
+          {!featLoading && popularPool.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-12">
-              {featured.map((anime) => (
+              {popularPool.map((anime) => (
                 <AnimeCard key={anime.id} anime={anime} />
               ))}
             </div>
+          )}
+          {!featLoading && !featError && popularPool.length === 0 && (
+            <div className="text-gray-500 text-xs uppercase tracking-[0.2em]">Popüler içerik bulunamadı.</div>
           )}
         </section>
 
@@ -292,7 +316,10 @@ const Home: React.FC = () => {
                 </div>
               )
             ))}
-            {(!latestEpisodes || latestEpisodes.length === 0) && <LoadingSkeleton type="card" count={4} />}
+            {latestEpisodesLoading && <LoadingSkeleton type="card" count={4} />}
+            {!latestEpisodesLoading && (!latestEpisodes || latestEpisodes.length === 0) && (
+              <div className="text-gray-500 text-xs uppercase tracking-[0.2em]">Yeni bölüm verisi bulunamadı.</div>
+            )}
           </div>
         </section>
 
