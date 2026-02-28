@@ -814,12 +814,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           });
       }
     } else {
-      // CRITICAL: Stop playback and audio at the same time - pause first so pipeline stops, then mute
+      // Sesin anında kesilmesi: önce mute + volume=0 (çıkış kesilir), sonra pause; iki kez pause ile emin ol
       originalMutedStateRef.current = video.muted;
 
-      video.pause();
       video.muted = true;
       video.volume = 0;
+      video.pause();
+      video.pause(); // Bazı tarayıcılar/HLS için tekrar pause
 
       setIsPlaying(false);
       setIsMuted(true);
@@ -833,12 +834,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         });
       }
 
+      // Sadece bir sonraki play için volume seviyesini sakla; sesi açma
       setTimeout(() => {
         if (video && video.paused) {
           video.volume = volume;
           video.muted = true;
         }
-      }, 50);
+      }, 100);
     }
   }, [bootState, showControlsTemporary, volume, isMuted]);
 

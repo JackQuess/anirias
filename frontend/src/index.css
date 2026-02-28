@@ -313,3 +313,6 @@ body.anirias-player-fullscreen [data-watch-page] .watch-player-area {
   max-width: none !important;
   z-index: 10;
 }
+body.anirias-player-fullscreen [data-feedback-floating] {
+  display: none !important;
+}
