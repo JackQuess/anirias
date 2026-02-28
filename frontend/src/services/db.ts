@@ -28,6 +28,12 @@ const getApiBase = (): string => {
   return apiBase;
 };
 
+const getOptionalApiBase = (): string | null => {
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (!apiBase || typeof apiBase !== 'string' || !apiBase.trim()) return null;
+  return apiBase.trim();
+};
+
 const callBackendApi = async (
   endpoint: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -133,55 +139,78 @@ export const db = {
 
   // --- ANIME READ METHODS ---
   getFeaturedAnimes: async (): Promise<Anime[]> => {
-    requireSupabaseEnv('db.getFeaturedAnimes');
-    
-    try {
-      const { data, error } = await supabase!
-        .from('animes')
-        .select('*')
-        .eq('is_featured', true)
-        .order('updated_at', { ascending: false });
-      
-      if (error) {
-        if (import.meta.env.DEV) console.error("[db.getFeaturedAnimes] Query error:", error);
-        throw new Error(`[db.getFeaturedAnimes] ${error.message}`);
+    const apiBase = getOptionalApiBase();
+
+    if (apiBase) {
+      try {
+        const res = await fetch(`${apiBase}/api/anime/public/featured`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[db.getFeaturedAnimes] Backend API fallback failed, trying Supabase:', err);
       }
-      return Array.isArray(data) ? data : [];
-    } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[db.getFeaturedAnimes] Unexpected error:', err);
-      throw err instanceof Error ? err : new Error('[db.getFeaturedAnimes] Unknown error');
     }
+
+    requireSupabaseEnv('db.getFeaturedAnimes');
+    const { data, error } = await supabase!
+      .from('animes')
+      .select('*')
+      .eq('is_featured', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      if (import.meta.env.DEV) console.error("[db.getFeaturedAnimes] Query error:", error);
+      throw new Error(`[db.getFeaturedAnimes] ${error.message}`);
+    }
+    return Array.isArray(data) ? data : [];
   },
 
   getAllAnimes: async (sortBy: string = 'created_at', limit?: number): Promise<Anime[]> => {
-    requireSupabaseEnv('db.getAllAnimes');
-    
-    try {
-      // PERFORMANCE FIX: Add default limit to prevent fetching thousands of records
-      // Only fetch unlimited when explicitly requested (limit = 0)
-      const effectiveLimit = limit === 0 ? undefined : (limit || 100);
-      
-      let query = supabase!
-        .from('animes')
-        .select('*')
-        .order(sortBy, { ascending: false });
-      
-      if (effectiveLimit) {
-        query = query.limit(effectiveLimit);
-      }
-      
-      const { data, error } = await query;
+    const apiBase = getOptionalApiBase();
+    // PERFORMANCE FIX: Add default limit to prevent fetching thousands of records
+    // Only fetch unlimited when explicitly requested (limit = 0)
+    const effectiveLimit = limit === 0 ? undefined : (limit || 100);
 
-      if (error) {
-        if (import.meta.env.DEV) console.error('[db.getAllAnimes] Query error:', error);
-        throw new Error(`[db.getAllAnimes] ${error.message}`);
+    if (apiBase) {
+      try {
+        const query = new URLSearchParams({
+          sortBy,
+          limit: String(effectiveLimit || 100),
+        });
+        const res = await fetch(`${apiBase}/api/anime/public/list?${query.toString()}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[db.getAllAnimes] Backend API fallback failed, trying Supabase:', err);
       }
-      
-      return Array.isArray(data) ? data : [];
-    } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[db.getAllAnimes] Unexpected error:', err);
-      throw err instanceof Error ? err : new Error('[db.getAllAnimes] Unknown error');
     }
+
+    requireSupabaseEnv('db.getAllAnimes');
+    let query = supabase!
+      .from('animes')
+      .select('*')
+      .order(sortBy, { ascending: false });
+
+    if (effectiveLimit) {
+      query = query.limit(effectiveLimit);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      if (import.meta.env.DEV) console.error('[db.getAllAnimes] Query error:', error);
+      throw new Error(`[db.getAllAnimes] ${error.message}`);
+    }
+    return Array.isArray(data) ? data : [];
   },
 
   getAnimeById: async (id: string): Promise<Anime | null> => {
@@ -697,71 +726,80 @@ export const db = {
   },
 
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {
-    requireSupabaseEnv('db.getLatestEpisodes');
-    
-    try {
-      // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
-      // Must join through seasons to get anime relation for new imports
-      // Use seasons!inner(anime:animes(*)) to ensure we get anime via seasons
-      let query = supabase!
-        .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(season_number, anime:animes(*))')
-        .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
-      
-      if (limit !== undefined && offset !== undefined) {
-        // Supabase range is inclusive: range(0, 23) returns 24 items
-        query = query.range(offset, offset + limit - 1);
-      } else if (limit !== undefined) {
-        query = query.limit(limit);
-      }
-      
-      const { data, error } = await query;
-        
-      if (error) {
-        if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Query error:', error);
-        throw new Error(`[db.getLatestEpisodes] ${error.message}`);
-      }
-      
-      if (!data || !Array.isArray(data)) {
-        return [];
-      }
-      
-      // Extract and flatten the nested structure
-      // Supabase returns: { episode fields, seasons: { anime: { ... } } }
-      // We need: { episode fields, anime: { ... } }
-      const flattened = data.map((item: any) => {
-        const anime = item.seasons?.anime || item.anime || null;
-        return {
-          ...item,
-          anime_id: item.anime_id || item.seasons?.anime?.id || null,
-          anime: anime,
-        };
-      });
-      
-      // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
-      const sorted = flattened.sort((a: any, b: any) => {
-        const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
-        const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
-        
-        if (aDate !== null && bDate !== null) {
-          return bDate - aDate; // Both have air_date: DESC
+    const apiBase = getOptionalApiBase();
+    const safeLimit = typeof limit === 'number' ? limit : 24;
+    const safeOffset = typeof offset === 'number' ? offset : 0;
+
+    if (apiBase) {
+      try {
+        const params = new URLSearchParams({
+          limit: String(safeLimit),
+          offset: String(safeOffset),
+        });
+        const res = await fetch(`${apiBase}/api/anime/public/latest-episodes?${params.toString()}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return Array.isArray(data) ? (data as (Episode & { anime: Anime })[]) : [];
         }
-        if (aDate !== null && bDate === null) {
-          return -1; // a has air_date, b doesn't: a comes first
-        }
-        if (aDate === null && bDate !== null) {
-          return 1; // b has air_date, a doesn't: b comes first
-        }
-        // Both are NULL: use created_at DESC
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-      
-      // Type assertion: Supabase returns anime as single object (not array) for foreign key relations
-      return sorted as unknown as (Episode & { anime: Anime })[];
-    } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Unexpected error:', err);
-      throw err instanceof Error ? err : new Error('[db.getLatestEpisodes] Unknown error');
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[db.getLatestEpisodes] Backend API fallback failed, trying Supabase:', err);
+      }
     }
+
+    requireSupabaseEnv('db.getLatestEpisodes');
+    // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
+    // Must join through seasons to get anime relation for new imports
+    // Use seasons!inner(anime:animes(*)) to ensure we get anime via seasons
+    let query = supabase!
+      .from('episodes')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(season_number, anime:animes(*))')
+      .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
+
+    if (limit !== undefined && offset !== undefined) {
+      // Supabase range is inclusive: range(0, 23) returns 24 items
+      query = query.range(offset, offset + limit - 1);
+    } else if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      if (import.meta.env.DEV) console.error('[db.getLatestEpisodes] Query error:', error);
+      throw new Error(`[db.getLatestEpisodes] ${error.message}`);
+    }
+
+    if (!data || !Array.isArray(data)) {
+      return [];
+    }
+
+    // Extract and flatten the nested structure
+    // Supabase returns: { episode fields, seasons: { anime: { ... } } }
+    // We need: { episode fields, anime: { ... } }
+    const flattened = data.map((item: any) => {
+      const anime = item.seasons?.anime || item.anime || null;
+      return {
+        ...item,
+        anime_id: item.anime_id || item.seasons?.anime?.id || null,
+        anime: anime,
+      };
+    });
+
+    // Client-side sorting: air_date DESC, fallback to created_at DESC for NULL air_date
+    const sorted = flattened.sort((a: any, b: any) => {
+      const aDate = a.air_date ? new Date(a.air_date).getTime() : null;
+      const bDate = b.air_date ? new Date(b.air_date).getTime() : null;
+      if (aDate !== null && bDate !== null) return bDate - aDate; // Both have air_date: DESC
+      if (aDate !== null && bDate === null) return -1; // a has air_date, b doesn't: a comes first
+      if (aDate === null && bDate !== null) return 1; // b has air_date, a doesn't: b comes first
+      // Both are NULL: use created_at DESC
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    // Type assertion: Supabase returns anime as single object (not array) for foreign key relations
+    return sorted as unknown as (Episode & { anime: Anime })[];
   },
 
   // --- USER DATA ---
