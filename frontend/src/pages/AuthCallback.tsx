@@ -30,7 +30,8 @@ const AuthCallback: React.FC = () => {
         const refreshToken = hashParams.get('refresh_token');
 
         // Query params'ı da kontrol et (bazı durumlarda hash yerine query olabilir)
-        const token = searchParams.get('token');
+        const tokenHash = searchParams.get('token_hash') || searchParams.get('token');
+        const otpType = (searchParams.get('type') as 'email' | 'recovery' | null) || 'email';
 
         if (accessToken && refreshToken) {
           // Supabase session'ı set et
@@ -48,12 +49,12 @@ const AuthCallback: React.FC = () => {
           // TODO [v2]: Re-enable email verification redirect
           // Temporarily disabled: Direct navigation to homepage
           navigate('/');
-        } else if (token) {
+        } else if (tokenHash) {
           // Token-based verification (eski format)
           // Keep for backward compatibility but don't enforce verification
           const { error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: token,
-            type: 'email',
+            token_hash: tokenHash,
+            type: otpType,
           });
 
           if (verifyError) {

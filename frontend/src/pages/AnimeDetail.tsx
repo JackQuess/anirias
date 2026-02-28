@@ -141,18 +141,18 @@ const AnimeDetail: React.FC = () => {
 
   // Update watchlist status - only when watchlist data changes, not on every render
   useEffect(() => {
-    if (!watchlist || !id) return;
-    const entry = watchlist.find(w => w.anime_id === id);
+    if (!watchlist || !animeId) return;
+    const entry = watchlist.find(w => w.anime_id === animeId);
     if (entry) {
       setWatchlistStatus(entry.status);
     } else {
       setWatchlistStatus('none');
     }
-  }, [watchlist, id]);
+  }, [watchlist, animeId]);
 
   const handleStatusChange = async (status: WatchlistStatus) => {
-    if (!user) return alert('Lütfen önce giriş yapın!');
-    await db.updateWatchlist(user.id, id!, status);
+    if (!user || !animeId) return alert('Lütfen önce giriş yapın!');
+    await db.updateWatchlist(user.id, animeId, status);
     setWatchlistStatus(status);
     setShowStatusMenu(false);
   };

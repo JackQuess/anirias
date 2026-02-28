@@ -555,14 +555,23 @@ export const db = {
     seasonNumber?: number
   ): Promise<Season> => {
     // Use backend API for transactional binding
-    // No authentication required - backend uses service role key
     try {
       const apiBase = getApiBase();
+      const token =
+        (localStorage.getItem('adminToken') ||
+          localStorage.getItem('ADMIN_TOKEN') ||
+          localStorage.getItem('admin_token') ||
+          window.prompt('Admin Token (X-ADMIN-TOKEN)') ||
+          '').trim();
+      if (!token) {
+        throw new Error('Admin token is required');
+      }
 
       const res = await fetch(`${apiBase}/api/admin/anilist/bind-season`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token,
         },
         body: JSON.stringify({
           season_id: seasonId,
@@ -645,8 +654,6 @@ export const db = {
   },
 
   getEpisodes: async (animeId: string, seasonId?: string): Promise<Episode[]> => {
-    if (!checkEnv()) return [];
-    
     try {
       const params = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : '';
       const data = await fetchPublicJson(`/api/anime/public/${animeId}/episodes${params}`);
@@ -654,6 +661,8 @@ export const db = {
     } catch (err) {
       if (import.meta.env.DEV) console.warn('[db.getEpisodes] Backend API failed, trying Supabase:', err);
     }
+
+    if (!checkEnv()) return [];
 
     // CRITICAL FIX: Episodes are now linked via season_id -> seasons -> anime_id
     // New imports (e.g. Overlord) don't have direct episodes.anime_id
@@ -728,13 +737,16 @@ export const db = {
   },
 
   createEpisode: async (episode: Partial<Episode>, adminToken?: string): Promise<Episode> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'createEpisode: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: POST /api/admin/create-episode\n' +
-      'Or use direct Supabase call with service role key in backend only.'
-    );
+    try {
+      const data = await callBackendApi('/api/admin/create-episode', 'POST', episode, adminToken);
+      if (!data.success || !data.episode) {
+        throw new Error(data.error || 'Failed to create episode');
+      }
+      return data.episode as Episode;
+    } catch (err: any) {
+      console.error('[db.createEpisode] Error:', err);
+      throw err;
+    }
   },
 
   updateEpisode: async (id: string, updates: Partial<Episode>, adminToken?: string): Promise<Episode> => {
@@ -752,12 +764,15 @@ export const db = {
   },
 
   deleteEpisode: async (id: string, adminToken?: string): Promise<void> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'deleteEpisode: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: DELETE /api/admin/delete-episode/:id'
-    );
+    try {
+      const data = await callBackendApi(`/api/admin/delete-episode/${id}`, 'DELETE', undefined, adminToken);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete episode');
+      }
+    } catch (err: any) {
+      console.error('[db.deleteEpisode] Error:', err);
+      throw err;
+    }
   },
 
   getLatestEpisodes: async (limit?: number, offset?: number): Promise<(Episode & { anime: Anime })[]> => {

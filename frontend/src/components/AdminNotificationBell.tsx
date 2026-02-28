@@ -12,12 +12,12 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const backendUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
   // Fetch notifications
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const response = await fetch(`${backendUrl}/api/admin/notifications`, {
         headers: {
           'X-ADMIN-TOKEN': adminToken,
@@ -38,7 +38,6 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
   // Mark notification as read
   const markAsRead = async (id: string) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       await fetch(`${backendUrl}/api/admin/notifications/read`, {
         method: 'POST',
         headers: {
@@ -60,7 +59,6 @@ const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({ adminToke
   // Mark all as read
   const markAllAsRead = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       await fetch(`${backendUrl}/api/admin/notifications/read-all`, {
         method: 'POST',
         headers: {

@@ -7,7 +7,7 @@ const router = Router();
 router.use((req, res, next) => {
   const origin = normalizeOrigin(process.env.CORS_ORIGIN) || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token, X-ADMIN-TOKEN');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
@@ -21,8 +21,8 @@ router.use((req, res, next) => {
  * 
  * SECURITY:
  * - Uses Supabase Service Role Key (backend only)
- * - No authentication required (public endpoint)
- * - Service role key handles all DB operations
+ * - Requires X-ADMIN-TOKEN
+ * - Service role key handles DB operations after auth check
  * 
  * Body:
  * {
@@ -49,7 +49,14 @@ router.use((req, res, next) => {
  */
 router.post('/anilist/bind-season', async (req: Request, res: Response) => {
   try {
-    // No authentication required - uses service role key for DB operations
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+    }
 
     // Validate request body
     const { season_id, anime_id, season_number, anilist_media_id, anilist_media } = req.body || {};
