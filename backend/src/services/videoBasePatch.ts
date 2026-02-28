@@ -69,7 +69,7 @@ export async function runVideoBasePatch(params: VideoBasePatchParams): Promise<V
   const oldBase = ensureBaseUrl(process.env.OLD_VIDEO_BASE_URL, 'https://anirias-videos.b-cdn.net');
   const newBase = ensureBaseUrl(
     process.env.NEW_VIDEO_BASE_URL,
-    'https://anirias-media.nbg1.your-objectstorage.com'
+    'https://anirias-videos.nbg1.your-objectstorage.com'
   );
 
   const columns = await getExistingUrlColumns();

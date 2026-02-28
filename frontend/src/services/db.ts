@@ -3,38 +3,26 @@ import { supabase, hasSupabaseEnv } from './supabaseClient';
 import { getAdminToken } from '../utils/adminToken';
 import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry } from '../types';
 
-// Helper to ensure Supabase is configured
 const checkEnv = () => {
-  if (!hasSupabaseEnv || !supabase) {
-    console.log('[Anirias:DB] checkEnv=false (Supabase env missing or client null)', { hasSupabaseEnv, hasClient: !!supabase });
-    return false;
-  }
+  if (!hasSupabaseEnv || !supabase) return false;
   return true;
 };
 
 const requireSupabaseEnv = (context: string) => {
   if (!checkEnv()) {
-    console.error('[Anirias:DB] requireSupabaseEnv throw', { context });
     throw new Error(`[${context}] Supabase env eksik veya geçersiz (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).`);
   }
 };
 
-// Helper for backend API calls (admin operations)
 const getApiBase = (): string => {
   const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
-  if (!apiBase) {
-    console.error('[Anirias:API] getApiBase: VITE_API_BASE_URL not set');
-    throw new Error("Backend API URL not configured (VITE_API_BASE_URL)");
-  }
+  if (!apiBase) throw new Error("Backend API URL not configured (VITE_API_BASE_URL)");
   return apiBase;
 };
 
 const getOptionalApiBase = (): string | null => {
   const apiBase = (import.meta as any).env?.VITE_API_BASE_URL;
-  if (!apiBase || typeof apiBase !== 'string' || !apiBase.trim()) {
-    console.log('[Anirias:API] getOptionalApiBase=null (VITE_API_BASE_URL missing or empty)');
-    return null;
-  }
+  if (!apiBase || typeof apiBase !== 'string' || !apiBase.trim()) return null;
   return apiBase.trim();
 };
 
@@ -43,8 +31,6 @@ const fetchPublicJson = async (endpoint: string, timeoutMs = 12000): Promise<any
   if (!apiBase) throw new Error('Backend API URL not configured (VITE_API_BASE_URL)');
 
   const url = `${apiBase}${endpoint}`;
-  console.log('[Anirias:API] fetchPublicJson GET', { endpoint, url: url.slice(0, 80) + '...' });
-
   const doFetch = async (): Promise<any> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -54,7 +40,6 @@ const fetchPublicJson = async (endpoint: string, timeoutMs = 12000): Promise<any
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
       });
-      console.log('[Anirias:API] fetchPublicJson response', { endpoint, status: res.status, ok: res.ok });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
@@ -68,11 +53,7 @@ const fetchPublicJson = async (endpoint: string, timeoutMs = 12000): Promise<any
   try {
     return await doFetch();
   } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      console.log('[Anirias:API] fetchPublicJson retry after AbortError', { endpoint });
-      return await doFetch();
-    }
-    console.error('[Anirias:API] fetchPublicJson error', { endpoint, err: err?.message || err });
+    if (err?.name === 'AbortError') return await doFetch();
     throw err;
   }
 };
@@ -89,15 +70,9 @@ const callBackendApi = async (
       getAdminToken() ||
       (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) ||
       '').trim();
-  if (!token) {
-    console.error('[Anirias:API] callBackendApi: no admin token', { endpoint, method });
-    throw new Error('Admin token is required');
-  }
+  if (!token) throw new Error('Admin token is required');
 
-  const url = `${apiBase}${endpoint}`;
-  console.log('[Anirias:API] callBackendApi', { method, endpoint, url: url.slice(0, 70) + '...' });
-
-  const res = await fetch(url, {
+  const res = await fetch(`${apiBase}${endpoint}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -106,19 +81,14 @@ const callBackendApi = async (
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  console.log('[Anirias:API] callBackendApi response', { endpoint, status: res.status, ok: res.ok });
-
   const data = await res.json();
-  
   if (!res.ok) {
     const error: any = new Error(data?.error || `HTTP ${res.status}: ${data?.message || 'Unknown error'}`);
     error.errorCode = data?.errorCode;
     error.details = data?.details;
     error.status = res.status;
-    console.error('[Anirias:API] callBackendApi error', { endpoint, status: res.status, error: data?.error });
     throw error;
   }
-
   return data;
 };
 
@@ -191,18 +161,16 @@ export const db = {
 
     if (apiBase) {
       try {
-        console.log('[Anirias:DB] getFeaturedAnimes: trying backend', { apiBase: apiBase.slice(0, 40) + '...' });
         const res = await fetch(`${apiBase}/api/anime/public/featured`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
-        console.log('[Anirias:DB] getFeaturedAnimes backend response', { status: res.status, ok: res.ok });
         if (res.ok) {
           const data = await res.json();
           return Array.isArray(data) ? data : [];
         }
       } catch (err) {
-        console.warn('[Anirias:DB] getFeaturedAnimes backend failed, falling back to Supabase', err);
+        if (import.meta.env.DEV) console.warn('[db.getFeaturedAnimes] Backend failed, trying Supabase:', err);
       }
     }
 
@@ -228,7 +196,6 @@ export const db = {
 
     if (apiBase) {
       try {
-        console.log('[Anirias:DB] getAllAnimes: trying backend', { sortBy, limit: effectiveLimit });
         const query = new URLSearchParams({
           sortBy,
           limit: String(effectiveLimit || 100),
@@ -237,13 +204,12 @@ export const db = {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
-        console.log('[Anirias:DB] getAllAnimes backend response', { status: res.status, ok: res.ok });
         if (res.ok) {
           const data = await res.json();
           return Array.isArray(data) ? data : [];
         }
       } catch (err) {
-        console.warn('[Anirias:DB] getAllAnimes backend failed, falling back to Supabase', err);
+        if (import.meta.env.DEV) console.warn('[db.getAllAnimes] Backend failed, trying Supabase:', err);
       }
     }
 
@@ -809,7 +775,6 @@ export const db = {
 
     if (apiBase) {
       try {
-        console.log('[Anirias:DB] getLatestEpisodes: trying backend', { limit: safeLimit, offset: safeOffset });
         const params = new URLSearchParams({
           limit: String(safeLimit),
           offset: String(safeOffset),
@@ -818,13 +783,12 @@ export const db = {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
-        console.log('[Anirias:DB] getLatestEpisodes backend response', { status: res.status, ok: res.ok });
         if (res.ok) {
           const data = await res.json();
           return Array.isArray(data) ? (data as (Episode & { anime: Anime })[]) : [];
         }
       } catch (err) {
-        console.warn('[Anirias:DB] getLatestEpisodes backend failed, trying Supabase', err);
+        if (import.meta.env.DEV) console.warn('[db.getLatestEpisodes] Backend failed, trying Supabase', err);
       }
     }
 
@@ -1143,7 +1107,7 @@ export const db = {
       }
 
       if (error) {
-        console.error('[Anirias:DB] updateProfile error', error);
+        console.error('[db.updateProfile]', error);
         if (error.code === '42703' || (error.message?.includes('column') && error.message?.includes('does not exist'))) {
           throw new Error(`Sütun bulunamadı: ${error.message}`);
         }

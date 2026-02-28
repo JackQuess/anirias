@@ -1361,7 +1361,7 @@ const AdminEpisodes: React.FC = () => {
               Video Base Patch Onayı
             </h3>
             <p className="text-gray-400 text-sm mt-4">
-              {videoPatchPreview.willUpdate} bölüm linki Hetzner base URL&apos;ine çevrilecek. Devam?
+              {videoPatchPreview.willUpdate} bölüm linki yeni depolama adresine (anirias-videos.nbg1...) çevrilecek. Devam?
             </p>
             <div className="mt-4 text-xs text-gray-500 space-y-1">
               <p>Tarandı: {videoPatchPreview.scanned}</p>

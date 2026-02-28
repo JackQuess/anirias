@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[Anirias:ErrorBoundary]', error, errorInfo.componentStack);
+    console.error('[ErrorBoundary]', error, errorInfo.componentStack);
   }
 
   render() {

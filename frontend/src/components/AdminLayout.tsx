@@ -59,16 +59,12 @@ const AdminLayout: React.FC = () => {
   // Supabase bağlı değilse (Mock modu), girişi ve rolü zorunlu tutma (Test amaçlı)
   const isTestMode = !hasSupabaseEnv;
 
-  console.log('[Anirias:Admin] AdminLayout render', { hasSupabaseEnv, isTestMode, status, loadingTimeout, hasUser: !!user, role: profile?.role });
-
   // Yetkiler cok uzun surdu, giris sayfasina yonlendir (veya profil gelmedi)
   if (loadingTimeout || profileWaitTimeout) {
-    console.log('[Anirias:Admin] redirect: loading/profile timeout -> /login');
     return <Navigate to="/login?admin_timeout=1" replace />;
   }
 
   if (status === 'LOADING' && !isTestMode) {
-    console.log('[Anirias:Admin] showing loading screen (Yetkiler Kontrol Ediliyor)');
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-brand-black text-white px-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-red"></div>
@@ -81,12 +77,9 @@ const AdminLayout: React.FC = () => {
   // Test modunda değilsek normal güvenlik kontrollerini yap
   if (!isTestMode) {
     if (status === 'UNAUTHENTICATED' || !user) {
-      console.log('[Anirias:Admin] redirect: not authenticated -> /login');
       return <Navigate to="/login" replace />;
     }
-    // Profil hala yukleniyorsa bekle (Supabase yavassa takilmasin diye ayri mesaj)
     if (profile === null) {
-      console.log('[Anirias:Admin] showing profile loading (user ok, profile null)');
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-brand-black text-white px-4">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-red"></div>
@@ -96,12 +89,9 @@ const AdminLayout: React.FC = () => {
       );
     }
     if (profile.role !== 'admin') {
-      console.log('[Anirias:Admin] redirect: not admin role -> /');
       return <Navigate to="/" replace />;
     }
   }
-
-  console.log('[Anirias:Admin] rendering admin panel');
 
   const navItems = [
     { label: 'Genel Bakış', path: '/admin', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },

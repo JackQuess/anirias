@@ -29,9 +29,6 @@ const Login: React.FC = () => {
   const USERNAME_RPC_TIMEOUT_MS = 25000; // 25 sn - kullanıcı adı → e-posta (canlıda yavaş olabiliyor)
 
   const configMissing = !hasSupabaseEnv;
-  if (typeof window !== 'undefined') {
-    console.log('[Anirias:Login] mount', { configMissing, hasSupabaseEnv, adminTimeout });
-  }
 
   // TODO [v2]: Re-enable email verification check
   // Temporarily disabled: Users can login immediately without email confirmation
@@ -52,11 +49,7 @@ const Login: React.FC = () => {
   };
 
   const getEmailByUsername = async (username: string): Promise<string | null> => {
-    if (!hasSupabaseEnv || !supabase) {
-      console.log('[Anirias:Login] getEmailByUsername: Supabase not configured');
-      return null;
-    }
-    console.log('[Anirias:Login] getEmailByUsername start', { username });
+    if (!hasSupabaseEnv || !supabase) return null;
     const runRpc = async (): Promise<string | null> => {
       const rpcPromise = supabase.rpc('get_email_by_username', {
         username_input: username.trim()
@@ -66,47 +59,33 @@ const Login: React.FC = () => {
       );
       const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
 
-      if (error) {
-        console.error('[Anirias:Login] getEmailByUsername RPC error', error);
-        return null;
-      }
+      if (error) return null;
 
-      if (data && typeof data === 'string') {
-        console.log('[Anirias:Login] getEmailByUsername ok', { username, emailPrefix: data.slice(0, 5) + '...' });
-        return data;
-      }
-
-      console.log('[Anirias:Login] getEmailByUsername: no email found', { username });
+      if (data && typeof data === 'string') return data;
       return null;
     };
     try {
       const result = await runRpc();
       return result;
     } catch (err: any) {
-      // Zaman aşımı ise bir kez daha dene (canlıda Supabase bazen yavaş yanıt veriyor)
       if (err?.message?.includes('zaman asimina')) {
-        console.warn('[Anirias:Login] getEmailByUsername timeout, retrying once...');
         try {
           return await runRpc();
         } catch (retryErr: any) {
-          console.error('[Anirias:Login] getEmailByUsername retry failed', retryErr);
-          throw retryErr; // Kullanıcıya zaman aşımı mesajı göstermek için yukarı fırlat
+          throw retryErr;
         }
       }
-      console.error('[Anirias:Login] getEmailByUsername error', err);
-      throw err; // Timeout dışı hataları da yukarı fırlat ki doğru mesaj gösterilsin
+      throw err;
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasSupabaseEnv || !supabase) {
-      console.error('[Anirias:Login] handleSubmit: Supabase not configured');
       setError('Supabase bağlantısı yapılandırılamadı.');
       return;
     }
 
-    console.log('[Anirias:Login] handleSubmit start', { emailOrUsername: emailOrUsername.slice(0, 10) + '...' });
     setLoading(true);
     setError(null);
 
@@ -145,18 +124,13 @@ const Login: React.FC = () => {
       const { data, error: authError } = await Promise.race([signInPromise, timeoutPromise]) as any;
       
       if (authError) {
-        console.error('[Anirias:Login] signInWithPassword error', authError);
         throw authError;
       }
       
-      console.log('[Anirias:Login] signInWithPassword success', { userId: data?.user?.id });
-      // TODO [v2]: Re-enable email verification check
-      // Temporarily disabled: Users are automatically logged in
       if (data.user) {
         navigate('/');
       }
     } catch (err: any) {
-      console.error('[Anirias:Login] handleSubmit error', err?.message || err);
       if (err.message?.includes('Invalid login credentials') ||
           err.message?.includes('User not found')) {
         setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.');

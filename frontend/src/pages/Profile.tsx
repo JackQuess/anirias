@@ -139,13 +139,11 @@ const Profile: React.FC = () => {
     setSaving(true);
     setErrors({});
     try {
-      console.log('[Anirias:Profile] updateProfile start', { userId: user.id });
       await db.updateProfile(user.id, {
         bio: sanitizedBio,
         avatar_id: avatarIdToSave,
         banner_id: bannerIdToSave
       } as any);
-      console.log('[Anirias:Profile] updateProfile ok');
       await refreshProfile();
       setEditForm(prev => ({
         ...prev,
@@ -156,7 +154,6 @@ const Profile: React.FC = () => {
       setIsEditing(false);
       alert('Profil güncellendi!');
     } catch (err: any) {
-      console.error('[Anirias:Profile] updateProfile error', err);
       const msg = err?.message || 'Bilinmeyen hata';
       const isTimeout = msg.includes('zaman aşımı') || msg.includes('timeout');
       alert(isTimeout ? 'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.' : `Güncelleme başarısız: ${msg}`);

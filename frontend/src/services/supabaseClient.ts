@@ -40,31 +40,15 @@ export const hasSupabaseEnv =
   typeof supabaseAnonKey === 'string' &&
   supabaseUrl.startsWith('https://');
 
-if (typeof window !== 'undefined') {
-  console.log('[Anirias:Supabase] ENV check', {
-    hasSupabaseEnv,
-    hasUrl: typeof supabaseUrl === 'string' && supabaseUrl.length > 0,
-    urlPrefix: typeof supabaseUrl === 'string' ? supabaseUrl.slice(0, 30) + '...' : undefined,
-    hasAnonKey: typeof supabaseAnonKey === 'string' && supabaseAnonKey.length > 0,
-    keyPrefix: typeof supabaseAnonKey === 'string' ? supabaseAnonKey.slice(0, 12) + '...' : undefined,
-  });
-}
-
 if (!hasSupabaseEnv) {
   if (import.meta.env.DEV) {
-    console.warn('[Anirias:Supabase] ENV eksik veya geçersiz', {
+    console.warn('[Supabase] ENV eksik veya geçersiz', {
       VITE_SUPABASE_URL: supabaseUrl,
       VITE_SUPABASE_ANON_KEY: supabaseAnonKey ? 'present' : 'missing',
     });
   }
-} else {
-  if (import.meta.env.DEV) {
-    console.log('[Anirias:Supabase] Client initialized:', {
-      url: supabaseUrl,
-      keyType: 'anon (public)',
-      keyPrefix: supabaseAnonKey?.substring(0, 20) + '...',
-    });
-  }
+} else if (import.meta.env.DEV) {
+  console.log('[Supabase] Client initialized');
 }
 
 export const supabase: SupabaseClient | null = hasSupabaseEnv
@@ -85,7 +69,6 @@ export const supabase: SupabaseClient | null = hasSupabaseEnv
  */
 export const assertSupabase = (): SupabaseClient => {
   if (!supabase) {
-    console.error('[Anirias:Supabase] assertSupabase failed: client null, hasSupabaseEnv=', hasSupabaseEnv);
     throw new Error(
       'Supabase client oluşturulamadı. .env dosyasında VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY tanımlı mı kontrol et.'
     );
