@@ -90,6 +90,22 @@ async function invalidateWeeklyCache() {
   await supabaseAdmin.from('weekly_calendar_cache').delete().neq('id', '');
 }
 
+async function filterExistingAnimeRows<T extends { anime_id: string }>(rows: T[]): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const animeIds = Array.from(new Set(rows.map((r) => r.anime_id)));
+  const { data, error } = await supabaseAdmin
+    .from('animes')
+    .select('id')
+    .in('id', animeIds);
+
+  if (error) {
+    throw new Error(`Failed to validate anime ids before upsert: ${error.message}`);
+  }
+
+  const existing = new Set((data || []).map((r: any) => String(r.id)));
+  return rows.filter((row) => existing.has(row.anime_id));
+}
+
 export async function syncAiringSchedule(): Promise<SyncResult> {
   const { data: animeRows, error: animeError } = await supabaseAdmin
     .from('animes')
@@ -176,16 +192,29 @@ export async function syncAiringSchedule(): Promise<SyncResult> {
     };
   });
 
-  const { error: upsertError } = await supabaseAdmin
+  const safePayload = await filterExistingAnimeRows(payload);
+  if (safePayload.length === 0) {
+    return { scannedAnime: animeList.length, syncedRows: 0 };
+  }
+
+  let { error: upsertError } = await supabaseAdmin
     .from('airing_schedule')
-    .upsert(payload, { onConflict: 'anime_id,episode_number' });
+    .upsert(safePayload, { onConflict: 'anime_id,episode_number' });
+
+  if (upsertError && upsertError.message?.includes('airing_schedule_anime_id_fkey')) {
+    const retriedPayload = await filterExistingAnimeRows(safePayload);
+    const retry = await supabaseAdmin
+      .from('airing_schedule')
+      .upsert(retriedPayload, { onConflict: 'anime_id,episode_number' });
+    upsertError = retry.error;
+  }
 
   if (upsertError) {
     throw new Error(`Failed to upsert schedule rows: ${upsertError.message}`);
   }
 
   await invalidateWeeklyCache();
-  return { scannedAnime: animeList.length, syncedRows: payload.length };
+  return { scannedAnime: animeList.length, syncedRows: safePayload.length };
 }
 
 export async function markEpisodeReleased(params: {

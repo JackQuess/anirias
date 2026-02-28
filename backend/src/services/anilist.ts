@@ -8,6 +8,10 @@
  */
 
 const ANILIST_API = 'https://graphql.anilist.co';
+const ANILIST_MIN_REQUEST_INTERVAL_MS = 450;
+const ANILIST_MAX_RETRIES = 5;
+const ANILIST_TIMEOUT_MS = 20000;
+let lastAniListRequestAt = 0;
 
 export interface AniListMedia {
   id: number;
@@ -63,6 +67,69 @@ export interface AniListSeasonRange {
 export interface AniListAiringSchedule {
   episode: number;
   airingAt: number; // UNIX timestamp
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForAniListSlot() {
+  const now = Date.now();
+  const elapsed = now - lastAniListRequestAt;
+  if (elapsed < ANILIST_MIN_REQUEST_INTERVAL_MS) {
+    await sleep(ANILIST_MIN_REQUEST_INTERVAL_MS - elapsed);
+  }
+  lastAniListRequestAt = Date.now();
+}
+
+function isRateLimitedGraphQLError(json: any): boolean {
+  const errors = Array.isArray(json?.errors) ? json.errors : [];
+  return errors.some((e: any) => String(e?.message || '').toLowerCase().includes('rate limit'));
+}
+
+async function postAniList(query: string, variables: Record<string, unknown>, attempt = 0): Promise<any> {
+  await waitForAniListSlot();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ANILIST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(ANILIST_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
+
+    const retryAfterSeconds = Number(response.headers.get('retry-after') || 0);
+
+    if (response.status === 429 && attempt < ANILIST_MAX_RETRIES) {
+      const waitMs = retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : 1000 * Math.pow(2, attempt) + Math.floor(Math.random() * 250);
+      await sleep(waitMs);
+      return postAniList(query, variables, attempt + 1);
+    }
+
+    if (!response.ok) {
+      throw new Error(`AniList API error: ${response.status}`);
+    }
+
+    const json = await response.json();
+    if (isRateLimitedGraphQLError(json) && attempt < ANILIST_MAX_RETRIES) {
+      const waitMs = 1000 * Math.pow(2, attempt) + Math.floor(Math.random() * 250);
+      await sleep(waitMs);
+      return postAniList(query, variables, attempt + 1);
+    }
+
+    if (json.errors) {
+      throw new Error(`AniList GraphQL error: ${JSON.stringify(json.errors)}`);
+    }
+
+    return json;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 const SEARCH_QUERY = `
@@ -134,23 +201,7 @@ query ($id: Int!) {
  */
 export async function searchAniList(query: string): Promise<AniListMedia[]> {
   try {
-    const response = await fetch(ANILIST_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: SEARCH_QUERY,
-        variables: { search: query }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`AniList API error: ${response.status}`);
-    }
-
-    const json = await response.json();
-    if (json.errors) {
-      throw new Error(`AniList GraphQL error: ${JSON.stringify(json.errors)}`);
-    }
+    const json = await postAniList(SEARCH_QUERY, { search: query });
 
     return json.data?.Page?.media || [];
   } catch (error: any) {
@@ -164,23 +215,7 @@ export async function searchAniList(query: string): Promise<AniListMedia[]> {
  */
 export async function getAniListMedia(anilistId: number): Promise<AniListMedia | null> {
   try {
-    const response = await fetch(ANILIST_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: DETAIL_QUERY,
-        variables: { id: anilistId }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`AniList API error: ${response.status}`);
-    }
-
-    const json = await response.json();
-    if (json.errors) {
-      throw new Error(`AniList GraphQL error: ${JSON.stringify(json.errors)}`);
-    }
+    const json = await postAniList(DETAIL_QUERY, { id: anilistId });
 
     return json.data?.Media || null;
   } catch (error: any) {
@@ -321,23 +356,7 @@ export function detectSeasonRanges(media: AniListMedia, allRelated: AniListMedia
  */
 export async function getAniListAiringSchedule(anilistId: number): Promise<AniListAiringSchedule[]> {
   try {
-    const response = await fetch(ANILIST_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: AIRING_SCHEDULE_QUERY,
-        variables: { id: anilistId }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`AniList API error: ${response.status}`);
-    }
-
-    const json = await response.json();
-    if (json.errors) {
-      throw new Error(`AniList GraphQL error: ${JSON.stringify(json.errors)}`);
-    }
+    const json = await postAniList(AIRING_SCHEDULE_QUERY, { id: anilistId });
 
     const nodes = json.data?.Media?.airingSchedule?.nodes || [];
     return nodes.map((node: any) => ({
@@ -365,4 +384,3 @@ export function cleanDescription(html: string | null | undefined): string {
     .replace(/&quot;/g, '"')
     .trim();
 }
-

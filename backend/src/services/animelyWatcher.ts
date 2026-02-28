@@ -26,11 +26,18 @@ interface AnimeToWatch {
   animely_slug: string | null;
 }
 
+let watcherRunInProgress = false;
+
 /**
  * Check for new episodes for all active anime
  * Returns number of new episodes detected
  */
 export async function watchForNewEpisodes(): Promise<number> {
+  if (watcherRunInProgress) {
+    console.warn('[AnimelyWatcher] Previous scan still running, skipping overlapping run.');
+    return 0;
+  }
+  watcherRunInProgress = true;
   console.log('[AnimelyWatcher] Starting episode scan...');
   
   try {
@@ -74,6 +81,8 @@ export async function watchForNewEpisodes(): Promise<number> {
       'system'
     );
     return 0;
+  } finally {
+    watcherRunInProgress = false;
   }
 }
 
@@ -213,4 +222,3 @@ export function startAnimelyWatcher() {
 
   console.log('[AnimelyWatcher] Watcher started (checking every 30 minutes)');
 }
-
