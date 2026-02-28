@@ -157,9 +157,12 @@ const Watch: React.FC = () => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   // Data Loading
-  const { data: anime } = useLoad(() => db.getAnimeById(animeId!), [animeId]);
+  const { data: anime } = useLoad(() => db.getAnimeByIdOrSlug(animeId!), [animeId]);
   const { data: seasons } = useLoad(() => db.getSeasons(animeId!), [animeId]);
-  const { data: progressList } = useLoad(() => user ? db.getWatchProgressForAnime(user.id, animeId!) : Promise.resolve([]), [user, animeId]);
+  const { data: progressList } = useLoad(
+    () => (user && anime?.id ? db.getWatchProgressForAnime(user.id, anime.id) : Promise.resolve([])),
+    [user, anime?.id]
+  );
 
   const queryEpisode = searchParams.get('episode');
   const querySeason = searchParams.get('season');
@@ -606,7 +609,7 @@ const Watch: React.FC = () => {
             // Delete progress by setting it to 0
             db.saveWatchProgress({
               user_id: user.id,
-              anime_id: animeId!,
+              anime_id: anime?.id || animeId!,
               episode_id: currentEpisode.id,
               progress_seconds: 0,
               duration_seconds: totalDuration
@@ -615,7 +618,7 @@ const Watch: React.FC = () => {
             // Save progress normally
             db.saveWatchProgress({
               user_id: user.id,
-              anime_id: animeId!,
+              anime_id: anime?.id || animeId!,
               episode_id: currentEpisode.id,
               progress_seconds: currentProgress,
               duration_seconds: totalDuration
@@ -635,7 +638,7 @@ const Watch: React.FC = () => {
   // Check for saved progress on episode load
   useEffect(() => {
     if (user && currentEpisode && videoRef.current && duration > 0) {
-      db.getWatchProgress(user.id, animeId!, currentEpisode.id).then(prog => {
+      db.getWatchProgress(user.id, anime?.id || animeId!, currentEpisode.id).then(prog => {
         if (prog && prog.duration_seconds > 0) {
           const progressPercent = (prog.progress_seconds / prog.duration_seconds) * 100;
           
@@ -643,7 +646,7 @@ const Watch: React.FC = () => {
           if (progressPercent >= 90) {
             db.saveWatchProgress({
               user_id: user.id,
-              anime_id: animeId!,
+              anime_id: anime?.id || animeId!,
               episode_id: currentEpisode.id,
               progress_seconds: 0,
               duration_seconds: prog.duration_seconds
@@ -668,7 +671,7 @@ const Watch: React.FC = () => {
       setSavedProgress(null);
       setShowContinueWatching(false);
     }
-  }, [user, currentEpisode, animeId, duration]);
+  }, [user, currentEpisode, anime?.id, animeId, duration]);
 
   // Extract intro values safely (use optional chaining since currentEpisode may be null)
   const introStart = currentEpisode?.intro_start ?? null;
@@ -692,7 +695,7 @@ const Watch: React.FC = () => {
     // Reset progress to 0
     db.saveWatchProgress({
       user_id: user.id,
-      anime_id: animeId!,
+      anime_id: anime?.id || animeId!,
       episode_id: currentEpisode.id,
       progress_seconds: 0,
       duration_seconds: savedProgress.duration_seconds
@@ -700,7 +703,7 @@ const Watch: React.FC = () => {
     videoRef.current.currentTime = 0;
     setShowContinueWatching(false);
     setSavedProgress(null);
-  }, [savedProgress, user, currentEpisode, animeId]);
+  }, [savedProgress, user, currentEpisode, anime?.id, animeId]);
 
   const handleEnded = () => {
     setIsPlaying(false);
