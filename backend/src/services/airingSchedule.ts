@@ -129,7 +129,7 @@ async function upsertScheduleRowsSafely(
   rows: Array<Record<string, any>>
 ): Promise<{ syncedRows: number; error: any | null }> {
   let pending = [...rows];
-  let removedAny = false;
+  const droppedAnimeIds = new Set<string>();
 
   for (let attempt = 0; attempt < 5 && pending.length > 0; attempt++) {
     const { error } = await supabaseAdmin
@@ -137,6 +137,9 @@ async function upsertScheduleRowsSafely(
       .upsert(pending, { onConflict: 'anime_id,episode_number' });
 
     if (!error) {
+      if (droppedAnimeIds.size > 0) {
+        console.warn(`[AiringSchedule] Skipped ${droppedAnimeIds.size} anime (not in DB): ${[...droppedAnimeIds].slice(0, 5).join(', ')}${droppedAnimeIds.size > 5 ? '...' : ''}`);
+      }
       return { syncedRows: pending.length, error: null };
     }
 
@@ -148,30 +151,26 @@ async function upsertScheduleRowsSafely(
       `${String(error?.message || '')} ${String(error?.details || '')}`
     );
     if (!invalidAnimeId) {
-      // Error text may not include the offending UUID.
-      // Re-validate all anime IDs and keep only rows that still exist.
       const next = await filterExistingAnimeRows(pending as Array<{ anime_id: string }>);
       if (next.length === pending.length) {
         break;
       }
-      console.warn(`[AiringSchedule] Removed ${pending.length - next.length} stale rows after FK check`);
+      const keptIds = new Set(next.map((r: any) => r.anime_id));
+      pending.forEach((r: any) => {
+        if (!keptIds.has(r.anime_id)) droppedAnimeIds.add(r.anime_id);
+      });
       pending = next;
-      removedAny = true;
       continue;
     }
 
-    const next = pending.filter((row) => row.anime_id !== invalidAnimeId);
-    if (next.length === pending.length) {
-      break;
-    }
-
-    console.warn(`[AiringSchedule] Dropping rows with missing anime_id: ${invalidAnimeId}`);
-    pending = next;
-    removedAny = true;
+    droppedAnimeIds.add(invalidAnimeId);
+    pending = pending.filter((row) => row.anime_id !== invalidAnimeId);
   }
 
-  // Last-resort fallback: row-by-row upsert, skip only FK-invalid rows.
+  // Row-by-row upsert, skip only FK-invalid rows.
   let successCount = 0;
+  let skippedFk = 0;
+  const skippedSample: string[] = [];
   for (const row of pending) {
     const { error } = await supabaseAdmin
       .from('airing_schedule')
@@ -183,15 +182,21 @@ async function upsertScheduleRowsSafely(
     }
 
     if (isAiringScheduleAnimeFkError(error)) {
-      console.warn(`[AiringSchedule] Skipping FK-invalid row anime_id=${row.anime_id} ep=${row.episode_number}`);
-      removedAny = true;
+      skippedFk++;
+      if (skippedSample.length < 3) skippedSample.push(`${row.anime_id} ep=${row.episode_number}`);
+      droppedAnimeIds.add(row.anime_id);
       continue;
     }
 
     return { syncedRows: successCount, error };
   }
 
-  return removedAny ? { syncedRows: successCount, error: null } : { syncedRows: successCount, error: null };
+  if (droppedAnimeIds.size > 0 || skippedFk > 0) {
+    console.warn(
+      `[AiringSchedule] Skipped ${droppedAnimeIds.size} anime (missing in DB), ${skippedFk} rows; sample: ${skippedSample.join('; ')}`
+    );
+  }
+  return { syncedRows: successCount, error: null };
 }
 
 export async function syncAiringSchedule(): Promise<SyncResult> {

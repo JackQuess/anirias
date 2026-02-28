@@ -23,7 +23,7 @@ const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
-  const AUTH_TIMEOUT_MS = 20000;
+  const AUTH_TIMEOUT_MS = 35000;
 
   // TODO [v2]: Re-enable email verification check
   // Temporarily disabled: Users can login immediately without email confirmation
