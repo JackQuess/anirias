@@ -1,6 +1,6 @@
 /**
  * Admin Notifications API Endpoints
- * 
+ *
  * GET /api/admin/notifications - Get recent admin notifications
  * POST /api/admin/notifications/read - Mark notification as read
  */
@@ -10,9 +10,12 @@ import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 
 const router = Router();
 
-// CORS middleware
+const normalizeOrigin = (o: string) => (o || '').replace(/\/$/, '');
+
+// CORS: origin değerinde sondaki slash olmamalı (tarayıcı https://anirias.com gönderir, sunucu https://anirias.com/ döndürürse CORS hatası olur)
 router.use((req, res, next) => {
-  const origin = process.env.CORS_ORIGIN || '*';
+  const raw = process.env.CORS_ORIGIN || '*';
+  const origin = raw === '*' ? '*' : normalizeOrigin(raw);
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');

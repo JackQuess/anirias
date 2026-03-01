@@ -1676,15 +1676,10 @@ export const db = {
   async getErrorLogs(limit: number = 100): Promise<any[]> {
     if (!checkEnv()) return [];
     try {
+      // error_logs.user_id -> auth.users; profiles ile doğrudan FK yok, embed 400 verebiliyor. Sadece error_logs alıyoruz.
       const { data, error } = await supabase
         .from('error_logs')
-        .select(`
-          *,
-          profiles:user_id (
-            username,
-            role
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(limit);
 

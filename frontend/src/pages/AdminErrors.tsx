@@ -137,9 +137,9 @@ const AdminErrors: React.FC = () => {
                   >
                     {log.page_url}
                   </a>
-                  {log.profiles && (
+                  {(log.profiles || log.user_id) && (
                     <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mt-2">
-                      Kullanıcı: {log.profiles.username || 'Bilinmeyen'}
+                      Kullanıcı: {log.profiles?.username || (log.user_id ? `${String(log.user_id).slice(0, 8)}…` : 'Bilinmeyen')}
                     </p>
                   )}
                 </div>
