@@ -23,6 +23,7 @@ import watchPageRouter from './routes/watchPage.js';
 import calendarRouter from './routes/calendar.js';
 import calendarSyncRouter from './routes/admin/calendarSync.js';
 import devicesRouter from './routes/devices.js';
+import revenuecatWebhookRouter from './routes/revenuecatWebhook.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
@@ -121,6 +122,7 @@ app.use('/api/anime', animeRouter);
 app.use('/api/watch', watchPageRouter);
 app.use('/api', calendarRouter);
 app.use('/api', devicesRouter);
+app.use('/api/revenuecat', revenuecatWebhookRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {

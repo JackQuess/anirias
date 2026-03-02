@@ -9,6 +9,17 @@ export interface Entitlements {
 
 const REVENUECAT_SECRET = process.env.REVENUECAT_SECRET;
 
+/**
+ * An entitlement is active when:
+ *   - expires_date is null (lifetime / non-expiring), OR
+ *   - expires_date is a future timestamp (still valid)
+ */
+export function isEntitlementActive(entitlement: any): boolean {
+  if (!entitlement) return false;
+  if (entitlement.expires_date === null || entitlement.expires_date === undefined) return true;
+  return new Date(entitlement.expires_date) > new Date();
+}
+
 async function fetchEntitlementsFromDb(userId: string): Promise<Entitlements | null> {
   try {
     const { data, error } = await supabaseAdmin
@@ -17,9 +28,7 @@ async function fetchEntitlementsFromDb(userId: string): Promise<Entitlements | n
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error || !data) {
-      return null;
-    }
+    if (error || !data) return null;
 
     const raw = (data as any).entitlements || {};
     return {
@@ -32,30 +41,22 @@ async function fetchEntitlementsFromDb(userId: string): Promise<Entitlements | n
 }
 
 async function fetchEntitlementsFromRevenueCat(userId: string): Promise<Entitlements | null> {
-  if (!REVENUECAT_SECRET) {
-    return null;
-  }
+  if (!REVENUECAT_SECRET) return null;
 
   try {
-    const res = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`, {
-      headers: {
-        Authorization: `Bearer ${REVENUECAT_SECRET}`,
-      },
-    });
+    const res = await fetch(
+      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+      { headers: { Authorization: `Bearer ${REVENUECAT_SECRET}` } }
+    );
 
-    if (!res.ok) {
-      return null;
-    }
+    if (!res.ok) return null;
 
-    const json = await res.json() as any;
+    const json = (await res.json()) as any;
     const entitlements = json.subscriber?.entitlements || {};
 
-    const hasPro = !!entitlements.pro && entitlements.pro.expires_date === null;
-    const hasProMax = !!entitlements.pro_max && entitlements.pro_max.expires_date === null;
-
     return {
-      pro: hasPro,
-      pro_max: hasProMax,
+      pro: isEntitlementActive(entitlements.pro),
+      pro_max: isEntitlementActive(entitlements.pro_max),
     };
   } catch {
     return null;
@@ -63,11 +64,11 @@ async function fetchEntitlementsFromRevenueCat(userId: string): Promise<Entitlem
 }
 
 export async function getEntitlements(userId: string): Promise<Entitlements> {
-  // 1) Try cached entitlements in DB (preferred, updated by webhooks)
+  // 1) Try cached DB entitlements (kept up to date by webhook)
   const fromDb = await fetchEntitlementsFromDb(userId);
   if (fromDb) return fromDb;
 
-  // 2) Fallback to RevenueCat REST API
+  // 2) Fallback: query RevenueCat REST API
   const fromRc = await fetchEntitlementsFromRevenueCat(userId);
   if (fromRc) return fromRc;
 
@@ -80,4 +81,3 @@ export function getDeviceLimit(entitlements: Entitlements): number {
   if (entitlements.pro) return 1;
   return 0;
 }
-

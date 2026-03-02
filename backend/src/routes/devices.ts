@@ -1,26 +1,37 @@
 import { Router, type Request, type Response } from 'express';
 import crypto from 'node:crypto';
+import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '../services/supabaseAdmin.js';
 import { requireUser, getUserIdFromRequest } from '../utils/auth.js';
 import { getEntitlements, getDeviceLimit } from '../services/entitlements.js';
 import { rateLimitPairingCreate, rateLimitPairingClaim } from '../middleware/rateLimit.js';
-import jwt from 'jsonwebtoken';
 
 const router = Router();
 
 type Platform = 'desktop' | 'mobile';
 
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || 'missing';
+const DEVICE_SESSION_JWT_SECRET = process.env.DEVICE_SESSION_JWT_SECRET;
+
+if (!DEVICE_SESSION_JWT_SECRET) {
+  console.warn('[devices] DEVICE_SESSION_JWT_SECRET is not set. sessionToken will not be issued.');
+}
+
+function signDeviceSessionToken(userId: string, desktopDeviceId: string): string | null {
+  if (!DEVICE_SESSION_JWT_SECRET) return null;
+  return jwt.sign(
+    { sub: userId, device_id: desktopDeviceId, type: 'device_session' },
+    DEVICE_SESSION_JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
 
 function generateCode(): string {
-  // 6-digit numeric code using crypto-safe random
   const num = crypto.randomInt(0, 1_000_000);
   return num.toString().padStart(6, '0');
 }
 
 async function createUniqueCode(): Promise<string> {
-  const maxAttempts = 5;
-  for (let i = 0; i < maxAttempts; i += 1) {
+  for (let i = 0; i < 5; i += 1) {
     const code = generateCode();
     const { data, error } = await supabaseAdmin
       .from('pairing_codes')
@@ -30,62 +41,65 @@ async function createUniqueCode(): Promise<string> {
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
 
-    if (error) {
-      // On error, still return this code to avoid blocking (collision risk is negligible)
-      return code;
-    }
-
-    if (!data) {
-      return code;
-    }
+    if (error || !data) return code;
   }
-
-  // Fall back if collisions keep happening
   return generateCode();
 }
 
+async function countActiveDeviceSessions(userId: string): Promise<number> {
+  const { count, error } = await supabaseAdmin
+    .from('device_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('revoked_at', null);
+
+  if (error) throw new Error(`Failed to count device sessions: ${error.message}`);
+  return count ?? 0;
+}
+
+// ──────────────────────────────────────────────────────────────
 // 1) POST /pairing/create
-router.post(
-  '/pairing/create',
-  rateLimitPairingCreate(5),
-  async (req: Request, res: Response) => {
-    const { deviceId, platform } = req.body as { deviceId?: string; platform?: Platform };
+//    Auth: optional (desktop may be unauth)
+// ──────────────────────────────────────────────────────────────
+router.post('/pairing/create', rateLimitPairingCreate(5), async (req: Request, res: Response) => {
+  const { deviceId, platform } = req.body as { deviceId?: string; platform?: Platform };
 
-    if (!deviceId || typeof deviceId !== 'string') {
-      return res.status(400).json({ error: 'deviceId is required' });
-    }
-    if (platform !== 'desktop') {
-      return res.status(400).json({ error: 'platform must be "desktop"' });
-    }
-
-    try {
-      const code = await createUniqueCode();
-      const now = new Date();
-      const expires = new Date(now.getTime() + 30_000); // 30 seconds
-
-      const { error } = await supabaseAdmin.from('pairing_codes').insert({
-        code,
-        desktop_device_id: deviceId,
-        created_at: now.toISOString(),
-        expires_at: expires.toISOString(),
-        used_at: null,
-        user_id: null,
-      });
-
-      if (error) {
-        return res.status(500).json({ error: `Failed to create pairing code: ${error.message}` });
-      }
-
-      return res.json({ code, expiresAt: expires.toISOString() });
-    } catch (err: any) {
-      // eslint-disable-next-line no-console
-      console.error('[pairing/create] Error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
+  if (!deviceId || typeof deviceId !== 'string') {
+    return res.status(400).json({ error: 'deviceId is required' });
   }
-);
+  if (platform !== 'desktop') {
+    return res.status(400).json({ error: 'platform must be "desktop"' });
+  }
 
+  try {
+    const code = await createUniqueCode();
+    const now = new Date();
+    const expires = new Date(now.getTime() + 30_000); // 30 s TTL
+
+    const { error } = await supabaseAdmin.from('pairing_codes').insert({
+      code,
+      desktop_device_id: deviceId,
+      created_at: now.toISOString(),
+      expires_at: expires.toISOString(),
+      used_at: null,
+      user_id: null,
+    });
+
+    if (error) {
+      return res.status(500).json({ error: `Failed to create pairing code: ${error.message}` });
+    }
+
+    return res.json({ code, expiresAt: expires.toISOString() });
+  } catch (err: any) {
+    console.error('[pairing/create] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────
 // 2) GET /pairing/status?code=XXXXXX
+//    Auth: none – desktop polls this to know when claimed
+// ──────────────────────────────────────────────────────────────
 router.get('/pairing/status', async (req: Request, res: Response) => {
   const { code } = req.query as { code?: string };
   if (!code || typeof code !== 'string') {
@@ -95,7 +109,7 @@ router.get('/pairing/status', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('pairing_codes')
-      .select('code, desktop_device_id, created_at, expires_at, used_at, user_id')
+      .select('code, desktop_device_id, expires_at, used_at, user_id')
       .eq('code', code)
       .maybeSingle();
 
@@ -103,29 +117,13 @@ router.get('/pairing/status', async (req: Request, res: Response) => {
       return res.status(500).json({ error: `Failed to fetch pairing code: ${error.message}` });
     }
 
-    if (!data) {
-      return res.json({ status: 'expired' });
-    }
-
-    const now = new Date();
-    const expiresAt = new Date(data.expires_at as string);
+    if (!data) return res.json({ status: 'expired' });
 
     if (data.used_at) {
-      // Claimed
-      let sessionToken: string | null = null;
-
-      if (data.user_id && SUPABASE_JWT_SECRET !== 'missing') {
-        // Issue a device session token bound to this desktop device
-        sessionToken = jwt.sign(
-          {
-            sub: data.user_id,
-            device_id: data.desktop_device_id,
-            type: 'device_session',
-          },
-          SUPABASE_JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-      }
+      // Issue device session JWT signed with our own secret (not Supabase JWT secret)
+      const sessionToken = data.user_id
+        ? signDeviceSessionToken(data.user_id as string, data.desktop_device_id as string)
+        : null;
 
       return res.json({
         status: 'claimed',
@@ -134,139 +132,113 @@ router.get('/pairing/status', async (req: Request, res: Response) => {
       });
     }
 
-    if (now > expiresAt) {
+    if (new Date() > new Date(data.expires_at as string)) {
       return res.json({ status: 'expired' });
     }
 
     return res.json({ status: 'pending' });
   } catch (err: any) {
-    // eslint-disable-next-line no-console
     console.error('[pairing/status] Error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Helper to count active device sessions
-async function countActiveDeviceSessions(userId: string): Promise<number> {
-  const { count, error } = await supabaseAdmin
-    .from('device_sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .is('revoked_at', null);
+// ──────────────────────────────────────────────────────────────
+// 3) POST /pairing/claim
+//    Auth: required (Supabase JWT)
+//    Entitlement: pro_max required
+//    Device limit enforced
+// ──────────────────────────────────────────────────────────────
+router.post('/pairing/claim', rateLimitPairingClaim(10), requireUser, async (req: Request, res: Response) => {
+  const { code, deviceId, platform } = req.body as {
+    code?: string;
+    deviceId?: string;
+    platform?: Platform;
+  };
 
-  if (error) {
-    throw new Error(`Failed to count device sessions: ${error.message}`);
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'code is required' });
+  }
+  if (!deviceId || typeof deviceId !== 'string') {
+    return res.status(400).json({ error: 'deviceId is required' });
+  }
+  if (platform !== 'mobile') {
+    return res.status(400).json({ error: 'platform must be "mobile"' });
   }
 
-  return count ?? 0;
-}
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-// 3) POST /pairing/claim
-router.post(
-  '/pairing/claim',
-  rateLimitPairingClaim(10),
-  requireUser,
-  async (req: Request, res: Response) => {
-    const { code, deviceId, platform } = req.body as { code?: string; deviceId?: string; platform?: Platform };
+  try {
+    const nowIso = new Date().toISOString();
 
-    if (!code || typeof code !== 'string') {
-      return res.status(400).json({ error: 'code is required' });
-    }
-    if (!deviceId || typeof deviceId !== 'string') {
-      return res.status(400).json({ error: 'deviceId is required' });
-    }
-    if (platform !== 'mobile') {
-      return res.status(400).json({ error: 'platform must be "mobile"' });
-    }
+    const { data: pairing, error } = await supabaseAdmin
+      .from('pairing_codes')
+      .select('*')
+      .eq('code', code)
+      .maybeSingle();
 
-    const userId = getUserIdFromRequest(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (error) {
+      return res.status(500).json({ error: `Failed to fetch pairing code: ${error.message}` });
+    }
+    if (!pairing) return res.status(400).json({ error: 'Invalid code' });
+    if (pairing.used_at) return res.status(400).json({ error: 'Code already used' });
+    if (new Date(pairing.expires_at as string) < new Date()) {
+      return res.status(400).json({ error: 'Code expired' });
     }
 
-    try {
-      const nowIso = new Date().toISOString();
+    const entitlements = await getEntitlements(userId);
+    if (!entitlements.pro_max) {
+      return res.status(403).json({ error: 'Pairing requires pro_max entitlement' });
+    }
 
-      // Fetch pairing code
-      const { data: pairing, error } = await supabaseAdmin
-        .from('pairing_codes')
-        .select('*')
-        .eq('code', code)
-        .maybeSingle();
+    const deviceLimit = getDeviceLimit(entitlements);
+    const activeCount = await countActiveDeviceSessions(userId);
+    if (activeCount >= deviceLimit) {
+      return res.status(409).json({ error: 'Device limit exceeded' });
+    }
 
-      if (error) {
-        return res.status(500).json({ error: `Failed to fetch pairing code: ${error.message}` });
-      }
+    // Mark code as used
+    const { error: updateError } = await supabaseAdmin
+      .from('pairing_codes')
+      .update({ used_at: nowIso, user_id: userId })
+      .eq('code', code);
 
-      if (!pairing) {
-        return res.status(400).json({ error: 'Invalid code' });
-      }
+    if (updateError) {
+      return res.status(500).json({ error: `Failed to update pairing code: ${updateError.message}` });
+    }
 
-      if (pairing.used_at) {
-        return res.status(400).json({ error: 'Code already used' });
-      }
-
-      if (new Date(pairing.expires_at as string) < new Date()) {
-        return res.status(400).json({ error: 'Code expired' });
-      }
-
-      // Entitlements
-      const entitlements = await getEntitlements(userId);
-
-      if (!entitlements.pro_max) {
-        return res.status(403).json({ error: 'Pairing requires pro_max entitlement' });
-      }
-
-      const deviceLimit = getDeviceLimit(entitlements);
-
-      // Enforce device limit for new desktop session
-      const activeCount = await countActiveDeviceSessions(userId);
-      if (activeCount >= deviceLimit) {
-        return res.status(409).json({ error: 'Device limit exceeded' });
-      }
-
-      // Mark code as used and link to user
-      const { error: updateError } = await supabaseAdmin
-        .from('pairing_codes')
-        .update({
-          used_at: nowIso,
-          user_id: userId,
-        })
-        .eq('code', code);
-
-      if (updateError) {
-        return res.status(500).json({ error: `Failed to update pairing code: ${updateError.message}` });
-      }
-
-      // Create desktop device session
-      const { error: sessionError } = await supabaseAdmin.from('device_sessions').insert({
+    // Create desktop device session
+    const { error: sessionError } = await supabaseAdmin.from('device_sessions').upsert(
+      {
         user_id: userId,
         device_id: pairing.desktop_device_id,
         platform: 'desktop',
         created_at: nowIso,
         last_seen: nowIso,
         revoked_at: null,
-      });
+      },
+      { onConflict: 'user_id,device_id,platform' }
+    );
 
-      if (sessionError) {
-        return res.status(500).json({ error: `Failed to create device session: ${sessionError.message}` });
-      }
-
-      return res.json({ ok: true });
-    } catch (err: any) {
-      // eslint-disable-next-line no-console
-      console.error('[pairing/claim] Error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+    if (sessionError) {
+      return res.status(500).json({ error: `Failed to create device session: ${sessionError.message}` });
     }
-  }
-);
 
+    return res.json({ ok: true });
+  } catch (err: any) {
+    console.error('[pairing/claim] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────
 // 4) GET /devices
+//    Auth: required
+// ──────────────────────────────────────────────────────────────
 router.get('/devices', requireUser, async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const { data, error } = await supabaseAdmin
@@ -289,13 +261,15 @@ router.get('/devices', requireUser, async (req: Request, res: Response) => {
       })),
     });
   } catch (err: any) {
-    // eslint-disable-next-line no-console
     console.error('[devices] Error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+// ──────────────────────────────────────────────────────────────
 // 5) POST /devices/revoke
+//    Auth: required
+// ──────────────────────────────────────────────────────────────
 router.post('/devices/revoke', requireUser, async (req: Request, res: Response) => {
   const { deviceId } = req.body as { deviceId?: string };
   if (!deviceId || typeof deviceId !== 'string') {
@@ -303,15 +277,12 @@ router.post('/devices/revoke', requireUser, async (req: Request, res: Response) 
   }
 
   const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const nowIso = new Date().toISOString();
     const { error } = await supabaseAdmin
       .from('device_sessions')
-      .update({ revoked_at: nowIso })
+      .update({ revoked_at: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('device_id', deviceId)
       .is('revoked_at', null);
@@ -322,13 +293,16 @@ router.post('/devices/revoke', requireUser, async (req: Request, res: Response) 
 
     return res.json({ ok: true });
   } catch (err: any) {
-    // eslint-disable-next-line no-console
     console.error('[devices/revoke] Error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// OPTIONAL: Streaming session start with device limit enforcement
+// ──────────────────────────────────────────────────────────────
+// 6) POST /stream/start
+//    Auth: required
+//    Device limit enforced
+// ──────────────────────────────────────────────────────────────
 router.post('/stream/start', requireUser, async (req: Request, res: Response) => {
   const { deviceId, platform } = req.body as { deviceId?: string; platform?: Platform };
 
@@ -340,9 +314,7 @@ router.post('/stream/start', requireUser, async (req: Request, res: Response) =>
   }
 
   const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const entitlements = await getEntitlements(userId);
@@ -352,8 +324,9 @@ router.post('/stream/start', requireUser, async (req: Request, res: Response) =>
       return res.status(403).json({ error: 'No active subscription' });
     }
 
-    // Check if there is already a non-revoked session for this device
-    const { data: existing, error: existingError } = await supabaseAdmin
+    const nowIso = new Date().toISOString();
+
+    const { data: existing } = await supabaseAdmin
       .from('device_sessions')
       .select('id, revoked_at')
       .eq('user_id', userId)
@@ -361,10 +334,7 @@ router.post('/stream/start', requireUser, async (req: Request, res: Response) =>
       .eq('platform', platform)
       .maybeSingle();
 
-    const nowIso = new Date().toISOString();
-
     if (!existing || existing.revoked_at) {
-      // Need to create a new session; enforce global device limit
       const activeCount = await countActiveDeviceSessions(userId);
       if (activeCount >= deviceLimit) {
         return res.status(409).json({ error: 'Device limit exceeded' });
@@ -383,18 +353,13 @@ router.post('/stream/start', requireUser, async (req: Request, res: Response) =>
         return res.status(500).json({ error: `Failed to create device session: ${insertError.message}` });
       }
     } else {
-      // Update last_seen
-      const { error: updateError } = await supabaseAdmin
+      await supabaseAdmin
         .from('device_sessions')
         .update({ last_seen: nowIso })
         .eq('id', existing.id);
-
-      if (updateError) {
-        return res.status(500).json({ error: `Failed to update device session: ${updateError.message}` });
-      }
     }
 
-    // Optionally record streaming session row
+    // Best-effort streaming session log
     try {
       await supabaseAdmin.from('streaming_sessions').insert({
         user_id: userId,
@@ -403,16 +368,14 @@ router.post('/stream/start', requireUser, async (req: Request, res: Response) =>
         ended_at: null,
       });
     } catch {
-      // Best-effort; do not block streaming on logging errors
+      /* non-blocking */
     }
 
     return res.json({ ok: true });
   } catch (err: any) {
-    // eslint-disable-next-line no-console
     console.error('[stream/start] Error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 export default router;
-

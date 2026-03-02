@@ -1,66 +1,48 @@
 import type { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-export interface SupabaseJwtPayload {
-  sub: string;
-  // Other Supabase claims are ignored here
-  [key: string]: any;
-}
-
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
-
-if (!SUPABASE_JWT_SECRET) {
-  console.warn('[auth] SUPABASE_JWT_SECRET is not set. Authenticated routes will fail.');
-}
+import { supabaseAdmin } from '../services/supabaseAdmin.js';
 
 export function getAuthToken(req: Request): string | null {
-  const header = req.headers.authorization || req.headers.Authorization;
+  const header = req.headers.authorization;
   if (!header || typeof header !== 'string') return null;
-  const [scheme, token] = header.split(' ');
-  if (!scheme || scheme.toLowerCase() !== 'bearer' || !token) return null;
+  const spaceIndex = header.indexOf(' ');
+  if (spaceIndex === -1) return null;
+  const scheme = header.slice(0, spaceIndex).toLowerCase();
+  const token = header.slice(spaceIndex + 1).trim();
+  if (scheme !== 'bearer' || !token) return null;
   return token;
 }
 
-export function verifySupabaseJwt(token: string): SupabaseJwtPayload | null {
-  if (!SUPABASE_JWT_SECRET) return null;
-  try {
-    const decoded = jwt.verify(token, SUPABASE_JWT_SECRET) as SupabaseJwtPayload;
-    if (!decoded || typeof decoded.sub !== 'string') return null;
-    return decoded;
-  } catch {
-    return null;
-  }
-}
-
-export function requireUser(
+/**
+ * Verifies a Supabase access token via supabaseAdmin.auth.getUser().
+ * This works with both HS256 and ECC P-256 (JWT V2) signing keys.
+ */
+export async function requireUser(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   const token = getAuthToken(req);
   if (!token) {
     res.status(401).json({ error: 'Missing Authorization header' });
     return;
   }
 
-  const payload = verifySupabaseJwt(token);
-  if (!payload) {
-    res.status(401).json({ error: 'Invalid or expired token' });
-    return;
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user?.id) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+    (req as any).userId = data.user.id;
+    next();
+  } catch (err: any) {
+    console.error('[auth.requireUser] Unexpected error:', err?.message);
+    res.status(500).json({ error: 'Auth check failed' });
   }
-
-  // Attach user id for downstream handlers
-  (req as any).userId = payload.sub;
-  next();
 }
 
 export function getUserIdFromRequest(req: Request): string | null {
-  const existing = (req as any).userId;
-  if (typeof existing === 'string' && existing) return existing;
-
-  const token = getAuthToken(req);
-  if (!token) return null;
-  const payload = verifySupabaseJwt(token);
-  return payload?.sub ?? null;
+  const id = (req as any).userId;
+  if (typeof id === 'string' && id) return id;
+  return null;
 }
-
