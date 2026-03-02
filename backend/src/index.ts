@@ -43,14 +43,23 @@ const allowedOrigins = allowedOrigin === '*'
   ? '*' 
   : allowedOrigin.split(',').map((o) => normalizeOrigin(o.trim()));
 
-// Default allowed origins (add production domain, Vercel and localhost for dev)
+// Default allowed origins
+// localhost ports: Vite defaults (5173), CRA/Next (3000), Tauri desktop (1421), common alt (4173)
 const defaultOrigins = [
   'https://anirias.com',
   'https://anirias.vercel.app',
+  // Vite default
   'http://localhost:5173',
-  'http://localhost:3000',
   'http://127.0.0.1:5173',
+  // Tauri desktop app dev server
+  'http://localhost:1421',
+  'http://127.0.0.1:1421',
+  // CRA / Next.js
+  'http://localhost:3000',
   'http://127.0.0.1:3000',
+  // Vite preview
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
 ];
 
 // Merge default origins with env origins (if not using wildcard)
