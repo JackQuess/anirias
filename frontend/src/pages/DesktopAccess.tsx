@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/services/auth';
-import { DESKTOP_DOWNLOAD_URL } from '@/config/desktop';
+import { ANDROID_APP_ACTIVATION_URL, DESKTOP_DOWNLOAD_ENDPOINT } from '@/config/desktop';
+import { supabase } from '@/services/supabaseClient';
 
 const DesktopAccess: React.FC = () => {
   const { user, status, activePlan } = useAuth();
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   if (status === 'LOADING') {
     return (
@@ -17,6 +20,56 @@ const DesktopAccess: React.FC = () => {
   if (!user) return <Navigate to="/login" replace />;
 
   const isProMax = activePlan === 'pro_max';
+
+  const handleProtectedDownload = async () => {
+    if (!supabase || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        setDownloadError('Oturum bulunamadi. Lutfen tekrar giris yap.');
+        return;
+      }
+
+      const res = await fetch(DESKTOP_DOWNLOAD_ENDPOINT, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (res.status === 403) {
+        setDownloadError('Desktop erisimi yalnizca aktif PRO MAX uyeler icin aciktir.');
+        return;
+      }
+
+      if (!res.ok) {
+        setDownloadError('Indirme baglantisi olusturulamadi. Lutfen tekrar dene.');
+        return;
+      }
+
+      if (res.redirected && res.url) {
+        window.location.href = res.url;
+        return;
+      }
+
+      const payload = await res.json().catch(() => null) as any;
+      const redirectUrl = payload?.redirectUrl || payload?.url || payload?.downloadUrl;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      setDownloadError('Indirme baglantisi hazir degil.');
+    } catch (_err) {
+      setDownloadError('Indirme sirasinda hata olustu. Lutfen tekrar dene.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-brand-black px-4 md:px-8 py-10">
@@ -44,14 +97,16 @@ const DesktopAccess: React.FC = () => {
 
           {isProMax ? (
             <div className="space-y-6">
-              <a
-                href={DESKTOP_DOWNLOAD_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.18em] transition-all bg-brand-red text-white hover:bg-brand-redHover"
+              <button
+                type="button"
+                onClick={handleProtectedDownload}
+                disabled={downloading}
+                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.18em] transition-all bg-brand-red text-white hover:bg-brand-redHover disabled:opacity-60"
               >
-                Desktop Uygulamasini Indir
-              </a>
+                {downloading ? 'Baglanti Hazirlaniyor...' : 'Desktop Uygulamasini Indir'}
+              </button>
+
+              {downloadError && <p className="text-amber-400 text-xs">{downloadError}</p>}
 
               <div className="bg-black/20 border border-white/5 rounded-2xl p-5">
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Kurulum Adimlari</p>
@@ -74,14 +129,19 @@ const DesktopAccess: React.FC = () => {
             <div className="space-y-5">
               <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
                 <p className="text-white font-black uppercase tracking-wider mb-2">Desktop erisimi kilitli</p>
-                <p className="text-gray-400 text-sm">Desktop erisimi PRO MAX uyelige dahildir.</p>
+                <p className="text-gray-400 text-sm">Bu ozellik yalnizca PRO MAX uyeler icin kullanilabilir.</p>
+                <p className="text-gray-500 text-sm mt-2">PRO MAX uyeligini Android uygulamadan etkinlestirebilirsin.</p>
+                <p className="text-gray-600 text-xs mt-2">Satin alma islemi su anda yalnizca Android uygulamada destekleniyor.</p>
+                <p className="text-gray-600 text-xs mt-2">Android uygulamada PRO MAX uyelik aldiktan sonra bu sayfa otomatik olarak aktif olur.</p>
               </div>
-              <Link
-                to="/profile"
+              <a
+                href={ANDROID_APP_ACTIVATION_URL}
+                target="_blank"
+                rel="noreferrer"
                 className="inline-flex items-center justify-center px-6 py-4 rounded-2xl bg-brand-red text-white font-black text-xs uppercase tracking-[0.18em] hover:bg-brand-redHover transition-all"
               >
-                PRO MAX'a Yukselt
-              </Link>
+                Android uygulamada etkinlestir
+              </a>
             </div>
           )}
         </div>

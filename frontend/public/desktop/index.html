@@ -117,12 +117,14 @@
   <body>
     <main class="card">
       <p class="logo">ANIRIAS</p>
-      <h1 class="title">Desktop Uygulamasini Indir</h1>
+      <h1 class="title">Desktop Erisimi</h1>
       <p class="subtitle">
-        macOS veya Windows icin ANIRIAS masaustu uygulamasini indir ve 6 haneli kod ile hesabinla eslestir.
+        Guvenlik nedeniyle masaustu indirmeleri sadece giris yapmis PRO MAX hesaplar icin uygulama ici Desktop Access sayfasindan baslatilir.
       </p>
 
-      <div class="buttons" id="downloadButtons"></div>
+      <div class="buttons">
+        <a class="btn" href="https://anirias.com/desktop-access">Desktop Access Sayfasina Git</a>
+      </div>
 
       <ol class="steps">
         <li>Indir</li>
@@ -131,54 +133,8 @@
         <li>Hesabinla eslestir</li>
       </ol>
 
-      <p class="note">Bu indirme baglantisi yalnizca aktif PRO MAX uyeler icindir.</p>
+      <p class="note">Bu ozellik yalnizca aktif PRO MAX uyeler icindir. Satin alma Android uygulamada yapilir.</p>
     </main>
-
-    <script>
-      const MAC_DOWNLOAD_URL = "https://download.anirias.com/files/ANIRIAS-latest.dmg";
-      const WINDOWS_DOWNLOAD_URL = "https://download.anirias.com/files/ANIRIAS-latest.msi";
-
-      function detectOS() {
-        const ua = navigator.userAgent || "";
-        const platform = navigator.platform || "";
-        const combined = `${ua} ${platform}`.toLowerCase();
-
-        if (combined.includes("mac") || combined.includes("darwin")) return "mac";
-        if (combined.includes("win")) return "windows";
-        return "unknown";
-      }
-
-      function createButton(text, url, secondary = false) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.className = `btn${secondary ? " secondary" : ""}`;
-        a.textContent = text;
-        return a;
-      }
-
-      function renderDownloadButtons() {
-        const container = document.getElementById("downloadButtons");
-        const os = detectOS();
-
-        if (os === "mac") {
-          container.appendChild(createButton("Mac icin indir", MAC_DOWNLOAD_URL));
-          container.appendChild(createButton("Windows surumu", WINDOWS_DOWNLOAD_URL, true));
-          return;
-        }
-
-        if (os === "windows") {
-          container.appendChild(createButton("Windows icin indir", WINDOWS_DOWNLOAD_URL));
-          container.appendChild(createButton("Mac surumu", MAC_DOWNLOAD_URL, true));
-          return;
-        }
-
-        // Unknown OS => show both primary buttons
-        container.appendChild(createButton("Mac icin indir", MAC_DOWNLOAD_URL));
-        container.appendChild(createButton("Windows icin indir", WINDOWS_DOWNLOAD_URL));
-      }
-
-      renderDownloadButtons();
-    </script>
   </body>
 </html>
 

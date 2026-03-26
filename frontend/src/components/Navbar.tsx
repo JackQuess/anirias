@@ -319,7 +319,7 @@ const Navbar: React.FC = () => {
                           onClick={() => setIsProfileOpen(false)}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1.25-3H5l2-2.25L5.5 12 8 12.25 9 10l1 2.25L12.5 12 11 14.75 13 17h-3.25zM14 7h5m-5 4h5m-5 4h5" /></svg>
-                          {isProMax ? 'DESKTOP ACCESS' : 'DESKTOP (PRO MAX)'}
+                          {isProMax ? 'DESKTOP ACCESS' : 'DESKTOP (ANDROID PRO MAX)'}
                         </Link>
                         {profile?.role === 'admin' && (
                           <Link to="/admin" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-brand-red hover:text-white uppercase tracking-[0.2em] transition-all" onClick={() => setIsProfileOpen(false)}>

@@ -339,12 +339,13 @@ const Profile: React.FC = () => {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <p className="text-gray-400 text-sm">Desktop erisimi PRO MAX uyelige dahildir.</p>
+                          <p className="text-gray-400 text-sm">Bu ozellik yalnizca PRO MAX uyeler icin kullanilabilir.</p>
+                          <p className="text-gray-500 text-xs">Satin alma islemi yalnizca Android uygulamada yapilir.</p>
                           <Link
                             to={DESKTOP_ACCESS_PAGE}
                             className="inline-flex px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
                           >
-                            PRO MAX Avantajlarini Gor
+                            Android uygulamada etkinlestir
                           </Link>
                         </div>
                       )}
