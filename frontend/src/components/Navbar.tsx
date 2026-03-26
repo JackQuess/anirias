@@ -8,6 +8,7 @@ import { getAvatarSrc } from '@/utils/avatar';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { supabase } from '@/services/supabaseClient';
+import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 
 const Navbar: React.FC = () => {
   const { user, profile, activePlan, signOut } = useAuth();
@@ -194,7 +195,7 @@ const Navbar: React.FC = () => {
 
             {user && isProMax && (
               <Link
-                to="/desktop-access"
+                to={DESKTOP_ACCESS_PAGE}
                 className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-brand-red/90 hover:bg-brand-red text-white text-[9px] font-black uppercase tracking-[0.2em] transition-all"
               >
                 Desktop
@@ -309,7 +310,7 @@ const Navbar: React.FC = () => {
                            PROFİLİM
                         </Link>
                         <Link
-                          to="/desktop-access"
+                          to={DESKTOP_ACCESS_PAGE}
                           className={`flex items-center gap-3 p-3 rounded-xl transition-all text-[9px] font-black uppercase tracking-[0.2em] ${
                             isProMax
                               ? 'hover:bg-white/5 text-brand-red hover:text-white'
@@ -432,7 +433,7 @@ const Navbar: React.FC = () => {
              ))}
              {user && (
                <Link
-                 to="/desktop-access"
+                 to={DESKTOP_ACCESS_PAGE}
                  className={`text-2xl font-black uppercase tracking-tighter ${isProMax ? 'text-brand-red' : 'text-white/50'}`}
                >
                  DESKTOP

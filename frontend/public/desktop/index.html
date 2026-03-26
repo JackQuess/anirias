@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ANIRIAS Desktop Indirme</title>
+    <style>
+      :root {
+        --bg: #070709;
+        --panel: #111116;
+        --text: #f5f5f7;
+        --muted: #a1a1aa;
+        --brand: #e50914;
+        --brand-hover: #ff1f2b;
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: radial-gradient(1200px 700px at 80% -10%, rgba(229, 9, 20, 0.2), transparent 55%),
+          radial-gradient(1000px 600px at -20% 120%, rgba(229, 9, 20, 0.15), transparent 45%),
+          var(--bg);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 780px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 36px;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      .logo {
+        color: var(--brand);
+        font-weight: 900;
+        font-style: italic;
+        letter-spacing: -0.03em;
+        font-size: clamp(32px, 5vw, 46px);
+        margin: 0 0 8px 0;
+      }
+
+      .title {
+        margin: 0;
+        font-size: clamp(26px, 4vw, 40px);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 12px 0 0 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .btn {
+        appearance: none;
+        border: 0;
+        text-decoration: none;
+        color: #fff;
+        background: var(--brand);
+        border-radius: 14px;
+        padding: 14px 20px;
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+        background: var(--brand-hover);
+      }
+
+      .btn.secondary {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .steps {
+        margin: 28px 0 0 0;
+        padding: 0 0 0 20px;
+        color: var(--text);
+      }
+
+      .steps li {
+        margin: 8px 0;
+      }
+
+      .note {
+        margin-top: 22px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <p class="logo">ANIRIAS</p>
+      <h1 class="title">Desktop Uygulamasini Indir</h1>
+      <p class="subtitle">
+        macOS veya Windows icin ANIRIAS masaustu uygulamasini indir ve 6 haneli kod ile hesabinla eslestir.
+      </p>
+
+      <div class="buttons" id="downloadButtons"></div>
+
+      <ol class="steps">
+        <li>Indir</li>
+        <li>Ac</li>
+        <li>6 haneli kodu goruntule</li>
+        <li>Hesabinla eslestir</li>
+      </ol>
+
+      <p class="note">Bu indirme baglantisi yalnizca aktif PRO MAX uyeler icindir.</p>
+    </main>
+
+    <script>
+      const MAC_DOWNLOAD_URL = "https://download.anirias.com/files/ANIRIAS-latest.dmg";
+      const WINDOWS_DOWNLOAD_URL = "https://download.anirias.com/files/ANIRIAS-latest.msi";
+
+      function detectOS() {
+        const ua = navigator.userAgent || "";
+        const platform = navigator.platform || "";
+        const combined = `${ua} ${platform}`.toLowerCase();
+
+        if (combined.includes("mac") || combined.includes("darwin")) return "mac";
+        if (combined.includes("win")) return "windows";
+        return "unknown";
+      }
+
+      function createButton(text, url, secondary = false) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.className = `btn${secondary ? " secondary" : ""}`;
+        a.textContent = text;
+        return a;
+      }
+
+      function renderDownloadButtons() {
+        const container = document.getElementById("downloadButtons");
+        const os = detectOS();
+
+        if (os === "mac") {
+          container.appendChild(createButton("Mac icin indir", MAC_DOWNLOAD_URL));
+          container.appendChild(createButton("Windows surumu", WINDOWS_DOWNLOAD_URL, true));
+          return;
+        }
+
+        if (os === "windows") {
+          container.appendChild(createButton("Windows icin indir", WINDOWS_DOWNLOAD_URL));
+          container.appendChild(createButton("Mac surumu", MAC_DOWNLOAD_URL, true));
+          return;
+        }
+
+        // Unknown OS => show both primary buttons
+        container.appendChild(createButton("Mac icin indir", MAC_DOWNLOAD_URL));
+        container.appendChild(createButton("Windows icin indir", WINDOWS_DOWNLOAD_URL));
+      }
+
+      renderDownloadButtons();
+    </script>
+  </body>
+</html>
+

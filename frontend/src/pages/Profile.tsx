@@ -9,6 +9,7 @@ import AnimeCard from '../components/AnimeCard';
 import { AVATARS, AvatarItem, getAvatarSrc } from '@/utils/avatar';
 import { BANNERS, getBannerSrc } from '@/utils/banner';
 import { validateUsername } from '@/utils/usernameValidation';
+import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 
 type BannerItem = { id: string; src: string; name?: string };
 
@@ -330,7 +331,7 @@ const Profile: React.FC = () => {
                             Desktop erisimin acik. Uygulamayi indirip 6 haneli kod ile hesabinla eslestirebilirsin.
                           </p>
                           <Link
-                            to="/desktop-access"
+                            to={DESKTOP_ACCESS_PAGE}
                             className="inline-flex px-6 py-4 rounded-2xl bg-brand-red hover:bg-brand-redHover text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
                           >
                             Desktop Sayfasina Git
@@ -340,7 +341,7 @@ const Profile: React.FC = () => {
                         <div className="space-y-4">
                           <p className="text-gray-400 text-sm">Desktop erisimi PRO MAX uyelige dahildir.</p>
                           <Link
-                            to="/desktop-access"
+                            to={DESKTOP_ACCESS_PAGE}
                             className="inline-flex px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
                           >
                             PRO MAX Avantajlarini Gor

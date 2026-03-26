@@ -26,7 +26,7 @@ const DesktopAccess: React.FC = () => {
             Desktop <span className="text-brand-red">Access</span>
           </h1>
           <p className="text-gray-400 mt-3 text-sm">
-            Masaustu uygulamasi indir, ac ve 6 haneli kod ile hesabinla eslestir.
+            Mac veya Windows icin masaustu uygulamasini indir ve 6 haneli kod ile hesabini eslestir.
           </p>
         </div>
 
@@ -45,23 +45,13 @@ const DesktopAccess: React.FC = () => {
           {isProMax ? (
             <div className="space-y-6">
               <a
-                href={DESKTOP_DOWNLOAD_URL || '#'}
+                href={DESKTOP_DOWNLOAD_URL}
                 target="_blank"
                 rel="noreferrer"
-                className={`inline-flex items-center justify-center px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.18em] transition-all ${
-                  DESKTOP_DOWNLOAD_URL
-                    ? 'bg-brand-red text-white hover:bg-brand-redHover'
-                    : 'bg-white/10 text-gray-500 cursor-not-allowed pointer-events-none'
-                }`}
+                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.18em] transition-all bg-brand-red text-white hover:bg-brand-redHover"
               >
                 Desktop Uygulamasini Indir
               </a>
-
-              {!DESKTOP_DOWNLOAD_URL && (
-                <p className="text-amber-400 text-xs">
-                  Indirme linki henuz tanimli degil. `VITE_DESKTOP_DOWNLOAD_URL` ayarini yapin.
-                </p>
-              )}
 
               <div className="bg-black/20 border border-white/5 rounded-2xl p-5">
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Kurulum Adimlari</p>
@@ -69,7 +59,7 @@ const DesktopAccess: React.FC = () => {
                   <li>Uygulamayi indir</li>
                   <li>Desktop uygulamasini ac</li>
                   <li>Ekranda 6 haneli kodu gor</li>
-                  <li>Hesabinla eslestir ve giris yap</li>
+                  <li>Mobil veya site uzerinden eslestir</li>
                 </ol>
               </div>
 

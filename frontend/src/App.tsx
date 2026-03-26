@@ -41,6 +41,7 @@ import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
 import AuthCallback from './pages/AuthCallback';
 import UpdatePassword from './pages/UpdatePassword';
+import { DESKTOP_ACCESS_PAGE } from './config/desktop';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -75,8 +76,7 @@ const App: React.FC = () => {
             <Route path="/watch/:animeId" element={<Watch />} />
             <Route path="/watch/:animeId/:episodeId" element={<Watch />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/desktop" element={<DesktopAccess />} />
-            <Route path="/desktop-access" element={<DesktopAccess />} />
+            <Route path={DESKTOP_ACCESS_PAGE} element={<DesktopAccess />} />
             
             {/* Legal Pages */}
             <Route path="/hakkimizda" element={<Legal />} />
