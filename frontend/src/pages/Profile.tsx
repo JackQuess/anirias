@@ -15,7 +15,7 @@ type BannerItem = { id: string; src: string; name?: string };
 const loggedAvatarErrors = new Set<string>();
 
 const Profile: React.FC = () => {
-  const { user, profile, status, signOut, refreshProfile } = useAuth();
+  const { user, profile, status, activePlan, signOut, refreshProfile, refreshEntitlements } = useAuth();
   const [activeTab, setActiveTab] = useState<'info' | 'watchlist' | 'history'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [activeAvatarCategory, setActiveAvatarCategory] = useState<'hsdxd' | 'jjk'>('hsdxd');
@@ -212,7 +212,15 @@ const Profile: React.FC = () => {
               </div>
 
               <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter mb-2">{displayProfile.username}</h2>
-              <p className="text-brand-red text-[9px] font-black uppercase tracking-[0.4em] mb-8">{profile?.role === 'admin' ? 'SYSTEM ADMIN' : 'ELITE MEMBER'}</p>
+              <p className="text-brand-red text-[9px] font-black uppercase tracking-[0.4em] mb-8">
+                {profile?.role === 'admin'
+                  ? 'SYSTEM ADMIN'
+                  : activePlan === 'pro_max'
+                    ? 'PRO MAX MEMBER'
+                    : activePlan === 'pro'
+                      ? 'PRO MEMBER'
+                      : 'FREE MEMBER'}
+              </p>
               
               <p className="text-gray-400 text-xs italic leading-relaxed mb-10 px-4">"{displayProfile.bio || 'Henüz bir biyografi eklenmemiş.'}"</p>
 
@@ -301,6 +309,44 @@ const Profile: React.FC = () => {
                          <div className="h-full bg-gradient-to-r from-brand-red to-red-500 w-[40%]" style={{ width: `${stats.xp}%` }} />
                       </div>
                       <p className="text-[9px] text-gray-500 mt-4 font-bold uppercase tracking-widest relative z-10">Bir sonraki seviye için {5 - (historyLength % 5)} bölüm daha izle</p>
+                   </section>
+
+                   <section className="bg-brand-surface border border-white/5 p-10 rounded-[3rem] relative overflow-hidden">
+                      <div className="flex items-center justify-between mb-5">
+                        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">
+                          Desktop <span className="text-brand-red">Access</span>
+                        </h3>
+                        <button
+                          onClick={() => void refreshEntitlements()}
+                          className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white"
+                        >
+                          Plan Yenile
+                        </button>
+                      </div>
+
+                      {activePlan === 'pro_max' ? (
+                        <div className="space-y-4">
+                          <p className="text-gray-300 text-sm">
+                            Desktop erisimin acik. Uygulamayi indirip 6 haneli kod ile hesabinla eslestirebilirsin.
+                          </p>
+                          <Link
+                            to="/desktop-access"
+                            className="inline-flex px-6 py-4 rounded-2xl bg-brand-red hover:bg-brand-redHover text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
+                          >
+                            Desktop Sayfasina Git
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-gray-400 text-sm">Desktop erisimi PRO MAX uyelige dahildir.</p>
+                          <Link
+                            to="/desktop-access"
+                            className="inline-flex px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
+                          >
+                            PRO MAX Avantajlarini Gor
+                          </Link>
+                        </div>
+                      )}
                    </section>
 
                    <section>

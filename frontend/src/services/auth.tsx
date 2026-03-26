@@ -3,14 +3,17 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 import { fetchProfile } from './authHelpers';
-import { Profile, AuthStatus } from '../types';
+import { Profile, AuthStatus, ActivePlan } from '../types';
+import { db } from './db';
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
+  activePlan: ActivePlan;
   status: AuthStatus;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshEntitlements: () => Promise<void>;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
 }
 
@@ -37,6 +40,7 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMe
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [activePlan, setActivePlan] = useState<ActivePlan>('free');
   const [status, setStatus] = useState<AuthStatus>('LOADING');
 
   const loadUserProfile = async (currentUser: User) => {
@@ -53,8 +57,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loadEntitlements = async (currentUser: User) => {
+    try {
+      const plan = await db.getActivePlan(currentUser.id);
+      setActivePlan(plan);
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[Auth] Entitlement load failed:', err);
+      setActivePlan('free');
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) await loadUserProfile(user);
+  };
+
+  const refreshEntitlements = async () => {
+    if (user) await loadEntitlements(user);
   };
 
   const signOut = async () => {
@@ -67,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sessionStorage.clear();
       setUser(null);
       setProfile(null);
+      setActivePlan('free');
       setStatus('UNAUTHENTICATED');
     }
   };
@@ -88,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(session.user);
           setStatus('AUTHENTICATED');
           void loadUserProfile(session.user);
+          void loadEntitlements(session.user);
           return;
         }
       } catch (error) {
@@ -105,6 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(session.user);
           setStatus('AUTHENTICATED');
           void loadUserProfile(session.user);
+          void loadEntitlements(session.user);
           return;
         }
       } catch (_) {}
@@ -118,18 +139,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session.user);
         setStatus('AUTHENTICATED');
         void loadUserProfile(session.user);
+        void loadEntitlements(session.user);
       } else {
         setUser(null);
         setProfile(null);
+        setActivePlan('free');
         setStatus('UNAUTHENTICATED');
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      void loadEntitlements(user);
+    }, 30000);
+
+    const onFocus = () => {
+      void loadEntitlements(user);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user?.id]);
+
   return (
-    <AuthContext.Provider value={{ user, profile, status, signOut, refreshProfile, setProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        activePlan,
+        status,
+        signOut,
+        refreshProfile,
+        refreshEntitlements,
+        setProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

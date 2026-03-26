@@ -14,6 +14,7 @@ const Login: React.FC = () => {
   const { user, status } = useAuth();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // TODO [v2]: Re-enable email verification
@@ -38,6 +39,21 @@ const Login: React.FC = () => {
       navigate('/');
     }
   }, [user, status, navigate]);
+
+  useEffect(() => {
+    const savedRemember = localStorage.getItem('anirias-remember-me');
+    const savedIdentifier = localStorage.getItem('anirias-remember-identifier');
+
+    if (savedRemember === '0') {
+      setRememberMe(false);
+    } else {
+      setRememberMe(true);
+    }
+
+    if (savedIdentifier) {
+      setEmailOrUsername(savedIdentifier);
+    }
+  }, []);
 
   /**
    * Email format kontrolü
@@ -128,6 +144,13 @@ const Login: React.FC = () => {
       }
       
       if (data.user) {
+        if (rememberMe) {
+          localStorage.setItem('anirias-remember-me', '1');
+          localStorage.setItem('anirias-remember-identifier', emailOrUsername.trim());
+        } else {
+          localStorage.setItem('anirias-remember-me', '0');
+          localStorage.removeItem('anirias-remember-identifier');
+        }
         navigate('/');
       }
     } catch (err: any) {
@@ -221,6 +244,16 @@ const Login: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+
+            <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-pointer select-none ml-1">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-white/5 accent-brand-red"
+              />
+              BENI HATIRLA
+            </label>
 
             {error && (
               <div className="p-4 bg-brand-red/10 border border-brand-red/20 rounded-xl text-brand-red text-xs font-bold text-center animate-pulse">

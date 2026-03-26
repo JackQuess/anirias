@@ -36,6 +36,7 @@ import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
 import Profile from './pages/Profile';
+import DesktopAccess from './pages/DesktopAccess';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
 import AuthCallback from './pages/AuthCallback';
@@ -74,6 +75,8 @@ const App: React.FC = () => {
             <Route path="/watch/:animeId" element={<Watch />} />
             <Route path="/watch/:animeId/:episodeId" element={<Watch />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/desktop" element={<DesktopAccess />} />
+            <Route path="/desktop-access" element={<DesktopAccess />} />
             
             {/* Legal Pages */}
             <Route path="/hakkimizda" element={<Legal />} />

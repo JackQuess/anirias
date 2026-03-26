@@ -10,7 +10,7 @@ import { proxyImage } from '@/utils/proxyImage';
 import { supabase } from '@/services/supabaseClient';
 
 const Navbar: React.FC = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, activePlan, signOut } = useAuth();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -136,6 +136,7 @@ const Navbar: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const isActive = (path: string) => location.pathname === path;
+  const isProMax = activePlan === 'pro_max';
 
   const navLinks = [
     { label: 'ANA SAYFA', path: '/' },
@@ -190,6 +191,15 @@ const Navbar: React.FC = () => {
             >
                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </button>
+
+            {user && isProMax && (
+              <Link
+                to="/desktop-access"
+                className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-brand-red/90 hover:bg-brand-red text-white text-[9px] font-black uppercase tracking-[0.2em] transition-all"
+              >
+                Desktop
+              </Link>
+            )}
 
             {user ? (
               <>
@@ -297,6 +307,18 @@ const Navbar: React.FC = () => {
                         <Link to="/profile" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-gray-400 hover:text-white uppercase tracking-[0.2em] transition-all" onClick={() => setIsProfileOpen(false)}>
                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                            PROFİLİM
+                        </Link>
+                        <Link
+                          to="/desktop-access"
+                          className={`flex items-center gap-3 p-3 rounded-xl transition-all text-[9px] font-black uppercase tracking-[0.2em] ${
+                            isProMax
+                              ? 'hover:bg-white/5 text-brand-red hover:text-white'
+                              : 'text-gray-500 hover:text-white hover:bg-white/5'
+                          }`}
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1.25-3H5l2-2.25L5.5 12 8 12.25 9 10l1 2.25L12.5 12 11 14.75 13 17h-3.25zM14 7h5m-5 4h5m-5 4h5" /></svg>
+                          {isProMax ? 'DESKTOP ACCESS' : 'DESKTOP (PRO MAX)'}
                         </Link>
                         {profile?.role === 'admin' && (
                           <Link to="/admin" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-brand-red hover:text-white uppercase tracking-[0.2em] transition-all" onClick={() => setIsProfileOpen(false)}>
@@ -408,6 +430,14 @@ const Navbar: React.FC = () => {
                   {item.label}
                 </Link>
              ))}
+             {user && (
+               <Link
+                 to="/desktop-access"
+                 className={`text-2xl font-black uppercase tracking-tighter ${isProMax ? 'text-brand-red' : 'text-white/50'}`}
+               >
+                 DESKTOP
+               </Link>
+             )}
              {!user && (
                <Link to="/login" className="text-2xl font-black uppercase tracking-tighter text-white/50 mt-4">GİRİŞ YAP</Link>
              )}

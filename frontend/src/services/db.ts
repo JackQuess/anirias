@@ -93,6 +93,28 @@ const callBackendApi = async (
 };
 
 export const db = {
+  getActivePlan: async (userId: string): Promise<'free' | 'pro' | 'pro_max'> => {
+    if (!checkEnv() || !userId) return 'free';
+
+    try {
+      const { data, error } = await supabase!
+        .from('user_entitlements')
+        .select('entitlements')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error || !data) return 'free';
+
+      const entitlements = (data as any).entitlements || {};
+      if (entitlements.pro_max) return 'pro_max';
+      if (entitlements.pro) return 'pro';
+      return 'free';
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[db.getActivePlan] Failed:', err);
+      return 'free';
+    }
+  },
+
   // --- ÖNERİ MOTORU ---
   getPersonalizedRecommendations: async (history: WatchHistory[]): Promise<Anime[]> => {
     if (!checkEnv()) return [];

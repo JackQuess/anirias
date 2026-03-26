@@ -11,6 +11,8 @@ export interface Profile {
   banner_url?: string;
 }
 
+export type ActivePlan = 'free' | 'pro' | 'pro_max';
+
 export interface Anime {
   id: string;
   anilist_id: number | null;
