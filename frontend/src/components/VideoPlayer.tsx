@@ -179,9 +179,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onAdd = () => syncSubtitleTracksFromMediaRef.current();
-    video.textTracks.addEventListener('addtrack', onAdd);
-    return () => video.textTracks.removeEventListener('addtrack', onAdd);
+    const sync = () => syncSubtitleTracksFromMediaRef.current();
+    video.textTracks.addEventListener('addtrack', sync);
+    video.textTracks.addEventListener('change', sync);
+    return () => {
+      video.textTracks.removeEventListener('addtrack', sync);
+      video.textTracks.removeEventListener('change', sync);
+    };
   }, [src]);
 
   useEffect(() => {
@@ -189,10 +193,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const raf = requestAnimationFrame(() => syncSubtitleTracksFromMediaRef.current());
     const t1 = setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 400);
     const t2 = setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 1200);
+    const t3 = setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 2800);
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, [bootState, src]);
 
@@ -730,6 +736,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           // Autoplay policy requires user gesture, we respect that
         }
       } else if (Hls.isSupported()) {
+        // hls.js: altyazı listesi çoğu zaman MANIFEST_PARSED'den sonra SUBTITLE_TRACKS_UPDATED ile gelir
+        const bindHlsSubtitleSync = (hls: Hls) => {
+          hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+            syncSubtitleTracksFromMediaRef.current();
+          });
+        };
         // HLS.js for other browsers
         if (hlsRef.current) {
           // If HLS instance exists and src changed, update source
@@ -748,6 +760,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             hlsRef.current.destroy();
             const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
             hlsRef.current = hls;
+            bindHlsSubtitleSync(hls);
             hls.on(Hls.Events.ERROR, (_e, data) => {
               if (data.fatal) {
                 onErrorRef.current?.('Video yüklenemedi (HLS fatal error)');
@@ -770,6 +783,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           // Create new HLS instance
           const hls = new Hls({ capLevelToPlayerSize: true, autoStartLoad: true });
           hlsRef.current = hls;
+          bindHlsSubtitleSync(hls);
           hls.on(Hls.Events.ERROR, (_e, data) => {
             if (import.meta.env.DEV) {
               console.error('[VideoPlayer] HLS ERROR:', {
