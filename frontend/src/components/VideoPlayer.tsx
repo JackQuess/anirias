@@ -109,6 +109,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [subtitlesOn, setSubtitlesOn] = useState(false);
   const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(-1);
   const [subtitlesMenuOpen, setSubtitlesMenuOpen] = useState(false);
+  const [noSubtitlesHint, setNoSubtitlesHint] = useState(false);
+  const noSubtitlesHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect mobile
   useEffect(() => {
@@ -674,6 +676,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setSubtitlesOn(false);
       setActiveSubtitleIndex(-1);
       setSubtitleOptions([]);
+      setNoSubtitlesHint(false);
+      if (noSubtitlesHintTimerRef.current) {
+        clearTimeout(noSubtitlesHintTimerRef.current);
+        noSubtitlesHintTimerRef.current = null;
+      }
       subtitlePrefAppliedForSrcRef.current = null;
       if (nextEpisodeCountdownRef.current) {
         clearInterval(nextEpisodeCountdownRef.current);
@@ -1924,33 +1931,72 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   </button>
                 )}
 
-                {/* Subtitles (CC) — manifest veya harici VTT */}
-                {subtitleOptions.length > 0 && (
-                  <div className="relative flex items-center" ref={subtitleMenuRef}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        showControlsTemporary();
-                        if (subtitleOptions.length === 1) {
-                          if (subtitlesOn && activeSubtitleIndex === 0) {
-                            applySubtitleSelection(false, -1);
-                          } else {
-                            applySubtitleSelection(true, 0);
-                          }
-                          return;
+                {/* Subtitles (CC) — her zaman göster; parça yoksa soluk + bilgi */}
+                <div className="relative flex items-center" ref={subtitleMenuRef}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      showControlsTemporary();
+                      if (subtitleOptions.length === 0) {
+                        if (noSubtitlesHintTimerRef.current) {
+                          clearTimeout(noSubtitlesHintTimerRef.current);
                         }
-                        setSubtitlesMenuOpen((open) => !open);
-                      }}
-                      className={`flex items-center justify-center transition-colors ${
-                        isMobile ? 'w-9 h-9' : 'w-9 h-9'
-                      } ${subtitlesOn ? 'text-[#e5193e]' : 'text-white/70 hover:text-[#e5193e]'}`}
-                      aria-label={subtitlesOn ? 'Altyazıları kapat' : 'Altyazıları aç'}
-                      aria-expanded={subtitleOptions.length > 1 ? subtitlesMenuOpen : undefined}
+                        setNoSubtitlesHint(true);
+                        noSubtitlesHintTimerRef.current = setTimeout(() => {
+                          setNoSubtitlesHint(false);
+                          noSubtitlesHintTimerRef.current = null;
+                        }, 2800);
+                        return;
+                      }
+                      if (subtitleOptions.length === 1) {
+                        if (subtitlesOn && activeSubtitleIndex === 0) {
+                          applySubtitleSelection(false, -1);
+                        } else {
+                          applySubtitleSelection(true, 0);
+                        }
+                        return;
+                      }
+                      setSubtitlesMenuOpen((open) => !open);
+                    }}
+                    title={
+                      subtitleOptions.length === 0
+                        ? 'Bu bölüm için altyazı parçası yok'
+                        : subtitlesOn
+                          ? 'Altyazıları kapat'
+                          : 'Altyazıları aç'
+                    }
+                    className={`flex items-center justify-center transition-colors ${
+                      isMobile ? 'w-9 h-9' : 'w-9 h-9'
+                    } ${
+                      subtitleOptions.length === 0
+                        ? 'cursor-default text-white/35'
+                        : subtitlesOn
+                          ? 'text-[#e5193e]'
+                          : 'text-white/70 hover:text-[#e5193e]'
+                    }`}
+                    aria-label={
+                      subtitleOptions.length === 0
+                        ? 'Altyazı yok'
+                        : subtitlesOn
+                          ? 'Altyazıları kapat'
+                          : 'Altyazıları aç'
+                    }
+                    aria-expanded={subtitleOptions.length > 1 ? subtitlesMenuOpen : undefined}
+                  >
+                    <Captions size={20} strokeWidth={2.5} />
+                  </button>
+                  {noSubtitlesHint && subtitleOptions.length === 0 && (
+                    <div
+                      className={`pointer-events-none absolute bottom-full right-0 z-50 mb-2 whitespace-nowrap rounded-md border border-white/15 bg-black/95 px-2.5 py-1.5 text-[11px] font-semibold text-white/90 shadow-lg ${
+                        isMobile ? 'max-w-[min(90vw,260px)] whitespace-normal text-center' : ''
+                      }`}
+                      role="status"
                     >
-                      <Captions size={20} strokeWidth={2.5} />
-                    </button>
-                    {subtitlesMenuOpen && subtitleOptions.length > 1 && (
+                      Bu bölüm için altyazı yok.
+                    </div>
+                  )}
+                  {subtitlesMenuOpen && subtitleOptions.length > 1 && (
                       <div
                         className={`absolute bottom-full right-0 z-50 mb-2 min-w-[200px] rounded-lg border border-white/15 bg-black/95 py-1 shadow-xl backdrop-blur-md ${
                           isMobile ? 'max-w-[85vw]' : ''
@@ -1988,8 +2034,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                         ))}
                       </div>
                     )}
-                  </div>
-                )}
+                </div>
 
                 {/* Fullscreen */}
                 <button
