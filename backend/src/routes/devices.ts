@@ -13,7 +13,11 @@ type Platform = 'desktop' | 'mobile';
 const DEVICE_SESSION_JWT_SECRET = process.env.DEVICE_SESSION_JWT_SECRET;
 
 if (!DEVICE_SESSION_JWT_SECRET) {
-  console.warn('[devices] DEVICE_SESSION_JWT_SECRET is not set. sessionToken will not be issued.');
+  console.warn(
+    '[devices] DEVICE_SESSION_JWT_SECRET is not set. sessionToken will not be issued. ' +
+      'Set a long random secret: backend/.env (see .env.example) or Railway Variables. ' +
+      'Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+  );
 }
 
 function signDeviceSessionToken(userId: string, desktopDeviceId: string): string | null {
