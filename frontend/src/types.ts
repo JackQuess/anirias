@@ -49,6 +49,13 @@ export interface Season {
   created_at: string;
 }
 
+/** External WebVTT subtitles for the in-app player (not embed). */
+export interface EpisodeSubtitleTrack {
+  url: string;
+  label: string;
+  lang?: string;
+}
+
 export interface Episode {
   id: string;
   anime_id: string;
@@ -58,6 +65,8 @@ export interface Episode {
   title: string;
   duration_seconds: number;
   duration?: number | null;
+  /** Optional WebVTT tracks; requires CORS on the VTT host when cross-origin. */
+  subtitle_tracks?: EpisodeSubtitleTrack[] | null;
   video_url?: string | null;
   stream_id?: string | null;
   hls_url?: string | null;

@@ -1,13 +1,21 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Hls from 'hls.js';
-import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2, SkipForward } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2, SkipForward, Captions } from 'lucide-react';
+
+export interface VideoPlayerSubtitleFile {
+  src: string;
+  label: string;
+  srclang?: string;
+}
 
 interface VideoPlayerProps {
   src: string;
   poster?: string;
   title: string;
   animeSlug?: string;
+  /** Harici WebVTT parçaları (HLS manifest altyazılarına ek olarak veya tek başına). */
+  subtitleFiles?: VideoPlayerSubtitleFile[];
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
@@ -50,6 +58,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onNextEpisode,
   onPlayerReady,
   externalPause = false,
+  subtitleFiles,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,6 +102,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const lastTapRef = useRef<number>(0); // Track last tap time for double tap detection
   const originalMutedStateRef = useRef<boolean | null>(null); // Store original muted state before pause
 
+  const subtitleMenuRef = useRef<HTMLDivElement>(null);
+  const syncSubtitleTracksFromMediaRef = useRef<() => void>(() => {});
+  const subtitlePrefAppliedForSrcRef = useRef<string | null>(null);
+  const [subtitleOptions, setSubtitleOptions] = useState<{ index: number; label: string }[]>([]);
+  const [subtitlesOn, setSubtitlesOn] = useState(false);
+  const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(-1);
+  const [subtitlesMenuOpen, setSubtitlesMenuOpen] = useState(false);
+
   // Detect mobile
   useEffect(() => {
     const checkMobile = () => {
@@ -106,6 +123,103 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     bootStateRef.current = bootState;
   }, [bootState]);
+
+  const applySubtitleSelection = useCallback((enabled: boolean, index: number) => {
+    const video = videoRef.current;
+    const hls = hlsRef.current;
+    if (hls?.subtitleTracks?.length) {
+      hls.subtitleTrack = enabled && index >= 0 ? index : -1;
+    } else if (video) {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        video.textTracks[i].mode = enabled && i === index ? 'showing' : 'disabled';
+      }
+    }
+    setSubtitlesOn(enabled && index >= 0);
+    setActiveSubtitleIndex(enabled ? index : -1);
+    try {
+      localStorage.setItem(
+        'anirias-player-subtitles',
+        JSON.stringify({ enabled: enabled && index >= 0, index: enabled ? index : -1 })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const syncSubtitleTracksFromMedia = useCallback(() => {
+    const video = videoRef.current;
+    const hls = hlsRef.current;
+    if (hls?.subtitleTracks?.length) {
+      setSubtitleOptions(
+        hls.subtitleTracks.map((t: { name?: string; lang?: string }, i: number) => ({
+          index: i,
+          label: t.name || t.lang || `Altyazı ${i + 1}`,
+        }))
+      );
+      return;
+    }
+    if (video && video.textTracks.length > 0) {
+      setSubtitleOptions(
+        Array.from(video.textTracks).map((t, i) => ({
+          index: i,
+          label: t.label?.trim() || `Altyazı ${i + 1}`,
+        }))
+      );
+      return;
+    }
+    setSubtitleOptions([]);
+  }, []);
+
+  useEffect(() => {
+    syncSubtitleTracksFromMediaRef.current = syncSubtitleTracksFromMedia;
+  }, [syncSubtitleTracksFromMedia]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onAdd = () => syncSubtitleTracksFromMediaRef.current();
+    video.textTracks.addEventListener('addtrack', onAdd);
+    return () => video.textTracks.removeEventListener('addtrack', onAdd);
+  }, [src]);
+
+  useEffect(() => {
+    if (bootState !== 'READY' && bootState !== 'PLAYING') return;
+    const raf = requestAnimationFrame(() => syncSubtitleTracksFromMediaRef.current());
+    const t1 = setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 400);
+    const t2 = setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 1200);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [bootState, src]);
+
+  useEffect(() => {
+    if (!subtitlesMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (subtitleMenuRef.current && !subtitleMenuRef.current.contains(e.target as Node)) {
+        setSubtitlesMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [subtitlesMenuOpen]);
+
+  useEffect(() => {
+    if (subtitleOptions.length === 0) return;
+    if (subtitlePrefAppliedForSrcRef.current === src) return;
+    subtitlePrefAppliedForSrcRef.current = src;
+    try {
+      const raw = localStorage.getItem('anirias-player-subtitles');
+      if (!raw) return;
+      const pref = JSON.parse(raw) as { enabled?: boolean; index?: number };
+      if (pref.enabled && typeof pref.index === 'number' && pref.index >= 0 && pref.index < subtitleOptions.length) {
+        applySubtitleSelection(true, pref.index);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [src, subtitleOptions, applySubtitleSelection]);
 
   // Store callbacks in refs to avoid re-creating handlers
   const onTimeUpdateRef = useRef(onTimeUpdate);
@@ -556,6 +670,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       resumeCardTriggeredRef.current = false;
       setShowNextEpisodeOverlay(false);
       setIntroSkipped(false);
+      setSubtitlesMenuOpen(false);
+      setSubtitlesOn(false);
+      setActiveSubtitleIndex(-1);
+      setSubtitleOptions([]);
+      subtitlePrefAppliedForSrcRef.current = null;
       if (nextEpisodeCountdownRef.current) {
         clearInterval(nextEpisodeCountdownRef.current);
         nextEpisodeCountdownRef.current = null;
@@ -614,6 +733,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
               handleLoadedMetadata();
               handleLoadedData();
+              setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 0);
+              setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 500);
             });
             hlsRef.current.loadSource(src);
           } else {
@@ -632,6 +753,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               handleLoadedMetadata();
               // CRITICAL: Also trigger loadedData handler for HLS
               handleLoadedData();
+              setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 0);
+              setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 500);
             });
             hls.loadSource(src);
             hls.attachMedia(video);
@@ -659,6 +782,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             handleLoadedMetadata();
             // CRITICAL: Also trigger loadedData handler for HLS
             handleLoadedData();
+            setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 0);
+            setTimeout(() => syncSubtitleTracksFromMediaRef.current(), 500);
           });
           hls.loadSource(src);
           hls.attachMedia(video);
@@ -1417,7 +1542,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           controlsList="nodownload nofullscreen noremoteplayback"
           onClick={handleVideoClick}
           onTouchStart={handleVideoTouch}
-        />
+        >
+          {subtitleFiles?.map((t, i) => (
+            <track
+              key={`${t.src}-${i}`}
+              kind="subtitles"
+              src={t.src}
+              label={t.label}
+              srcLang={t.srclang || ''}
+            />
+          ))}
+        </video>
       )}
 
       {/* Resume Watching Card */}
@@ -1576,6 +1711,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Subtitles on indicator (in-player, embed dışı) */}
+      {subtitlesOn && isMetadataLoaded && (
+        <div
+          className={`absolute z-20 pointer-events-none rounded-md bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/90 shadow-lg ${
+            isMobile ? 'bottom-[4.5rem] right-3' : 'bottom-24 right-6'
+          }`}
+        >
+          Altyazılar Açık
         </div>
       )}
 
@@ -1776,6 +1922,73 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   >
                     <SkipForward size={20} strokeWidth={2.5} />
                   </button>
+                )}
+
+                {/* Subtitles (CC) — manifest veya harici VTT */}
+                {subtitleOptions.length > 0 && (
+                  <div className="relative flex items-center" ref={subtitleMenuRef}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        showControlsTemporary();
+                        if (subtitleOptions.length === 1) {
+                          if (subtitlesOn && activeSubtitleIndex === 0) {
+                            applySubtitleSelection(false, -1);
+                          } else {
+                            applySubtitleSelection(true, 0);
+                          }
+                          return;
+                        }
+                        setSubtitlesMenuOpen((open) => !open);
+                      }}
+                      className={`flex items-center justify-center transition-colors ${
+                        isMobile ? 'w-9 h-9' : 'w-9 h-9'
+                      } ${subtitlesOn ? 'text-[#e5193e]' : 'text-white/70 hover:text-[#e5193e]'}`}
+                      aria-label={subtitlesOn ? 'Altyazıları kapat' : 'Altyazıları aç'}
+                      aria-expanded={subtitleOptions.length > 1 ? subtitlesMenuOpen : undefined}
+                    >
+                      <Captions size={20} strokeWidth={2.5} />
+                    </button>
+                    {subtitlesMenuOpen && subtitleOptions.length > 1 && (
+                      <div
+                        className={`absolute bottom-full right-0 z-50 mb-2 min-w-[200px] rounded-lg border border-white/15 bg-black/95 py-1 shadow-xl backdrop-blur-md ${
+                          isMobile ? 'max-w-[85vw]' : ''
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            applySubtitleSelection(false, -1);
+                            setSubtitlesMenuOpen(false);
+                          }}
+                          className={`flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-white/10 ${
+                            !subtitlesOn ? 'text-[#e5193e]' : 'text-white/90'
+                          }`}
+                        >
+                          Altyazıları Kapat
+                        </button>
+                        {subtitleOptions.map((opt) => (
+                          <button
+                            key={`${opt.index}-${opt.label}`}
+                            type="button"
+                            onClick={() => {
+                              applySubtitleSelection(true, opt.index);
+                              setSubtitlesMenuOpen(false);
+                            }}
+                            className={`flex w-full items-center px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/10 ${
+                              subtitlesOn && activeSubtitleIndex === opt.index
+                                ? 'font-semibold text-[#e5193e]'
+                                : 'text-white/85'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Fullscreen */}

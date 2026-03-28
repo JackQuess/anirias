@@ -333,6 +333,14 @@ const WatchSlug: React.FC = () => {
   const poster = proxyImage(rawPoster || fallbackPoster);
   const initialTime = savedProgress && savedProgress.progress_seconds > 0 ? savedProgress.progress_seconds : 0;
 
+  const subtitleFiles = episode.subtitle_tracks?.length
+    ? episode.subtitle_tracks.map((t) => ({
+        src: t.url,
+        label: t.label,
+        srclang: t.lang,
+      }))
+    : undefined;
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]" data-watch-page>
       {/* Mobile-First Layout */}
@@ -345,6 +353,7 @@ const WatchSlug: React.FC = () => {
               poster={poster}
               title={playerTitle}
               animeSlug={anime.slug || undefined}
+              subtitleFiles={subtitleFiles}
               onTimeUpdate={handleTimeUpdate}
               onEnded={handleEnded}
               onSeek={handleSeek}
@@ -481,6 +490,7 @@ const WatchSlug: React.FC = () => {
                   poster={poster}
                   title={playerTitle}
                   animeSlug={anime.slug || undefined}
+                  subtitleFiles={subtitleFiles}
                   onTimeUpdate={handleTimeUpdate}
                   onEnded={handleEnded}
                   onSeek={handleSeek}

@@ -65,7 +65,9 @@ router.get('/:slug/:seasonNumber/:episodeNumber', async (req: Request, res: Resp
     // 3) All episodes for this season
     const { data: episodes, error: episodesError } = await supabaseAdmin
       .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+      .select(
+        'id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, subtitle_tracks, status, error_message, short_note, air_date, updated_at, created_at'
+      )
       .eq('season_id', season.id)
       .order('episode_number', { ascending: true });
 
