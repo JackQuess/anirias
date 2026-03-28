@@ -2,6 +2,7 @@ import { rm, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { runYtDlp } from './ytDlp.js';
 import { uploadToBunny } from './bunnyUpload.js';
+import { uploadEpisodeVttSidecars } from './subtitlePipeline.js';
 import {
   supabaseAdmin,
   ensureAnimeSlug,
@@ -139,8 +140,15 @@ async function processEpisodeDownload(
     // Upload to Bunny
     await uploadToBunny(remotePath, tempFile);
 
-    // Update episode with CDN URL and set status to ready
-    await updateEpisodePath(episodeId, cdnUrl);
+    const subtitleTracks = await uploadEpisodeVttSidecars({
+      videoFilePath: tempFile,
+      slug,
+      seasonNumber,
+      episodeNumber,
+    });
+
+    // Update episode with CDN URL + optional subtitle_tracks (VTT sidecars from yt-dlp)
+    await updateEpisodePath(episodeId, cdnUrl, subtitleTracks.length ? subtitleTracks : null);
     await markEpisodeReleased({
       animeId,
       episodeNumber,

@@ -248,12 +248,22 @@ export async function ensureSeason(animeId: string, seasonNumber: number): Promi
   return inserted.id;
 }
 
+/** Pull URL must match Bunny zone + path layout used by download pipeline. */
+export const ANIRIAS_VIDEO_CDN_BASE =
+  process.env.ANIRIAS_VIDEO_CDN_BASE || 'https://anirias-videos.b-cdn.net';
+
 export function expectedCdn(slug: string, seasonNumber: number, episodeNumber: number) {
   const padded = episodeNumber.toString().padStart(2, '0');
-  return `https://anirias-videos.b-cdn.net/${slug}/season-${seasonNumber}/episode-${padded}.mp4`;
+  return `${ANIRIAS_VIDEO_CDN_BASE}/${slug}/season-${seasonNumber}/episode-${padded}.mp4`;
 }
 
-export async function updateEpisodePath(episodeId: string, cdnUrl: string) {
+export type EpisodeSubtitleTrackRow = { url: string; label: string; lang?: string };
+
+export async function updateEpisodePath(
+  episodeId: string,
+  cdnUrl: string,
+  subtitleTracks?: EpisodeSubtitleTrackRow[] | null
+) {
   // First, get episode details before updating
   const { data: episode, error: fetchError } = await supabaseAdmin
     .from('episodes')
@@ -269,6 +279,7 @@ export async function updateEpisodePath(episodeId: string, cdnUrl: string) {
     .from('episodes')
     .update({
       video_url: cdnUrl,
+      subtitle_tracks: subtitleTracks?.length ? subtitleTracks : null,
       status: 'ready',
       error_message: null,
       updated_at: new Date().toISOString(),

@@ -4,8 +4,12 @@ import { spawn } from 'node:child_process';
 
 const YTDLP_PATH = process.env.YTDLP_PATH || '/usr/local/bin/yt-dlp';
 
+/** Sidecar WebVTT for player `subtitle_tracks` (set YTDLP_WRITE_SUBS=false to skip). */
 export async function runYtDlp(pageUrl: string, outFile: string): Promise<void> {
   await mkdir(path.dirname(outFile), { recursive: true });
+
+  const writeSubs = process.env.YTDLP_WRITE_SUBS !== 'false';
+  const subLangs = process.env.YTDLP_SUB_LANGS || 'tr,en,ja';
 
   const args = [
     '-f',
@@ -20,10 +24,20 @@ export async function runYtDlp(pageUrl: string, outFile: string): Promise<void> 
     '8',
     '--no-part',
     '--no-continue',
-    '-o',
-    outFile,
-    pageUrl,
   ];
+
+  if (writeSubs) {
+    args.push(
+      '--write-subs',
+      '--write-auto-subs',
+      '--sub-langs',
+      subLangs,
+      '--convert-subs',
+      'vtt',
+    );
+  }
+
+  args.push('-o', outFile, pageUrl);
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(YTDLP_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] });
