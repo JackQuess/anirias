@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Subtitles, Share2, ChevronLeft, Plus, Check } from 'lucide-react';
+import { Subtitles, Share2, ChevronLeft, Plus, Check, ThumbsUp, Flag } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import AnimeCard from '@/components/AnimeCard';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
 import { useAuth } from '../services/auth';
@@ -8,7 +10,6 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import VideoPlayer from '../components/VideoPlayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
-import { translateGenre } from '@/utils/genreTranslations';
 import type { WatchProgress, Anime, Season, Episode, WatchlistStatus } from '../types';
 import NotFound from './NotFound';
 import { parseSeasonSlug } from '@/utils/seasonSlug';
@@ -33,8 +34,8 @@ type WatchInfoPanelProps = {
 
 const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
   anime,
-  episode,
-  seasonNum,
+  episode: _episode,
+  seasonNum: _seasonNum,
   titleString,
   synopsis,
   scorePct,
@@ -45,84 +46,85 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
   user,
 }) => {
   const detailPath = `/anime/${anime.slug || anime.id}`;
-  const epTitle = episode.title?.replace(/<[^>]*>/g, '') || '';
-  const epBlurb = episode.short_note?.replace(/<[^>]*>/g, '') || '';
+  const [isLiked, setIsLiked] = React.useState(false);
+  const [shareLabel, setShareLabel] = React.useState('Paylaş');
+
+  const handleShare = () => {
+    void onShare();
+    setShareLabel('Kopyalandı!');
+    setTimeout(() => setShareLabel('Paylaş'), 2000);
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <Link
         to={detailPath}
-        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/45 hover:text-white transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors w-fit"
       >
-        <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+        <ChevronLeft className="w-4 h-4 shrink-0" />
         Dizi sayfasına dön
       </Link>
 
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight leading-tight">{titleString}</h1>
-        <p className="text-white/50 text-xs font-semibold mt-1.5">
-          Sezon {seasonNum} · Bölüm {episode.episode_number}
-          {epTitle ? ` · ${epTitle}` : ''}
-        </p>
-      </div>
+      <h1 className="text-2xl md:text-3xl font-bold text-white">{titleString}</h1>
 
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-medium text-white/80">
-        <span className="text-emerald-400 font-bold">%{scorePct} uyum</span>
-        {anime.year ? <span className="text-white/50">{anime.year}</span> : null}
-        {anime.is_adult ? (
-          <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] text-white/60">18+</span>
-        ) : null}
-        <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] text-white/60">HD</span>
-        {hasSubtitles ? (
-          <span className="flex items-center gap-1.5 text-white/75">
-            <Subtitles className="w-4 h-4 shrink-0" />
-            Türkçe altyazı
-          </span>
-        ) : null}
-      </div>
-
-      {anime.genres?.length ? (
-        <div className="flex flex-wrap gap-2">
-          {anime.genres.slice(0, 8).map((g) => (
-            <span
-              key={g}
-              className="text-[11px] font-semibold text-white/80 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg"
-            >
-              {translateGenre(g)}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+          <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+          {anime.year ? <span>{anime.year}</span> : null}
+          {anime.is_adult ? (
+            <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs">18+</span>
+          ) : null}
+          <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs">HD</span>
+          {hasSubtitles ? (
+            <span className="flex items-center gap-1.5 text-white/60 text-xs">
+              <Subtitles className="w-4 h-4 shrink-0" />
+              TR altyazı
             </span>
-          ))}
+          ) : null}
         </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setIsLiked((v) => !v)}
+            className={cn(
+              'flex items-center gap-2 px-3 py-1.5 rounded transition-colors',
+              isLiked ? 'bg-primary/20 text-primary' : 'hover:bg-white/10 text-white'
+            )}
+          >
+            <ThumbsUp className={cn('w-5 h-5', isLiked && 'fill-current')} />
+            <span className="text-sm font-medium">{isLiked ? 'Beğenildi' : 'Beğen'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors text-white"
+          >
+            <Share2 className="w-5 h-5" />
+            <span className="text-sm font-medium">{shareLabel}</span>
+          </button>
+          <button type="button" className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors text-white">
+            <Flag className="w-5 h-5" />
+            <span className="text-sm font-medium">Bildir</span>
+          </button>
+        </div>
+      </div>
+
+      {synopsis.trim() ? (
+        <p className="text-white/80 text-sm md:text-base leading-relaxed">{synopsis}</p>
       ) : null}
 
-      {epBlurb ? (
-        <p className="text-sm text-white/65 leading-relaxed border-l-2 border-primary/60 pl-4">{epBlurb}</p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void onShare()}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-bold uppercase tracking-widest text-white/90 hover:bg-white/10 transition-colors"
-        >
-          <Share2 className="w-3.5 h-3.5" />
-          Paylaş
-        </button>
-        {user ? (
+      {user ? (
+        <div className="flex flex-wrap gap-2 pt-1">
           <button
             type="button"
             onClick={() => void onToggleList()}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-bold uppercase tracking-widest text-white/90 hover:bg-white/10 transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-white/50 hover:text-white border border-white/10 rounded-lg px-3 py-2"
           >
             {inList ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             {inList ? 'Listemde' : 'Listeme ekle'}
           </button>
-        ) : null}
-      </div>
-
-      {synopsis.trim() ? (
-        <p className="text-sm text-white/55 leading-relaxed whitespace-pre-line border-t border-white/[0.06] pt-4">
-          {synopsis}
-        </p>
+        </div>
       ) : null}
     </div>
   );
@@ -206,6 +208,15 @@ const WatchSlug: React.FC = () => {
   const seasons = watchData?.seasons ?? [];
   const episodes = watchData?.episodes ?? [];
   const episode = watchData?.episode ?? null;
+
+  const [activeTab, setActiveTab] = useState<'episodes' | 'comments'>('episodes');
+  const { data: recSource } = useLoad(() => db.getAllAnimes('view_count', 24), []);
+  const recommendations = useMemo(() => {
+    if (!recSource?.length) return [];
+    const aid = anime?.id;
+    if (!aid) return recSource.slice(0, 4);
+    return recSource.filter((a) => a.id !== aid).slice(0, 4);
+  }, [recSource, anime?.id]);
 
   const { data: progressList } = useLoad(
     () => {
@@ -482,7 +493,7 @@ const WatchSlug: React.FC = () => {
 
   if (watchLoading || !anime || !season || !episode) {
     return (
-      <div className="min-h-screen bg-black font-inter pt-20">
+      <div className="min-h-screen bg-[#08080c] font-inter pt-20">
         <LoadingSkeleton type="banner" />
       </div>
     );
@@ -493,7 +504,8 @@ const WatchSlug: React.FC = () => {
   const shouldRenderPlayer = playbackUrl !== null && playbackUrl.trim() !== '';
 
   const titleString = getDisplayTitle(anime.title);
-  const playerTitle = `${titleString} • Sezon ${seasonNum} • Bölüm ${episode.episode_number}`;
+  const episodeLineForPlayer =
+    episode.title?.replace(/<[^>]*>/g, '') || `Bölüm ${episode.episode_number}`;
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
@@ -517,43 +529,48 @@ const WatchSlug: React.FC = () => {
     </div>
   );
 
-  return (
-    <div className="min-h-screen bg-black text-white font-inter antialiased" data-watch-page>
-      {/* Mobil: tam genişlik oyuncu + içerik */}
-      <div className="lg:hidden">
-        {/* Mobile Player - Full Width */}
-        <div className="w-full bg-black">
-          {shouldRenderPlayer ? (
-            <VideoPlayer
-              src={playbackUrl}
-              poster={poster}
-              title={playerTitle}
-              animeSlug={anime.slug || undefined}
-              subtitleFiles={subtitleFiles}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleEnded}
-              onSeek={handleSeek}
-              initialTime={initialTime}
-              introStart={episode.intro_start || undefined}
-              introEnd={episode.intro_end || undefined}
-              onSkipIntro={() => {}}
-              hasNextEpisode={!!nextEpisode}
-              onNextEpisode={() => {
-                if (nextEpisode) {
-                  navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
-                }
-              }}
-              onPlayerReady={handlePlayerReady}
-              externalPause={showMobileEpisodeSheet}
-            />
-          ) : (
-            <div className="w-full aspect-video bg-black flex items-center justify-center">
-              <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
-            </div>
-          )}
-        </div>
+  const watchSlug = anime.slug || anime.id;
 
-        <div className="px-4 py-8 bg-black border-t border-white/[0.06]">
+  return (
+    <div
+      className="w-full min-h-screen bg-[#08080c] text-white flex flex-col font-inter antialiased pt-16 md:pt-20"
+      data-watch-page
+    >
+      <div className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-4 md:px-8 gap-6 pb-24">
+        <div className="flex-1 flex flex-col gap-6 min-w-0">
+          <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl">
+            {shouldRenderPlayer ? (
+              <VideoPlayer
+                src={playbackUrl}
+                poster={poster}
+                title={titleString}
+                episodeLine={episodeLineForPlayer}
+                animeSlug={anime.slug || undefined}
+                onBack={() => navigate(-1)}
+                subtitleFiles={subtitleFiles}
+                onTimeUpdate={handleTimeUpdate}
+                onEnded={handleEnded}
+                onSeek={handleSeek}
+                initialTime={initialTime}
+                introStart={episode.intro_start || undefined}
+                introEnd={episode.intro_end || undefined}
+                onSkipIntro={() => {}}
+                hasNextEpisode={!!nextEpisode}
+                onNextEpisode={() => {
+                  if (nextEpisode) {
+                    navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
+                  }
+                }}
+                onPlayerReady={handlePlayerReady}
+                externalPause={showMobileEpisodeSheet}
+              />
+            ) : (
+              <div className="w-full h-full min-h-[12rem] flex items-center justify-center">
+                <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
+              </div>
+            )}
+          </div>
+
           <WatchInfoPanel
             anime={anime}
             episode={episode}
@@ -567,104 +584,90 @@ const WatchSlug: React.FC = () => {
             hasSubtitles={hasSubtitles}
             user={user}
           />
-        </div>
 
-        <div className="px-4 pb-6">
-          <Suspense fallback={commentsFallback}>
-            <Comments animeId={anime.id} episodeId={episode.id} />
-          </Suspense>
-        </div>
-
-        {/* Mobile Episode List - Bottom Sheet */}
-        <div className="fixed bottom-4 left-0 right-0 z-[120] px-4">
-          <div className="flex justify-end">
+          <div className="lg:hidden flex border-b border-white/10">
             <button
               type="button"
-              onClick={() => setShowMobileEpisodeSheet(true)}
-              className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/35 hover:opacity-95 transition-opacity"
+              onClick={() => setActiveTab('episodes')}
+              className={cn(
+                'flex-1 py-3 text-sm font-bold border-b-2 transition-colors',
+                activeTab === 'episodes' ? 'border-primary text-white' : 'border-transparent text-white/50'
+              )}
             >
-              Bölüm listesi
+              BÖLÜMLER
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('comments')}
+              className={cn(
+                'flex-1 py-3 text-sm font-bold border-b-2 transition-colors',
+                activeTab === 'comments' ? 'border-primary text-white' : 'border-transparent text-white/50'
+              )}
+            >
+              YORUMLAR
             </button>
           </div>
-        </div>
 
-        <WatchMobileEpisodeSheet
-          open={showMobileEpisodeSheet}
-          onClose={() => setShowMobileEpisodeSheet(false)}
-          episodes={episodes}
-          currentEpisodeNumber={episodeNum}
-          progressMap={progressMap}
-          blockWithoutVideo
-          onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
-        />
-      </div>
+          <div className={cn(activeTab === 'comments' ? 'block' : 'hidden lg:block')}>
+            <Suspense fallback={commentsFallback}>
+              <Comments animeId={anime.id} episodeId={episode.id} />
+            </Suspense>
+          </div>
 
-      {/* Masaüstü: zip (2) — iki kolon, lg breakpoint */}
-      <div className="hidden lg:block relative" data-watch-desktop>
-        <div className="mx-auto max-w-[1800px] px-4 md:px-8 pt-20 md:pt-24 pb-16 relative z-10">
-          <div className="flex flex-col lg:flex-row gap-6 items-start min-w-0">
-            <div className="flex-1 flex flex-col gap-5 w-full min-w-0 overflow-hidden relative z-10 watch-player-area">
-              {shouldRenderPlayer ? (
-                <VideoPlayer
-                  src={playbackUrl}
-                  poster={poster}
-                  title={playerTitle}
-                  animeSlug={anime.slug || undefined}
-                  subtitleFiles={subtitleFiles}
-                  onTimeUpdate={handleTimeUpdate}
-                  onEnded={handleEnded}
-                  onSeek={handleSeek}
-                  initialTime={initialTime}
-                  introStart={episode.intro_start || undefined}
-                  introEnd={episode.intro_end || undefined}
-                  onSkipIntro={() => {}}
-                  hasNextEpisode={!!nextEpisode}
-                  onNextEpisode={() => {
-                    if (nextEpisode) {
-                      navigateToEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
-                    }
-                  }}
-                  onPlayerReady={handlePlayerReady}
-                />
-              ) : (
-                <div className="w-full aspect-video bg-black flex items-center justify-center rounded-xl border border-white/[0.08]">
-                  <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
-                </div>
-              )}
-
-              <div className="pt-1">
-                <WatchInfoPanel
-                  anime={anime}
-                  episode={episode}
-                  seasonNum={seasonNum}
-                  titleString={titleString}
-                  synopsis={synopsis}
-                  scorePct={scorePct}
-                  inList={listStatus !== 'none'}
-                  onToggleList={toggleWatchlist}
-                  onShare={shareWatch}
-                  hasSubtitles={hasSubtitles}
-                  user={user}
-                />
-              </div>
-
-              <div>
-                <Suspense fallback={commentsFallback}>
-                  <Comments animeId={anime.id} episodeId={episode.id} />
-                </Suspense>
+          {recommendations.length > 0 ? (
+            <div className="mt-6 mb-8 lg:mt-10">
+              <h3 className="text-xl font-bold mb-4">Önerilen İçerikler</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {recommendations.map((item) => (
+                  <AnimeCard key={item.id} anime={item} layout="poster" />
+                ))}
               </div>
             </div>
+          ) : null}
+        </div>
 
-            <WatchSidebar
-              episodes={episodes}
-              currentEpisodeNumber={episodeNum}
-              progressMap={progressMap}
-              blockWithoutVideo
-              onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
-            />
-          </div>
+        <div
+          className={cn(
+            'w-full lg:w-96 shrink-0 flex flex-col',
+            activeTab === 'episodes' ? 'flex' : 'hidden lg:flex'
+          )}
+          data-watch-episode-column
+        >
+          <WatchSidebar
+            episodes={episodes}
+            animeSlug={watchSlug}
+            seasonNum={seasonNum!}
+            currentEpisodeNumber={episodeNum}
+            posterFallback={poster}
+            progressMap={progressMap}
+            blockWithoutVideo
+            onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
+          />
         </div>
       </div>
+
+      <div className="lg:hidden fixed bottom-4 left-0 right-0 z-[120] flex justify-end px-4 pointer-events-none">
+        <button
+          type="button"
+          onClick={() => setShowMobileEpisodeSheet(true)}
+          className="pointer-events-auto bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/35 hover:opacity-95 transition-opacity"
+        >
+          Bölüm listesi
+        </button>
+      </div>
+
+      <WatchMobileEpisodeSheet
+        open={showMobileEpisodeSheet}
+        onClose={() => setShowMobileEpisodeSheet(false)}
+        episodes={episodes}
+        animeSlug={watchSlug}
+        seasonNum={seasonNum!}
+        currentEpisodeNumber={episodeNum}
+        posterFallback={poster}
+        progressMap={progressMap}
+        blockWithoutVideo
+        onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
+      />
     </div>
   );
 };

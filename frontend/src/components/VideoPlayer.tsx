@@ -1,7 +1,20 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Hls from 'hls.js';
-import { Play, Pause, Rewind, FastForward, Volume2, VolumeX, Maximize, Minimize2, SkipForward, Captions } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  Rewind,
+  FastForward,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize2,
+  SkipForward,
+  Captions,
+  ArrowLeft,
+  Settings,
+} from 'lucide-react';
 
 export interface VideoPlayerSubtitleFile {
   src: string;
@@ -28,6 +41,10 @@ interface VideoPlayerProps {
   onNextEpisode?: () => void;
   onPlayerReady?: () => void; // NEW: Called when video is ready to play
   externalPause?: boolean; // NEW: External pause control (e.g., when bottom sheet opens)
+  /** İkinci satır (zip üst bar: bölüm başlığı) */
+  episodeLine?: string;
+  /** Geri — zip stil yuvarlak buton */
+  onBack?: () => void;
 }
 
 type PlayerBootState = 'IDLE' | 'LOADING' | 'READY' | 'PLAYING';
@@ -59,6 +76,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onPlayerReady,
   externalPause = false,
   subtitleFiles,
+  episodeLine,
+  onBack,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +122,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const originalMutedStateRef = useRef<boolean | null>(null); // Store original muted state before pause
 
   const subtitleMenuRef = useRef<HTMLDivElement>(null);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const syncSubtitleTracksFromMediaRef = useRef<() => void>(() => {});
   const subtitlePrefAppliedForSrcRef = useRef<string | null>(null);
   const [subtitleOptions, setSubtitleOptions] = useState<{ index: number; label: string }[]>([]);
@@ -201,6 +222,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       clearTimeout(t3);
     };
   }, [bootState, src]);
+
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+    const onDoc = (e: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showSettingsMenu]);
 
   useEffect(() => {
     if (!subtitlesMenuOpen) return;
@@ -1433,7 +1465,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           : `relative w-full shadow-2xl ${
               isMobile 
                 ? 'rounded-none' 
-                : 'max-w-none mx-0 rounded-xl border border-white/[0.08] ring-1 ring-white/[0.04] aspect-video'
+                : 'max-w-none mx-0 rounded-lg border border-white/10 shadow-2xl aspect-video'
             }`
       }`}
       style={{
@@ -1615,32 +1647,51 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Top Overlay - Title */}
+      {/* Üst bar — zip (2) / prod: gradient, geri, başlık, alt satır */}
       <div
-        className={`absolute top-0 left-0 right-0 z-30 transition-opacity duration-300 pointer-events-none ${
+        className={`absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/80 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${
           showControls || !hasInteracted ? 'opacity-100' : 'opacity-0'
         }`}
+      />
+      <div
+        className={`absolute top-0 left-0 right-0 z-30 p-4 transition-all duration-300 ${
+          showControls || !hasInteracted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
+        }`}
       >
-        <div className={`absolute ${isMobile ? 'top-3 left-3' : 'top-5 left-5 md:top-6 md:left-6'}`}>
-          {animeSlug ? (
-            <Link
-              to={`/anime/${animeSlug}`}
-              className="group cursor-pointer pointer-events-auto"
-              onClick={(e) => e.stopPropagation()}
+        <div className="flex items-center gap-4 pointer-events-auto min-w-0">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onBack();
+              }}
+              className="w-10 h-10 shrink-0 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center hover:bg-white/20 transition-colors text-white"
+              aria-label="Geri"
             >
-              <h2 className={`text-white font-bold tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] group-hover:text-primary transition-colors ${
-                isMobile ? 'text-sm' : 'text-base md:text-lg leading-snug max-w-[85vw] md:max-w-xl'
-              }`}>
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+          ) : null}
+          <div className={`flex flex-col min-w-0 ${isMobile ? 'max-w-[calc(100vw-5rem)]' : 'max-w-xl'}`}>
+            {animeSlug ? (
+              <Link
+                to={`/anime/${animeSlug}`}
+                className="text-left group w-fit max-w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="text-base md:text-lg font-bold text-white tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] group-hover:text-primary transition-colors line-clamp-1">
+                  {title}
+                </h2>
+              </Link>
+            ) : (
+              <h2 className="text-base md:text-lg font-bold text-white tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] line-clamp-1">
                 {title}
               </h2>
-            </Link>
-          ) : (
-            <h2 className={`text-white font-bold tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] ${
-              isMobile ? 'text-sm' : 'text-base md:text-lg leading-snug max-w-[85vw] md:max-w-xl'
-            }`}>
-              {title}
-            </h2>
-          )}
+            )}
+            {episodeLine ? (
+              <span className="text-sm text-white/70 font-medium line-clamp-1 mt-0.5">{episodeLine}</span>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -1753,11 +1804,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
-          <div className={`${isMobile ? 'px-3 pb-3' : 'px-4 md:px-6 pb-4 md:pb-6'} space-y-3`}>
-            {/* Seek Bar */}
+          <div className={`${isMobile ? 'px-3 pb-3' : 'px-4 pb-4'} space-y-0`}>
+            {/* Seek Bar — zip: ince çizgi, beyaz/30 */}
             <div
               ref={seekBarRef}
-              className="relative h-1.5 bg-white/20 rounded-full cursor-pointer group"
+              className="relative h-1 bg-white/30 rounded-full cursor-pointer group mb-4 hover:h-1.5 transition-all"
               onClick={handleSeek}
               onMouseDown={() => setIsDragging(true)}
               onMouseUp={() => setIsDragging(false)}
@@ -1809,15 +1860,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 {/* Play/Pause */}
                 <button
                   onClick={togglePlay}
-                  className={`flex items-center justify-center text-white hover:text-white/90 transition-colors ${
-                    isMobile ? 'w-10 h-10' : 'w-10 h-10'
-                  }`}
+                  className="flex items-center justify-center text-white hover:scale-110 transition-transform w-10 h-10"
                   aria-label={isPlaying ? 'Duraklat' : 'Oynat'}
                 >
                   {isPlaying ? (
-                    <Pause size={22} strokeWidth={2.5} />
+                    <Pause size={28} strokeWidth={2} className="fill-current" />
                   ) : (
-                    <Play size={22} strokeWidth={2.5} className="ml-0.5" />
+                    <Play size={28} strokeWidth={2} className="ml-0.5 fill-current" />
                   )}
                 </button>
 
@@ -2050,10 +2099,46 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     )}
                 </div>
 
+                <div className="relative flex items-center" ref={settingsMenuRef}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSettingsMenu((o) => !o);
+                      showControlsTemporary();
+                    }}
+                    className={`flex items-center justify-center w-9 h-9 transition-colors ${
+                      showSettingsMenu ? 'text-primary' : 'text-white hover:text-white/70'
+                    }`}
+                    aria-label="Ayarlar"
+                  >
+                    <Settings className="w-6 h-6" strokeWidth={2} />
+                  </button>
+                  {showSettingsMenu && (
+                    <div
+                      className="absolute bottom-full right-0 mb-4 w-48 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden z-50 text-sm text-white"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="p-3 border-b border-white/10 hover:bg-white/10 flex justify-between transition-colors">
+                        <span>Kalite</span>
+                        <span className="text-white/50">Otomatik</span>
+                      </div>
+                      <div className="p-3 border-b border-white/10 hover:bg-white/10 flex justify-between transition-colors">
+                        <span>Hız</span>
+                        <span className="text-white/50">Normal</span>
+                      </div>
+                      <div className="p-3 hover:bg-white/10 flex justify-between transition-colors">
+                        <span>Ses</span>
+                        <span className="text-white/50">Orijinal</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Fullscreen */}
                 <button
                   onClick={toggleFullscreen}
-                  className={`flex items-center justify-center text-white/70 hover:text-primary transition-colors ${
+                  className={`flex items-center justify-center text-white hover:text-white/70 transition-colors ${
                     isMobile ? 'w-9 h-9' : 'w-9 h-9'
                   }`}
                   aria-label="Tam ekran"
