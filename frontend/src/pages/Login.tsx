@@ -191,7 +191,7 @@ const Login: React.FC = () => {
   // if (showEmailVerification && verificationEmail) { ... }
 
   return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative Blur Backgrounds */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-[120px] pointer-events-none" />
@@ -204,7 +204,7 @@ const Login: React.FC = () => {
           <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4">Premium Streaming Experience</p>
         </div>
 
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-10 md:p-12 rounded-[2.5rem] shadow-2xl">
+        <div className="glass-panel border border-white/10 p-10 md:p-12 rounded-[2.5rem] shadow-2xl">
           {configMissing && (
             <div className="mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200">
               <p className="font-black text-xs uppercase tracking-widest mb-1">Fetch / Bağlantı çalışmıyor</p>
@@ -308,8 +308,8 @@ const Login: React.FC = () => {
       {/* Forgot Password Modal */}
       {showForgot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-           <div className="absolute inset-0 bg-brand-black/95 backdrop-blur-xl animate-fade-in" onClick={() => setShowForgot(false)} />
-           <div className="relative w-full max-w-md bg-brand-surface border border-brand-border p-10 rounded-[2.5rem] shadow-2xl animate-fade-in-up">
+           <div className="absolute inset-0 bg-app-bg/95 backdrop-blur-xl animate-fade-in" onClick={() => setShowForgot(false)} />
+           <div className="relative w-full max-w-md glass-panel border border-white/10 p-10 rounded-[2.5rem] shadow-2xl animate-fade-in-up">
               <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-4">Şifremi <span className="text-brand-red">Unuttum</span></h3>
               <p className="text-gray-400 text-xs mb-8">Kayıtlı e-posta adresini gir, sana sıfırlama bağlantısı gönderelim.</p>
               

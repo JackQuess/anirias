@@ -11,9 +11,13 @@ interface AnimeCardProps {
   episode?: Episode;
   rank?: number;
   featured?: boolean;
+  /** landscape = 16:9 (continue-watching style from cinematic home rails) */
+  layout?: 'poster' | 'landscape';
+  /** 0–100: show watch progress bar (continue watching) */
+  progressPercent?: number;
 }
 
-const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured }) => {
+const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured, layout = 'poster', progressPercent }) => {
   const title = getDisplayTitle(anime.title);
   const cover = anime.cover_image || '';
   const coverSrc = proxyImage(cover);
@@ -43,7 +47,11 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
       )}
 
       {/* Main Card Container */}
-      <div className={`relative w-full rounded-2xl md:rounded-[2rem] overflow-hidden border border-white/5 transition-all duration-500 lg:group-hover:border-brand-red lg:group-hover:shadow-[0_0_30px_rgba(229,9,20,0.3)] bg-brand-surface z-10 ${episode ? 'aspect-[4/5]' : 'aspect-[2/3]'}`}>
+      <div
+        className={`relative w-full rounded-2xl md:rounded-[2rem] overflow-hidden border border-white/5 transition-all duration-500 lg:group-hover:border-brand-red lg:group-hover:shadow-[0_0_30px_rgba(229,9,20,0.3)] bg-brand-surface z-10 ${
+          layout === 'landscape' ? 'aspect-video' : episode ? 'aspect-[4/5]' : 'aspect-[2/3]'
+        }`}
+      >
         
         {/* Image */}
         <img 
@@ -59,7 +67,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
         />
         
         {/* Dark Gradient Overlay - Always visible on mobile to show text */}
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-black/90 via-brand-black/20 to-transparent opacity-100 lg:opacity-60 lg:group-hover:opacity-90 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-app-bg/92 via-app-bg/25 to-transparent opacity-100 lg:opacity-60 lg:group-hover:opacity-90 transition-opacity duration-300" />
         
         {/* Play Icon Overlay (Desktop Hover Only) */}
         <div className="absolute inset-0 hidden lg:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-50 group-hover:scale-100">
@@ -89,7 +97,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
         </div>
 
         {/* Rating Badge */}
-        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-brand-black/60 backdrop-blur-md text-brand-red text-[9px] md:text-[10px] font-black px-2 py-1 rounded-lg border border-white/10 flex items-center gap-1 lg:group-hover:bg-brand-red lg:group-hover:text-white transition-colors">
+        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-app-bg/65 backdrop-blur-md text-brand-red text-[9px] md:text-[10px] font-black px-2 py-1 rounded-lg border border-white/10 flex items-center gap-1 lg:group-hover:bg-brand-red lg:group-hover:text-white transition-colors">
           <span>★</span> {anime.score}
         </div>
 
@@ -118,6 +126,14 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured })
             <span className="text-[9px] md:text-[10px] text-gray-300 font-bold">{episode ? '24dk' : 'TV Serisi'}</span>
           </div>
         </div>
+        {typeof progressPercent === 'number' && progressPercent >= 0 ? (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/15">
+            <div
+              className="h-full bg-brand-red shadow-[0_0_10px_#E50914] transition-[width] duration-300"
+              style={{ width: `${Math.min(100, progressPercent)}%` }}
+            />
+          </div>
+        ) : null}
       </div>
     </Link>
   );

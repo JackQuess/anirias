@@ -78,7 +78,7 @@ const UpdatePassword: React.FC = () => {
 
   if (step === 'loading') {
     return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center">
+      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-brand-red/20 border-t-brand-red rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white font-black text-sm uppercase tracking-widest">Yükleniyor...</p>
@@ -89,7 +89,7 @@ const UpdatePassword: React.FC = () => {
 
   if (step === 'error') {
     return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center p-6">
+      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white/[0.03] border border-white/10 rounded-2xl p-8 text-center">
           <p className="text-brand-red font-bold mb-6">{error}</p>
           <button
@@ -106,7 +106,7 @@ const UpdatePassword: React.FC = () => {
 
   if (step === 'done') {
     return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center p-6">
+      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white/[0.03] border border-white/10 rounded-2xl p-8 text-center">
           <p className="text-white font-bold mb-2">Şifreniz güncellendi.</p>
           <p className="text-gray-500 text-sm">Ana sayfaya yönlendiriliyorsunuz...</p>
@@ -116,7 +116,7 @@ const UpdatePassword: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center p-6">
+    <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter text-center mb-8">
           Yeni <span className="text-brand-red">Şifre</span>

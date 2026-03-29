@@ -293,7 +293,7 @@ const WatchSlug: React.FC = () => {
 
   if (watchError && !watchLoading) {
     return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center px-6">
+      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center px-6">
         <div className="max-w-xl w-full rounded-3xl border border-white/10 bg-brand-surface/80 p-8 text-center">
           <p className="text-brand-red text-[10px] font-black uppercase tracking-[0.25em] mb-3">Izleme Verisi Alinamadi</p>
           <h2 className="text-white text-2xl font-black uppercase tracking-tight mb-3">Sayfa su an yuklenemiyor</h2>
@@ -316,7 +316,7 @@ const WatchSlug: React.FC = () => {
 
   if (watchLoading || !anime || !season || !episode) {
     return (
-      <div className="min-h-screen bg-brand-black pt-20">
+      <div className="min-h-screen bg-app-bg font-inter pt-20">
         <LoadingSkeleton type="banner" />
       </div>
     );
@@ -342,7 +342,7 @@ const WatchSlug: React.FC = () => {
     : undefined;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]" data-watch-page>
+    <div className="min-h-screen bg-app-bg font-inter" data-watch-page>
       {/* Mobile-First Layout */}
       <div className="xl:hidden">
         {/* Mobile Player - Full Width */}

@@ -143,13 +143,16 @@ const Navbar: React.FC = () => {
     { label: 'ANA SAYFA', path: '/' },
     { label: 'KATALOG', path: '/browse' },
     { label: 'YENİ BÖLÜMLER', path: '/new-episodes' },
-    { label: 'TAKVİM', path: '/calendar' }
+    { label: 'TAKVİM', path: '/calendar' },
+    { label: 'LİSTEM', path: '/profile' },
   ];
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-[200] transition-all duration-500 ${
-        scrolled ? 'bg-brand-black/90 backdrop-blur-xl border-b border-white/5 py-3 shadow-2xl' : 'bg-transparent py-4 lg:py-6'
+      <nav className={`fixed top-0 left-0 right-0 z-[200] font-inter transition-all duration-500 ${
+        scrolled
+          ? 'bg-app-bg/92 backdrop-blur-xl border-b border-white/5 py-3 shadow-2xl shadow-black/40'
+          : 'bg-gradient-to-b from-app-bg/90 via-app-bg/35 to-transparent py-4 lg:py-6'
       }`}>
         <div className="max-w-[1600px] mx-auto px-4 md:px-8 flex items-center justify-between">
           
@@ -168,7 +171,7 @@ const Navbar: React.FC = () => {
             </Link>
             
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-4 lg:gap-8 bg-black/20 px-6 py-2.5 rounded-full border border-white/5 backdrop-blur-md">
+            <div className="hidden md:flex items-center gap-4 lg:gap-8 bg-app-surface/45 px-5 py-2.5 rounded-full border border-white/10 backdrop-blur-md">
               {navLinks.map(item => (
                 <Link 
                   key={item.path} 
@@ -211,11 +214,11 @@ const Navbar: React.FC = () => {
                     className={`relative p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all ${unreadCount > 0 ? 'text-brand-red' : 'text-gray-400'}`}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    {unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-brand-red text-white text-[8px] font-black flex items-center justify-center rounded-full animate-bounce shadow-lg ring-2 ring-brand-black">{unreadCount}</span>}
+                    {unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-brand-red text-white text-[8px] font-black flex items-center justify-center rounded-full animate-bounce shadow-lg ring-2 ring-app-bg">{unreadCount}</span>}
                   </button>
 
                   {isNotifOpen && (
-                    <div className="absolute top-full right-0 mt-4 w-72 md:w-80 bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in overflow-hidden z-50">
+                    <div className="absolute top-full right-0 mt-4 w-72 md:w-80 bg-app-surfaceElevated border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in overflow-hidden z-50">
                       <div className="flex items-center justify-between mb-6">
                         <h4 className="text-[10px] font-black text-white uppercase tracking-widest">BİLDİRİMLER</h4>
                         <span className="text-[8px] font-bold text-gray-500">{unreadCount} YENİ</span>
@@ -288,7 +291,7 @@ const Navbar: React.FC = () => {
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute top-full right-0 mt-4 w-64 bg-[#0a0a0a] border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in z-50">
+                    <div className="absolute top-full right-0 mt-4 w-64 bg-app-surfaceElevated border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in z-50">
                       <div className="mb-6 pb-6 border-b border-white/5 flex items-center gap-4">
                          <div className="w-10 h-10 bg-brand-red rounded-xl flex items-center justify-center text-white font-black overflow-hidden">
                             {profile?.avatar_url ? (
@@ -355,7 +358,7 @@ const Navbar: React.FC = () => {
       {/* Global Search Overlay (Spotlight Style) */}
       {isSearchOpen && (
         <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-start justify-center pt-32 px-4 animate-fade-in">
-           <div className="w-full max-w-2xl bg-brand-surface border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative animate-fade-in-up">
+           <div className="w-full max-w-2xl glass-panel border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative animate-fade-in-up">
               <button onClick={() => setIsSearchOpen(false)} className="absolute top-8 right-8 text-gray-500 hover:text-white">
                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -413,7 +416,7 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[300] bg-brand-black/95 backdrop-blur-3xl animate-fade-in flex flex-col p-8 md:hidden">
+        <div className="fixed inset-0 z-[300] bg-app-bg/98 backdrop-blur-3xl animate-fade-in flex flex-col p-8 md:hidden font-inter">
            <div className="flex justify-between items-center mb-12">
              <span className="text-3xl font-black text-brand-red italic tracking-tighter">ANIRIAS</span>
              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white hover:text-brand-red">

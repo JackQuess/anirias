@@ -8,6 +8,7 @@ import ErrorState from '../components/ErrorState';
 import AnimeCard from '../components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { translateGenre, translateGenreToEnglish } from '@/utils/genreTranslations';
+import SectionHeaderCinematic from '@/components/cinematic/SectionHeaderCinematic';
 
 const Browse: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -127,7 +128,7 @@ const Browse: React.FC = () => {
   }, [debouncedSearch, selectedGenre, selectedYear, selectedSort]);
 
   if (loading) return (
-    <div className="min-h-screen pt-32 px-10 space-y-12 bg-brand-black">
+    <div className="min-h-screen pt-32 px-10 space-y-12 bg-app-bg font-inter">
       <LoadingSkeleton type="banner" />
       <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
         <LoadingSkeleton type="card" count={5} />
@@ -141,9 +142,9 @@ const Browse: React.FC = () => {
   const popularQuickGenres = ['Action', 'Romance', 'Sci-Fi', 'Fantasy', 'Sports', 'Slice of Life'].map(translateGenre);
 
   return (
-    <div className="min-h-screen bg-brand-black pb-40">
+    <div className="min-h-screen bg-app-bg pb-40 font-inter">
       {/* Sticky Filter Bar */}
-      <div className={`fixed top-0 left-0 right-0 z-[120] transition-all duration-500 px-4 md:px-8 py-4 ${scrolled ? 'bg-brand-black/95 backdrop-blur-2xl border-b border-white/5 shadow-2xl pt-4' : 'bg-transparent pt-24 lg:pt-32'}`}>
+      <div className={`fixed top-0 left-0 right-0 z-[120] transition-all duration-500 px-4 md:px-8 py-4 ${scrolled ? 'bg-app-bg/95 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/30 pt-4' : 'bg-transparent pt-24 lg:pt-32'}`}>
         <div className="max-w-[1600px] mx-auto">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative flex-grow w-full">
@@ -200,7 +201,7 @@ const Browse: React.FC = () => {
           </div>
 
           <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isFilterOpen ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}>
-             <div className="bg-brand-dark/90 border border-white/10 rounded-[3rem] p-8 space-y-8 shadow-2xl backdrop-blur-xl">
+             <div className="bg-app-surface/90 border border-white/10 rounded-[3rem] p-8 space-y-8 shadow-2xl backdrop-blur-xl">
                 <div>
                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 border-l-4 border-brand-red pl-3">TÜM TÜRLER</h4>
                    <div className="flex flex-wrap gap-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">
@@ -234,15 +235,21 @@ const Browse: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-8 pt-64 lg:pt-80">
-         <div className="flex flex-col md:flex-row items-baseline justify-between mb-16 gap-4 border-b border-white/5 pb-8">
-           <h2 className="text-4xl md:text-5xl font-black text-white italic uppercase tracking-tighter">
-              {selectedGenre === 'Hepsi' ? 'TÜM' : selectedGenre} <span className="text-brand-red">İÇERİKLER</span>
-           </h2>
-           <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] bg-white/5 px-6 py-3 rounded-full border border-white/5">
-             {filteredResults.length} SONUÇ GÖSTERİLİYOR
-           </span>
-         </div>
+      <div className="max-w-[1600px] mx-auto px-6 md:px-14 pt-64 lg:pt-80">
+         <SectionHeaderCinematic
+           className="mb-16 pb-8 border-b border-white/5"
+           title={
+             <>
+               {selectedGenre === 'Hepsi' ? 'Tüm' : selectedGenre}{' '}
+               <span className="text-brand-red">içerikler</span>
+             </>
+           }
+           right={
+             <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] bg-app-surface/50 px-6 py-3 rounded-full border border-white/10">
+               {filteredResults.length} sonuç
+             </span>
+           }
+         />
          
          {filteredResults.length > 0 ? (
            <>
@@ -258,7 +265,7 @@ const Browse: React.FC = () => {
              )}
            </>
          ) : (
-           <div className="py-40 text-center bg-brand-dark/30 rounded-[4rem] border border-dashed border-white/5 flex flex-col items-center animate-fade-in-up">
+           <div className="py-40 text-center bg-app-surface/35 rounded-[4rem] border border-dashed border-white/5 flex flex-col items-center animate-fade-in-up">
               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8 border border-white/10 animate-pulse">
                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>

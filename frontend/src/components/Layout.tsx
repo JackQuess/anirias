@@ -8,12 +8,12 @@ import MascotLayer from './decorative/MascotLayer';
 
 const Layout: React.FC = () => {
   return (
-    <div className="flex flex-col min-h-screen bg-brand-black">
+    <div className="flex flex-col min-h-screen bg-app-bg">
       <Navbar />
-      <main className="flex-grow pt-24 lg:pt-32">
+      <main className="flex-grow pt-24 lg:pt-32 font-inter antialiased">
         <Outlet />
       </main>
-      <footer className="py-20 border-t border-white/5 bg-brand-dark/80 backdrop-blur-xl mt-20 relative z-10">
+      <footer className="py-20 border-t border-white/5 bg-app-surface/85 backdrop-blur-xl mt-20 relative z-10 font-inter">
         {/* Rias Mascot - Brand Signature (Footer, bottom-left, desktop only) */}
         <div className="absolute bottom-0 left-0 z-0 hidden md:block">
           <MascotLayer type="rias" />

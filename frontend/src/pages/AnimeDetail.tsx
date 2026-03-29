@@ -159,10 +159,10 @@ const AnimeDetail: React.FC = () => {
 
   const titleString = anime ? getDisplayTitle(anime.title) : '';
 
-  if (animeLoading) return <div className="min-h-screen bg-brand-black pt-20"><LoadingSkeleton type="banner" /></div>;
+  if (animeLoading) return <div className="min-h-screen bg-app-bg font-inter pt-20"><LoadingSkeleton type="banner" /></div>;
   if (animeError || !anime) {
     return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center text-white font-black italic">
+      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center text-white font-black italic">
         <div className="text-center space-y-4">
           <div className="text-6xl mb-4">404</div>
           <div>ANİME BULUNAMADI</div>
@@ -188,9 +188,9 @@ const AnimeDetail: React.FC = () => {
   };
 
   return (
-    <div className="bg-brand-black min-h-screen pb-40 overflow-x-hidden">
+    <div className="bg-app-bg min-h-screen pb-40 overflow-x-hidden font-inter">
       {/* Background Banner - Fail-safe: show gradient if image fails */}
-      <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden bg-gradient-to-br from-brand-red/20 via-brand-black to-brand-black">
+      <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden bg-gradient-to-br from-brand-red/20 via-app-bg to-app-bg">
         {(anime.banner_image || anime.cover_image) && (
           <img
             src={proxyImage(anime.banner_image || anime.cover_image || '')}
@@ -202,8 +202,8 @@ const AnimeDetail: React.FC = () => {
             alt=""
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/40 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-black/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-app-bg via-app-bg/45 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-app-bg/85 via-transparent to-transparent" />
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-16 -mt-32 md:-mt-64 lg:-mt-96 relative z-10">
@@ -255,7 +255,7 @@ const AnimeDetail: React.FC = () => {
                 </div>
               )}
 
-              <Link to={seasonNumbers.length > 0 ? `/watch/${anime.slug || anime.id}/${seasonNumbers[0]}/1` : `/watch/${anime.slug || anime.id}/1/1`} className="w-full bg-white text-brand-black py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
+              <Link to={seasonNumbers.length > 0 ? `/watch/${anime.slug || anime.id}/${seasonNumbers[0]}/1` : `/watch/${anime.slug || anime.id}/1/1`} className="w-full bg-white text-app-bg py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
                 HEMEN İZLE
               </Link>
             </div>

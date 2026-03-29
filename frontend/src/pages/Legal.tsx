@@ -63,7 +63,7 @@ const Legal: React.FC = () => {
   const pageData = content[type as keyof typeof content] || content['hakkimizda'];
 
   return (
-    <div className="min-h-screen bg-brand-black pt-32 pb-20">
+    <div className="min-h-screen bg-app-bg font-inter pt-32 pb-20">
        <div className="max-w-4xl mx-auto px-6">
           <header className="mb-16 border-b border-white/10 pb-10">
              <p className="text-brand-red text-xs font-black uppercase tracking-[0.4em] mb-2">{pageData.subtitle}</p>

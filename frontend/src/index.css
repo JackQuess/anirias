@@ -5,7 +5,7 @@
 
 @layer base {
   body {
-    @apply bg-brand-black text-gray-100 antialiased;
+    @apply bg-app-bg text-gray-100 antialiased;
   }
   
   /* Premium scrollbar */
@@ -13,7 +13,7 @@
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-brand-black;
+    @apply bg-app-bg;
   }
   ::-webkit-scrollbar-thumb {
     @apply bg-brand-border rounded;
@@ -66,6 +66,29 @@
 
 .animate-fade-in-up {
   animation: fade-in-up 0.3s ease-out;
+}
+
+/* Zip-style scroll hiding for horizontal rails */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.glass-panel {
+  background: rgba(18, 18, 26, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 @layer utilities {
@@ -315,4 +338,9 @@ body.anirias-player-fullscreen [data-watch-page] .watch-player-area {
 }
 body.anirias-player-fullscreen [data-feedback-floating] {
   display: none !important;
+}
+
+/* Cinematic theme: fullscreen chrome matches app background */
+body.anirias-player-fullscreen {
+  background-color: #08080c !important;
 }

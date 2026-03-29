@@ -755,7 +755,7 @@ const Watch: React.FC = () => {
   const isInIntro = hasIntro && !introSkipped && currentTime >= introStart && currentTime < introEnd;
 
   return (
-    <div className="min-h-screen bg-brand-black">
+    <div className="min-h-screen bg-app-bg font-inter">
       <div className="z-[130] mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
         <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
           

@@ -186,11 +186,11 @@ const Profile: React.FC = () => {
     return { totalEps, hours, level, xp };
   }, [historyLength]); // Only depend on length
 
-  if (status === 'LOADING') return <div className="min-h-screen bg-brand-black flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand-red"></div></div>;
+  if (status === 'LOADING') return <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand-red"></div></div>;
   if (!user) return <Navigate to="/login" />;
 
   return (
-    <div className="bg-brand-black min-h-screen pb-40">
+    <div className="bg-app-bg min-h-screen pb-40 font-inter">
       
       {/* Profile Banner */}
       <div className="relative h-96 w-full overflow-hidden">
@@ -204,12 +204,12 @@ const Profile: React.FC = () => {
           
           {/* Sidebar: Identity Card */}
           <div className="w-full xl:w-[400px] space-y-8 flex-shrink-0">
-            <div className="bg-brand-surface/70 border border-white/5 p-12 rounded-[3.5rem] text-center shadow-2xl relative overflow-hidden backdrop-blur-md">
+            <div className="glass-panel border border-white/10 p-12 rounded-[3.5rem] text-center shadow-2xl relative overflow-hidden">
               <div className="relative inline-block mb-8">
-                <div className="w-48 h-48 bg-brand-red rounded-[3rem] flex items-center justify-center text-6xl font-black text-white shadow-2xl shadow-brand-red/30 ring-8 ring-brand-black transform -rotate-2 hover:rotate-0 transition-all duration-500 overflow-hidden">
+                <div className="w-48 h-48 bg-brand-red rounded-[3rem] flex items-center justify-center text-6xl font-black text-white shadow-2xl shadow-brand-red/30 ring-8 ring-app-bg transform -rotate-2 hover:rotate-0 transition-all duration-500 overflow-hidden">
                   {avatarSrc ? <img src={avatarSrc} className="w-full h-full object-cover" /> : displayProfile.username?.charAt(0).toUpperCase()}
                 </div>
-                <div className="absolute -bottom-4 -right-4 bg-white text-brand-black text-xs font-black px-4 py-2 rounded-xl shadow-xl border-4 border-brand-black uppercase tracking-widest">LVL {stats.level}</div>
+                <div className="absolute -bottom-4 -right-4 bg-white text-app-bg text-xs font-black px-4 py-2 rounded-xl shadow-xl border-4 border-app-bg uppercase tracking-widest">LVL {stats.level}</div>
               </div>
 
               <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter mb-2">{displayProfile.username}</h2>
@@ -375,7 +375,7 @@ const Profile: React.FC = () => {
                      entry.anime && (
                        <div key={entry.id} className="relative group">
                          <AnimeCard anime={entry.anime} />
-                         <div className="absolute top-2 right-2 bg-brand-black/80 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 z-20">
+                         <div className="absolute top-2 right-2 bg-app-bg/85 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 z-20">
                             <span className="text-[9px] text-brand-red font-black uppercase tracking-widest">{entry.status}</span>
                          </div>
                        </div>

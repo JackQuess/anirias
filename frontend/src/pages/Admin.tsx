@@ -75,7 +75,7 @@ const Admin: React.FC = () => {
       </header>
 
       {/* Hero Management Widget (NEW) */}
-      <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl lg:rounded-[3rem] p-4 lg:p-10 shadow-2xl relative overflow-hidden">
+      <div className="bg-app-surfaceElevated border border-white/5 rounded-2xl lg:rounded-[3rem] p-4 lg:p-10 shadow-2xl relative overflow-hidden">
          <div className="absolute top-0 right-0 w-96 h-96 bg-brand-red/5 rounded-full blur-[100px] pointer-events-none" />
          
          <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 lg:mb-10 relative z-20 gap-4 lg:gap-6">
@@ -174,7 +174,7 @@ const Admin: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
         {/* Main Graph Area (Server Load Simulation) */}
-        <div className="xl:col-span-2 bg-[#0a0a0a] border border-white/5 p-4 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl relative overflow-hidden">
+        <div className="xl:col-span-2 bg-app-surfaceElevated border border-white/5 p-4 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl relative overflow-hidden">
            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
            <div className="flex items-center justify-between mb-6 lg:mb-10 relative z-10">
               <div>
@@ -215,7 +215,7 @@ const Admin: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-[#0a0a0a] border border-white/5 p-4 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl flex flex-col relative overflow-hidden">
+        <div className="bg-app-surfaceElevated border border-white/5 p-4 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl flex flex-col relative overflow-hidden">
            <h3 className="text-base lg:text-xl font-black text-white uppercase tracking-tighter italic mb-4 lg:mb-8 relative z-10">HIZLI <span className="text-brand-red">İŞLEMLER</span></h3>
            
            <div className="grid grid-cols-2 gap-2 lg:gap-4 flex-1 relative z-10">
@@ -272,7 +272,7 @@ const Admin: React.FC = () => {
                {activitiesLoading && <LoadingSkeleton type="list" count={4} />}
                {!activitiesLoading && activities?.length ? activities.map((log) => (
                  <div key={log.id} className="flex items-start gap-4 lg:gap-6 relative">
-                    <div className="w-4 h-4 lg:w-5 lg:h-5 rounded-full bg-brand-black border-2 border-brand-red z-10 flex-shrink-0" />
+                    <div className="w-4 h-4 lg:w-5 lg:h-5 rounded-full bg-app-bg border-2 border-brand-red z-10 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                        <p className="text-[9px] lg:text-[10px] font-black text-white uppercase tracking-wide">{log.action}</p>
                        <p className="text-[10px] lg:text-xs text-gray-500 mt-1 truncate">{log.target} - <span className="text-brand-red">{log.user}</span></p>

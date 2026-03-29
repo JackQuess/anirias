@@ -293,7 +293,7 @@ const AdminAnimes: React.FC = () => {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 lg:p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={handleDeleteCancel} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={handleDeleteCancel} />
           <div className="relative w-full max-w-lg bg-brand-dark border border-brand-red/50 p-6 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.3)] max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl lg:text-3xl font-black text-white uppercase italic tracking-tighter mb-3 lg:mb-4">
               <span className="text-brand-red">SİLME</span> ONAYI
@@ -331,7 +331,7 @@ const AdminAnimes: React.FC = () => {
                     setAdminTokenState(value);
                   }}
                   placeholder="ADMIN_TOKEN"
-                  className="w-full bg-brand-black border border-brand-border rounded-lg lg:rounded-xl px-3 lg:px-4 py-2.5 lg:py-3 text-[10px] lg:text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
+                  className="w-full bg-app-surface border border-brand-border rounded-lg lg:rounded-xl px-3 lg:px-4 py-2.5 lg:py-3 text-[10px] lg:text-xs font-black text-white uppercase tracking-widest outline-none focus:border-brand-red transition-all"
                   autoFocus
                 />
               </div>

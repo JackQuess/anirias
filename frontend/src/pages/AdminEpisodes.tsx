@@ -1018,7 +1018,7 @@ const AdminEpisodes: React.FC = () => {
       {/* Season Creation Modal */}
       {isSeasonModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsSeasonModalOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsSeasonModalOpen(false)} />
           <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
             <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-8">
               Yeni <span className="text-brand-red">Sezon Ekle</span>
@@ -1280,7 +1280,7 @@ const AdminEpisodes: React.FC = () => {
       {/* New Episode Modal - DISABLED (Read-only mode) */}
       {false && isAddModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAddModalOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsAddModalOpen(false)} />
           <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
             <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-8">
               {editEp ? <><span className="text-brand-red">Bölüm</span> Düzenle</> : <>Yeni <span className="text-brand-red">Bölüm Ekle</span></>}
@@ -1355,7 +1355,7 @@ const AdminEpisodes: React.FC = () => {
 
       {isVideoPatchConfirmOpen && videoPatchPreview && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsVideoPatchConfirmOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsVideoPatchConfirmOpen(false)} />
           <div className="relative w-full max-w-2xl bg-brand-dark border border-brand-border p-8 rounded-[2rem]">
             <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">
               Video Base Patch Onayı
@@ -1406,7 +1406,7 @@ const AdminEpisodes: React.FC = () => {
 
       {isMoveModalOpen && selectedSeason && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsMoveModalOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsMoveModalOpen(false)} />
           <div className="relative w-full max-w-3xl bg-brand-dark border border-brand-border p-8 rounded-[2rem]">
             <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Bölüm Taşı Botu</h3>
             <p className="text-gray-400 text-sm mt-2">
@@ -1506,7 +1506,7 @@ const AdminEpisodes: React.FC = () => {
 
       {isAniListModalOpen && bindingSeason && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAniListModalOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsAniListModalOpen(false)} />
           <div className="relative w-full max-w-3xl bg-brand-dark border border-brand-border p-10 rounded-[3rem] shadow-[0_0_100px_rgba(229,9,20,0.2)]">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-black text-white uppercase tracking-tight">
@@ -1560,7 +1560,7 @@ const AdminEpisodes: React.FC = () => {
 
       {false && isMissingModalOpen && missingSummary && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsMissingModalOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsMissingModalOpen(false)} />
           <div className="relative w-full max-w-xl bg-brand-dark border border-brand-border p-8 rounded-[2.5rem]">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-black text-white uppercase">Eksik Tarama</h2>
@@ -1596,7 +1596,7 @@ const AdminEpisodes: React.FC = () => {
 
       {false && isAutoModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-brand-black/90 backdrop-blur-xl" onClick={() => setIsAutoModalOpen(false)} />
+          <div className="absolute inset-0 bg-app-bg/90 backdrop-blur-xl" onClick={() => setIsAutoModalOpen(false)} />
           <div className="relative w-full max-w-5xl bg-brand-dark border border-brand-border p-8 rounded-[2.5rem] shadow-[0_0_100px_rgba(16,185,129,0.2)] space-y-8 max-h-[88vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-6">
               <div>

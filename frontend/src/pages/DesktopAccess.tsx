@@ -11,7 +11,7 @@ const DesktopAccess: React.FC = () => {
 
   if (status === 'LOADING') {
     return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center">
+      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand-red" />
       </div>
     );
@@ -72,7 +72,7 @@ const DesktopAccess: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-black px-4 md:px-8 py-10">
+    <div className="min-h-screen bg-app-bg font-inter px-4 md:px-8 py-10">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tight">

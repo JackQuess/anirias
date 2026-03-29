@@ -14,10 +14,18 @@ export default {
           redHover: '#B20710',
           surface: '#121212',
           border: '#2a2a2a'
-        }
+        },
+        /* Zip-inspired cinematic palette (home / rails) */
+        app: {
+          bg: '#08080c',
+          surface: '#12121a',
+          surfaceElevated: '#1a1a24',
+          accent: '#00f2ff',
+        },
       },
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'sans-serif'],
+        inter: ['Inter', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

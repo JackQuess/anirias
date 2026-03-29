@@ -87,7 +87,7 @@ const Signup: React.FC = () => {
   // if (showEmailVerification && signedUpEmail) { ... }
 
   return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative Blur Backgrounds */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
 
@@ -98,7 +98,7 @@ const Signup: React.FC = () => {
           </Link>
         </div>
 
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-10 md:p-12 rounded-[2.5rem] shadow-2xl">
+        <div className="glass-panel border border-white/10 p-10 md:p-12 rounded-[2.5rem] shadow-2xl">
           <h2 className="text-3xl font-black text-white mb-10 text-center uppercase italic tracking-tighter">
             Hemen <span className="text-brand-red">Katıl</span>
           </h2>

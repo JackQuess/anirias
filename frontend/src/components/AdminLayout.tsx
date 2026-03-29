@@ -66,7 +66,7 @@ const AdminLayout: React.FC = () => {
 
   if (status === 'LOADING' && !isTestMode) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-brand-black text-white px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-app-bg font-inter text-white px-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-red"></div>
         <span className="mt-4 font-bold tracking-widest uppercase text-xs">Yetkiler Kontrol Ediliyor...</span>
         <p className="mt-2 text-[10px] text-gray-500 max-w-xs text-center">Bu ekranda takılı kalırsanız birkaç saniye içinde giriş sayfasına yönlendirileceksiniz.</p>
@@ -81,7 +81,7 @@ const AdminLayout: React.FC = () => {
     }
     if (profile === null) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-brand-black text-white px-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-app-bg font-inter text-white px-4">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-red"></div>
           <span className="mt-4 font-bold tracking-widest uppercase text-xs">Profil Yükleniyor...</span>
           <p className="mt-2 text-[10px] text-gray-500 max-w-xs text-center">Veritabanı yanıt bekleniyor. Takılı kalırsanız giriş sayfasına yönlendirileceksiniz.</p>
@@ -110,7 +110,7 @@ const AdminLayout: React.FC = () => {
   const username = profile?.username || (isTestMode ? 'Test Admin' : 'Admin');
 
   return (
-    <div className="min-h-screen bg-brand-black flex font-sans">
+    <div className="min-h-screen bg-app-bg flex font-inter antialiased">
       {/* Mobile Backdrop */}
       {sidebarOpen && (
         <div 
@@ -123,7 +123,7 @@ const AdminLayout: React.FC = () => {
       {/* Sidebar */}
       <aside 
         className={`
-          w-80 bg-[#080808] border-r border-white/5 flex flex-col h-screen z-[1000] shadow-2xl
+          w-80 bg-app-surface border-r border-white/5 flex flex-col h-screen z-[1000] shadow-2xl
           fixed lg:sticky top-0 left-0
           transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -181,7 +181,7 @@ const AdminLayout: React.FC = () => {
            </Link>
 
            <div className="p-6 rounded-[2rem] bg-gradient-to-br from-white/5 to-transparent border border-white/5 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-brand-red flex items-center justify-center text-xs font-black text-white shadow-lg ring-2 ring-brand-black">
+              <div className="w-10 h-10 rounded-xl bg-brand-red flex items-center justify-center text-xs font-black text-white shadow-lg ring-2 ring-app-bg">
                   {username.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -193,7 +193,7 @@ const AdminLayout: React.FC = () => {
           </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-brand-black relative">
+      <main className="flex-1 overflow-auto bg-app-bg relative">
         {/* Hamburger Menu Button - Mobile Only */}
         <button
           onClick={() => setSidebarOpen((prev) => !prev)}
