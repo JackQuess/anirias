@@ -5,35 +5,30 @@ import type { Episode } from '@/types';
 export interface WatchSidebarProps {
   episodes: Episode[];
   currentEpisodeNumber: number;
-  seasonNum: number;
-  titleString: string;
-  poster: string;
-  rawPoster: string | null;
-  fallbackPoster: string;
   progressMap: Map<string, WatchProgressChunk>;
   onEpisodeSelect: (ep: Episode) => void;
   blockWithoutVideo?: boolean;
 }
 
+/** Sağ kolon: zip / prod referansı — #121214 kart, kırmızı çizgi, kompakt bölüm listesi */
 const WatchSidebar: React.FC<WatchSidebarProps> = ({
   episodes,
   currentEpisodeNumber,
-  seasonNum,
-  titleString,
-  poster,
-  rawPoster,
-  fallbackPoster,
   progressMap,
   onEpisodeSelect,
   blockWithoutVideo,
 }) => (
-  <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-6 relative z-20">
-    <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 h-[600px] flex flex-col shadow-xl overflow-hidden">
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-        <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">Bölüm listesi</h3>
-        <span className="text-[11px] font-semibold text-muted tabular-nums">{episodes.length} bölüm</span>
+  <aside className="hidden lg:flex w-full lg:w-[360px] shrink-0 flex-col z-20">
+    <div className="bg-[#121214] border border-white/[0.06] rounded-xl p-4 flex flex-col shadow-xl overflow-hidden max-h-[min(75vh,820px)] min-h-0">
+      <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/[0.06] shrink-0">
+        <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3 leading-none">
+          Bölüm listesi
+        </h3>
+        <span className="text-[11px] font-medium text-white/40 tabular-nums">
+          {episodes.length} bölüm
+        </span>
       </div>
-      <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
+      <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-1 min-h-0 w-full space-y-1 watch-scrollbar">
         <WatchEpisodeList
           episodes={episodes}
           currentEpisodeNumber={currentEpisodeNumber}
@@ -41,29 +36,6 @@ const WatchSidebar: React.FC<WatchSidebarProps> = ({
           onSelect={onEpisodeSelect}
           blockWithoutVideo={blockWithoutVideo}
         />
-      </div>
-    </div>
-
-    <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 flex gap-4 items-center shadow-lg">
-      <img
-        src={poster}
-        onError={(e) => {
-          const target = e.currentTarget as HTMLImageElement;
-          if (rawPoster && target.src !== rawPoster) {
-            target.src = rawPoster;
-          } else {
-            target.src = fallbackPoster;
-          }
-        }}
-        className="w-16 h-24 object-cover rounded-xl shadow-lg border border-white/10"
-        alt={titleString}
-      />
-      <div className="min-w-0">
-        <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Şimdi izleniyor</p>
-        <h4 className="text-sm font-bold text-white leading-tight line-clamp-2">{titleString}</h4>
-        <p className="text-[10px] text-muted mt-1 font-semibold tabular-nums">
-          S{seasonNum} · B{currentEpisodeNumber}
-        </p>
       </div>
     </div>
   </aside>

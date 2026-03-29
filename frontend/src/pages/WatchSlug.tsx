@@ -6,7 +6,6 @@ import { db } from '../services/db';
 import { useAuth } from '../services/auth';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import VideoPlayer from '../components/VideoPlayer';
-import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
@@ -50,30 +49,30 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
   const epBlurb = episode.short_note?.replace(/<[^>]*>/g, '') || '';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Link
         to={detailPath}
-        className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-muted hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/45 hover:text-white transition-colors"
       >
-        <ChevronLeft className="w-4 h-4 shrink-0" />
+        <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
         Dizi sayfasına dön
       </Link>
 
       <div>
-        <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">{titleString}</h1>
-        <p className="text-primary text-xs font-black uppercase tracking-widest mt-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight leading-tight">{titleString}</h1>
+        <p className="text-white/50 text-xs font-semibold mt-1.5">
           Sezon {seasonNum} · Bölüm {episode.episode_number}
           {epTitle ? ` · ${epTitle}` : ''}
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-medium text-white/85">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-medium text-white/80">
         <span className="text-emerald-400 font-bold">%{scorePct} uyum</span>
-        {anime.year ? <span className="text-white/70">{anime.year}</span> : null}
+        {anime.year ? <span className="text-white/50">{anime.year}</span> : null}
         {anime.is_adult ? (
-          <span className="px-1.5 py-0.5 border border-white/25 rounded text-[11px] text-white/75">18+</span>
+          <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] text-white/60">18+</span>
         ) : null}
-        <span className="px-1.5 py-0.5 border border-white/25 rounded text-[11px] text-white/75">4K HDR</span>
+        <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] text-white/60">HD</span>
         {hasSubtitles ? (
           <span className="flex items-center gap-1.5 text-white/75">
             <Subtitles className="w-4 h-4 shrink-0" />
@@ -99,35 +98,32 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
         <p className="text-sm text-white/65 leading-relaxed border-l-2 border-primary/60 pl-4">{epBlurb}</p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => void onShare()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-bold uppercase tracking-widest text-white/90 hover:bg-white/10 transition-colors"
         >
-          <Share2 className="w-4 h-4" />
+          <Share2 className="w-3.5 h-3.5" />
           Paylaş
         </button>
         {user ? (
           <button
             type="button"
             onClick={() => void onToggleList()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-bold uppercase tracking-widest text-white/90 hover:bg-white/10 transition-colors"
           >
-            {inList ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {inList ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             {inList ? 'Listemde' : 'Listeme ekle'}
           </button>
         ) : null}
       </div>
 
-      <section className="rounded-2xl border border-white/5 bg-surface-elevated p-5 md:p-6 shadow-lg">
-        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-primary mb-4 flex items-center gap-2">
-          <span className="text-lg leading-none">▍</span> Özet
-        </h2>
-        <p className="text-sm text-white/70 leading-relaxed whitespace-pre-line">
-          {synopsis.trim() ? synopsis : 'Bu içerik için özet henüz eklenmedi.'}
+      {synopsis.trim() ? (
+        <p className="text-sm text-white/55 leading-relaxed whitespace-pre-line border-t border-white/[0.06] pt-4">
+          {synopsis}
         </p>
-      </section>
+      ) : null}
     </div>
   );
 };
@@ -463,8 +459,8 @@ const WatchSlug: React.FC = () => {
 
   if (watchError && !watchLoading) {
     return (
-      <div className="min-h-screen bg-background font-inter flex items-center justify-center px-6">
-        <div className="max-w-xl w-full rounded-2xl border border-white/10 bg-surface-elevated/90 p-8 text-center shadow-xl">
+      <div className="min-h-screen bg-black font-inter flex items-center justify-center px-6">
+        <div className="max-w-xl w-full rounded-xl border border-white/10 bg-[#121214] p-8 text-center shadow-xl">
           <p className="text-primary text-[10px] font-black uppercase tracking-[0.25em] mb-3">İzleme verisi alınamadı</p>
           <h2 className="text-white text-2xl font-black uppercase tracking-tight mb-3">Sayfa şu an yüklenemiyor</h2>
           <p className="text-gray-300 text-sm mb-6">
@@ -486,7 +482,7 @@ const WatchSlug: React.FC = () => {
 
   if (watchLoading || !anime || !season || !episode) {
     return (
-      <div className="min-h-screen bg-background font-inter pt-20">
+      <div className="min-h-screen bg-black font-inter pt-20">
         <LoadingSkeleton type="banner" />
       </div>
     );
@@ -497,7 +493,7 @@ const WatchSlug: React.FC = () => {
   const shouldRenderPlayer = playbackUrl !== null && playbackUrl.trim() !== '';
 
   const titleString = getDisplayTitle(anime.title);
-  const playerTitle = `${titleString} · Sezon ${seasonNum} · Bölüm ${episode.episode_number}`;
+  const playerTitle = `${titleString} • Sezon ${seasonNum} • Bölüm ${episode.episode_number}`;
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
@@ -516,15 +512,15 @@ const WatchSlug: React.FC = () => {
   const hasSubtitles = !!(subtitleFiles && subtitleFiles.length > 0);
 
   const commentsFallback = (
-    <div className="text-muted text-sm font-semibold py-10 text-center rounded-2xl border border-white/5 bg-surface-elevated/50">
+    <div className="text-white/40 text-sm font-semibold py-10 text-center rounded-xl border border-white/[0.06] bg-white/[0.02]">
       Yorumlar yükleniyor…
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-background font-inter" data-watch-page>
-      {/* Mobile-First Layout */}
-      <div className="xl:hidden">
+    <div className="min-h-screen bg-black text-white font-inter antialiased" data-watch-page>
+      {/* Mobil: tam genişlik oyuncu + içerik */}
+      <div className="lg:hidden">
         {/* Mobile Player - Full Width */}
         <div className="w-full bg-black">
           {shouldRenderPlayer ? (
@@ -557,7 +553,7 @@ const WatchSlug: React.FC = () => {
           )}
         </div>
 
-        <div className="px-4 py-8 bg-background border-t border-white/5">
+        <div className="px-4 py-8 bg-black border-t border-white/[0.06]">
           <WatchInfoPanel
             anime={anime}
             episode={episode}
@@ -603,16 +599,11 @@ const WatchSlug: React.FC = () => {
         />
       </div>
 
-      {/* Desktop Layout */}
-      <div className="hidden xl:block relative" data-watch-desktop>
-        {/* Lightning Mascot - Far right background (1440px+ only, outside content) */}
-        <div className="fixed top-20 right-0 z-0 pointer-events-none hidden 2xl:block">
-          <MascotLayer type="lightning" />
-        </div>
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40 relative z-10">
-          <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
-            {/* Main Player Area */}
-            <div className="flex-1 space-y-6 w-full min-w-0 overflow-hidden relative z-10 watch-player-area">
+      {/* Masaüstü: zip (2) — iki kolon, lg breakpoint */}
+      <div className="hidden lg:block relative" data-watch-desktop>
+        <div className="mx-auto max-w-[1800px] px-4 md:px-8 pt-20 md:pt-24 pb-16 relative z-10">
+          <div className="flex flex-col lg:flex-row gap-6 items-start min-w-0">
+            <div className="flex-1 flex flex-col gap-5 w-full min-w-0 overflow-hidden relative z-10 watch-player-area">
               {shouldRenderPlayer ? (
                 <VideoPlayer
                   src={playbackUrl}
@@ -636,12 +627,12 @@ const WatchSlug: React.FC = () => {
                   onPlayerReady={handlePlayerReady}
                 />
               ) : (
-                <div className="w-full aspect-video bg-black flex items-center justify-center rounded-2xl border border-white/5">
+                <div className="w-full aspect-video bg-black flex items-center justify-center rounded-xl border border-white/[0.08]">
                   <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
                 </div>
               )}
 
-              <div className="px-4 lg:px-0 pt-2">
+              <div className="pt-1">
                 <WatchInfoPanel
                   anime={anime}
                   episode={episode}
@@ -657,7 +648,7 @@ const WatchSlug: React.FC = () => {
                 />
               </div>
 
-              <div className="px-4 lg:px-0">
+              <div>
                 <Suspense fallback={commentsFallback}>
                   <Comments animeId={anime.id} episodeId={episode.id} />
                 </Suspense>
@@ -667,11 +658,6 @@ const WatchSlug: React.FC = () => {
             <WatchSidebar
               episodes={episodes}
               currentEpisodeNumber={episodeNum}
-              seasonNum={seasonNum}
-              titleString={titleString}
-              poster={poster}
-              rawPoster={rawPoster}
-              fallbackPoster={fallbackPoster}
               progressMap={progressMap}
               blockWithoutVideo
               onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}

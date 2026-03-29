@@ -44,26 +44,30 @@ const WatchEpisodeList: React.FC<WatchEpisodeListProps> = ({
               if (noVideo) return;
               onSelect(ep);
             }}
-            className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 pointer-events-auto ${
+            className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 pointer-events-auto ${
               isCurrent
-                ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30'
-                : 'hover:bg-white/5 text-gray-400 hover:text-white active:bg-white/10'
+                ? 'bg-[#3f1a1a] text-white shadow-inner'
+                : 'hover:bg-white/[0.06] text-white/50 hover:text-white/90 active:bg-white/[0.08]'
             } ${noVideo ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <div
-              className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'
+              className={`w-8 h-8 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
+                isCurrent ? 'bg-black/25 text-white' : 'bg-[#1a1a1c] text-white/45'
               }`}
             >
               {ep.episode_number}
             </div>
             <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">
+              <p
+                className={`text-xs font-semibold normal-case truncate leading-tight ${
+                  isCurrent ? 'text-white' : 'text-white/85'
+                }`}
+              >
                 {ep.title || `Bölüm ${ep.episode_number}`}
               </p>
               <p
                 className={`text-[10px] font-medium mt-0.5 tabular-nums ${
-                  isCurrent ? 'text-white/65' : 'text-muted'
+                  isCurrent ? 'text-white/55' : 'text-white/40'
                 }`}
               >
                 {episodeDurationMinutes(ep)} dk

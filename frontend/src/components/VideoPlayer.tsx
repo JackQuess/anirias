@@ -1433,7 +1433,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           : `relative w-full shadow-2xl ${
               isMobile 
                 ? 'rounded-none' 
-                : 'max-w-none mx-0 rounded-2xl border border-white/10 ring-1 ring-white/5 aspect-video'
+                : 'max-w-none mx-0 rounded-xl border border-white/[0.08] ring-1 ring-white/[0.04] aspect-video'
             }`
       }`}
       style={{

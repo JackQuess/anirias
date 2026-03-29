@@ -23,6 +23,18 @@
   }
 }
 
+/* İzleme sayfası bölüm listesi — ince scrollbar */
+.watch-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.watch-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+.watch-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Mobile slide-up animation for overlays */
 @keyframes slide-up {
   from {
