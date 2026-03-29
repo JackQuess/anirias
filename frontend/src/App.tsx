@@ -36,11 +36,13 @@ import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
 import Profile from './pages/Profile';
+import MyList from './pages/MyList';
 import DesktopAccess from './pages/DesktopAccess';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
 import AuthCallback from './pages/AuthCallback';
 import UpdatePassword from './pages/UpdatePassword';
+import SearchPage from './pages/Search';
 import { DESKTOP_ACCESS_PAGE } from './config/desktop';
 
 const App: React.FC = () => {
@@ -67,6 +69,7 @@ const App: React.FC = () => {
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
             <Route path="/browse" element={<Browse />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/new-episodes" element={<NewEpisodes />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/anime/:id" element={<AnimeDetail />} />
@@ -76,6 +79,7 @@ const App: React.FC = () => {
             <Route path="/watch/:animeId" element={<Watch />} />
             <Route path="/watch/:animeId/:episodeId" element={<Watch />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/list" element={<MyList />} />
             <Route path={DESKTOP_ACCESS_PAGE} element={<DesktopAccess />} />
             
             {/* Legal Pages */}

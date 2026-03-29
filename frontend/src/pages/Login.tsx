@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
+import { Mail, Lock, AlertCircle, Star, LayoutDashboard } from 'lucide-react';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
 // TODO [v2]: Re-enable email verification
@@ -167,6 +169,23 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (!hasSupabaseEnv || !supabase) {
+      setError('Supabase yapılandırılmamış.');
+      return;
+    }
+    setError(null);
+    try {
+      const { error: oAuthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (oAuthError) throw oAuthError;
+    } catch (err: any) {
+      setError(err.message || 'Google ile giriş başarısız oldu.');
+    }
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
@@ -191,119 +210,173 @@ const Login: React.FC = () => {
   // if (showEmailVerification && verificationEmail) { ... }
 
   return (
-    <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative Blur Backgrounds */}
-      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-background font-inter flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+      </div>
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-10">
-          <Link to="/" className="text-5xl font-black text-brand-red italic tracking-tighter drop-shadow-[0_0_15px_rgba(229,9,20,0.4)]">
-            ANIRIAS
-          </Link>
-          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4">Premium Streaming Experience</p>
-        </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="w-full max-w-md z-10"
+      >
+        <div className="bg-surface-elevated/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl">
+          <div className="text-center mb-8">
+            <Link to="/" className="inline-block mb-6">
+              <span className="text-primary font-black text-4xl tracking-tighter">ANIRIAS</span>
+            </Link>
+            <h1 className="text-2xl font-bold text-white mb-2">Hoş Geldiniz</h1>
+            <p className="text-white/50 text-sm">Hesabınla devam et veya Google ile gir.</p>
+          </div>
 
-        <div className="glass-panel border border-white/10 p-10 md:p-12 rounded-[2.5rem] shadow-2xl">
           {configMissing && (
             <div className="mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200">
-              <p className="font-black text-xs uppercase tracking-widest mb-1">Fetch / Bağlantı çalışmıyor</p>
-              <p className="text-[11px] opacity-90">Supabase yapılandırılmamış. Build sırasında <code className="bg-black/30 px-1 rounded">VITE_SUPABASE_URL</code> ve <code className="bg-black/30 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> tanımlanmalı. Canlı sitede bu değişkenleri deploy ortamında (Vercel/Netlify vb.) ekleyip projeyi yeniden build edin.</p>
+              <p className="font-black text-xs uppercase tracking-widest mb-1">Yapılandırma eksik</p>
+              <p className="text-[11px] opacity-90">
+                <code className="bg-black/30 px-1 rounded">VITE_SUPABASE_URL</code> ve{' '}
+                <code className="bg-black/30 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> tanımlı olmalı.
+              </p>
             </div>
           )}
-          <h2 className="text-3xl font-black text-white mb-10 text-center uppercase italic tracking-tighter">
-            Tekrar <span className="text-brand-red">Hoş Geldin</span>
-          </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">E-POSTA VEYA KULLANICI ADI</label>
+          <AnimatePresence mode="wait">
+            {error ? (
+              <motion.div
+                key="err"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <p>{error}</p>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+          {adminTimeout && !error ? (
+            <div className="mb-6 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm">
+              Admin oturumu zaman aşımına uğradı. Tekrar giriş yapın.
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input
                 type="text"
                 required
                 disabled={configMissing}
-                placeholder="ornek@mail.com veya kullanici_adi"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700"
+                placeholder="E-posta veya kullanıcı adı"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 transition-colors"
                 value={emailOrUsername}
                 onChange={(e) => setEmailOrUsername(e.target.value)}
               />
             </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">ŞİFRE</label>
-                <button type="button" onClick={() => setShowForgot(true)} className="text-[9px] font-black text-brand-red uppercase tracking-widest hover:text-white transition-colors">Unuttun mu?</button>
-              </div>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input
                 type="password"
                 required
                 disabled={configMissing}
-                placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all placeholder:text-gray-700"
+                placeholder="Şifre"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 transition-colors"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-
-            <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-pointer select-none ml-1">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-white/20 bg-white/5 accent-brand-red"
-              />
-              BENI HATIRLA
-            </label>
-
-            {error && (
-              <div className="p-4 bg-brand-red/10 border border-brand-red/20 rounded-xl text-brand-red text-xs font-bold text-center animate-pulse">
-                {error}
-              </div>
-            )}
-            {adminTimeout && !error && (
-              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-xs font-bold text-center">
-                Admin sayfası bağlantı zaman aşımına uğradı. Tekrar giriş yapın.
-              </div>
-            )}
+            <div className="flex justify-between items-center text-[11px]">
+              <label className="flex items-center gap-2 text-white/50 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 accent-primary"
+                />
+                Beni hatırla
+              </label>
+              <button type="button" onClick={() => setShowForgot(true)} className="text-primary font-bold hover:underline">
+                Şifremi unuttum
+              </button>
+            </div>
 
             <button
               type="submit"
               disabled={loading || configMissing}
-              className="w-full bg-brand-red hover:bg-brand-redHover text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-brand-red/20 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-3"
+              className="w-full bg-primary text-black font-bold py-4 rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  GİRİŞ YAPILIYOR... (en fazla 20 sn)
+                  <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                  İşleniyor...
                 </>
-              ) : 'HESABINA GİRİŞ YAP'}
+              ) : (
+                'Giriş Yap'
+              )}
             </button>
-            {loading && (
-              <>
-                <p className="text-center text-[10px] text-gray-500">
-                  Takılı kalırsa alanı e-posta adresinizle değiştirip tekrar deneyin.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setLoading(false)}
-                  className="w-full py-2 text-[10px] font-black text-gray-500 hover:text-white uppercase tracking-widest border border-white/10 rounded-xl hover:bg-white/5"
-                >
-                  İptal
-                </button>
-              </>
-            )}
+            {loading ? (
+              <button
+                type="button"
+                onClick={() => setLoading(false)}
+                className="w-full py-2 text-xs text-muted hover:text-white border border-white/10 rounded-xl"
+              >
+                İptal
+              </button>
+            ) : null}
           </form>
 
-          <div className="mt-10 pt-8 border-t border-white/5 text-center">
-            <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">
+          <div className="relative py-4 mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-white/30 font-medium tracking-widest">Veya</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={configMissing}
+            className="w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-4 rounded-xl hover:bg-white/90 transition-all active:scale-[0.98] mb-8 disabled:opacity-50"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-5 h-5" />
+            Google ile Devam Et
+          </button>
+
+          <div className="text-center space-y-4">
+            <p className="text-white/50 text-sm">
               Hesabın yok mu?{' '}
-              <Link to="/signup" className="text-white hover:text-brand-red transition-all border-b border-white/10 hover:border-brand-red ml-1">
-                HEMEN KAYDOL
+              <Link to="/signup" className="text-primary font-bold hover:underline">
+                Hemen Kayıt Ol
               </Link>
+            </p>
+            <p className="text-white/40 text-xs leading-relaxed max-w-[280px] mx-auto">
+              Giriş yaparak{' '}
+              <Link to="/hakkimizda" className="text-white/60 hover:text-primary underline underline-offset-4">
+                bilgilendirme
+              </Link>{' '}
+              ve{' '}
+              <Link to="/gizlilik" className="text-white/60 hover:text-primary underline underline-offset-4">
+                gizlilik
+              </Link>{' '}
+              metinlerini kabul etmiş olursun.
             </p>
           </div>
         </div>
-      </div>
+
+        <div className="mt-8 flex justify-center gap-8 text-white/30">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Premium</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Katalog</span>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Forgot Password Modal */}
       {showForgot && (

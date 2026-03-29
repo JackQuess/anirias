@@ -4,7 +4,7 @@ import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
-import PageBandCinematic from '@/components/cinematic/PageBandCinematic';
+import PageHero from '@/components/cinematic/PageHero';
 import type { PublicCalendarEntry } from '../types';
 
 function isSameLocalDay(a: Date, b: Date) {
@@ -114,15 +114,15 @@ const Calendar: React.FC = () => {
   }, [data]);
 
   return (
-    <div className="min-h-screen bg-app-bg pb-24 font-inter">
-      <PageBandCinematic
-        accent="Yayın planı"
-        title="Yayın"
-        titleHighlight="takvimi"
-        description="Bugün, bu hafta ve yaklaşan bölümler tek ekranda."
+    <div className="min-h-screen bg-background pb-24 font-inter">
+      <PageHero
+        title="Yayın Takvimi"
+        description="Haftalık yayın akışını takip et. Hangi gün hangi anime yayınlanıyor, anında öğren."
+        image="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=1920"
+        className="rounded-none mb-0 h-[400px] md:h-[500px]"
       />
 
-      <div className="mx-auto mt-10 max-w-[1200px] space-y-12 px-6 md:px-10">
+      <div className="mx-auto -mt-20 relative z-20 max-w-[1200px] space-y-12 px-4 md:px-10 pt-4 md:pt-6">
         {loading && <LoadingSkeleton type="list" count={6} />}
         {error && <ErrorState message={error.message} onRetry={reload} />}
 

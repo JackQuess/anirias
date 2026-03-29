@@ -2,6 +2,8 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import Navbar from './Navbar';
+import ScrollToTop from './ScrollToTop';
+import MobileBottomNav from './MobileBottomNav';
 import BackendNotConfiguredBanner from './BackendNotConfiguredBanner';
 import { hasSupabaseEnv } from '@/services/supabaseClient';
 import MascotLayer from './decorative/MascotLayer';
@@ -9,10 +11,12 @@ import MascotLayer from './decorative/MascotLayer';
 const Layout: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-app-bg">
+      <ScrollToTop />
       <Navbar />
-      <main className="flex-grow pt-24 lg:pt-32 font-inter antialiased">
+      <main className="flex-grow pt-24 lg:pt-32 pb-16 md:pb-0 font-inter antialiased">
         <Outlet />
       </main>
+      <MobileBottomNav />
       <footer className="py-20 border-t border-white/5 bg-app-surface/85 backdrop-blur-xl mt-20 relative z-10 font-inter">
         {/* Rias Mascot - Brand Signature (Footer, bottom-left, desktop only) */}
         <div className="absolute bottom-0 left-0 z-0 hidden md:block">

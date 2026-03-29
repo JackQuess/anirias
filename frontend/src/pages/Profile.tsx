@@ -4,20 +4,18 @@ import { useAuth } from '@/services/auth';
 import { Navigate, Link } from 'react-router-dom';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
-import LoadingSkeleton from '../components/LoadingSkeleton';
 import AnimeCard from '../components/AnimeCard';
-import { AVATARS, AvatarItem, getAvatarSrc } from '@/utils/avatar';
+import { AVATARS, getAvatarSrc } from '@/utils/avatar';
+import { getDisplayTitle } from '@/utils/title';
+import { proxyImage } from '@/utils/proxyImage';
 import { BANNERS, getBannerSrc } from '@/utils/banner';
-import { validateUsername } from '@/utils/usernameValidation';
 import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
-
-type BannerItem = { id: string; src: string; name?: string };
+import { translateGenre } from '@/utils/genreTranslations';
 
 const loggedAvatarErrors = new Set<string>();
 
 const Profile: React.FC = () => {
-  const { user, profile, status, activePlan, signOut, refreshProfile, refreshEntitlements } = useAuth();
-  const [activeTab, setActiveTab] = useState<'info' | 'watchlist' | 'history'>('info');
+  const { user, profile, status, activePlan, signOut, refreshProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [activeAvatarCategory, setActiveAvatarCategory] = useState<'hsdxd' | 'jjk'>('hsdxd');
   
@@ -59,15 +57,6 @@ const Profile: React.FC = () => {
 
   const { data: history, reload: reloadHistory } = useLoad(fetchWatchHistory, [userId]);
   const { data: watchlist, reload: reloadWatchlist } = useLoad(fetchWatchlist, [userId]);
-
-  // Reload watchlist when watchlist tab becomes active (in case user added items from other pages)
-  // FIX: Remove reloadWatchlist from dependency array to prevent infinite loop
-  useEffect(() => {
-    if (activeTab === 'watchlist') {
-      reloadWatchlist();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]); // Only depend on activeTab, not reloadWatchlist
 
   // Use history length as stable dependency instead of entire history array
   const historyLength = history?.length ?? 0;
@@ -186,232 +175,251 @@ const Profile: React.FC = () => {
     return { totalEps, hours, level, xp };
   }, [historyLength]); // Only depend on length
 
-  if (status === 'LOADING') return <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand-red"></div></div>;
+  const completedSeries = useMemo(
+    () => watchlist?.filter((w) => w.status === 'completed').length ?? 0,
+    [watchlist]
+  );
+
+  const favoriteGenre = useMemo(() => {
+    const counts = new Map<string, number>();
+    historyStable.forEach((h) => {
+      h.anime?.genres?.forEach((g) => counts.set(g, (counts.get(g) || 0) + 1));
+    });
+    let best = '';
+    let n = 0;
+    counts.forEach((v, k) => {
+      if (v > n) {
+        n = v;
+        best = k;
+      }
+    });
+    return best ? translateGenre(best) : '—';
+  }, [historyStable, historyLength]);
+
+  if (status === 'LOADING')
+    return (
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary" />
+      </div>
+    );
   if (!user) return <Navigate to="/login" />;
 
+  const displayName = profile?.username || user.email || 'Üye';
+  const memberSince = profile?.created_at
+    ? `${new Date(profile.created_at).getFullYear()}'ten beri üye`
+    : 'Yeni üye';
+
   return (
-    <div className="bg-app-bg min-h-screen pb-40 font-inter">
-      
-      {/* Profile Banner */}
-      <div className="relative h-96 w-full overflow-hidden">
-        <img src={bannerSrc} className="w-full h-full object-cover opacity-60 blur-[6px]" style={{ objectPosition: 'center 25%' }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
-      </div>
+    <div className="min-h-screen bg-background pt-24 px-4 md:px-12 pb-24 max-w-6xl mx-auto font-inter">
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-12 bg-surface-elevated p-8 rounded-2xl relative overflow-hidden border border-white/5 shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
-      <div className="max-w-[1600px] mx-auto px-8 -mt-40 relative z-10">
-        
-        <div className="flex flex-col xl:flex-row gap-16 items-start">
-          
-          {/* Sidebar: Identity Card */}
-          <div className="w-full xl:w-[400px] space-y-8 flex-shrink-0">
-            <div className="glass-panel border border-white/10 p-12 rounded-[3.5rem] text-center shadow-2xl relative overflow-hidden">
-              <div className="relative inline-block mb-8">
-                <div className="w-48 h-48 bg-brand-red rounded-[3rem] flex items-center justify-center text-6xl font-black text-white shadow-2xl shadow-brand-red/30 ring-8 ring-app-bg transform -rotate-2 hover:rotate-0 transition-all duration-500 overflow-hidden">
-                  {avatarSrc ? <img src={avatarSrc} className="w-full h-full object-cover" /> : displayProfile.username?.charAt(0).toUpperCase()}
-                </div>
-                <div className="absolute -bottom-4 -right-4 bg-white text-app-bg text-xs font-black px-4 py-2 rounded-xl shadow-xl border-4 border-app-bg uppercase tracking-widest">LVL {stats.level}</div>
-              </div>
-
-              <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter mb-2">{displayProfile.username}</h2>
-              <p className="text-brand-red text-[9px] font-black uppercase tracking-[0.4em] mb-8">
-                {profile?.role === 'admin'
-                  ? 'SYSTEM ADMIN'
-                  : activePlan === 'pro_max'
-                    ? 'PRO MAX MEMBER'
-                    : activePlan === 'pro'
-                      ? 'PRO MEMBER'
-                      : 'FREE MEMBER'}
-              </p>
-              
-              <p className="text-gray-400 text-xs italic leading-relaxed mb-10 px-4">"{displayProfile.bio || 'Henüz bir biyografi eklenmemiş.'}"</p>
-
-              <div className="grid grid-cols-2 gap-4 mb-10">
-                 <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
-                    <p className="text-[9px] font-black text-gray-600 uppercase mb-2">TOPLAM PUAN</p>
-                    <p className="text-2xl font-black text-white">{stats.totalEps * 50}</p>
-                 </div>
-                 <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
-                    <p className="text-[9px] font-black text-gray-600 uppercase mb-2">İZLEME</p>
-                    <p className="text-2xl font-black text-brand-red italic">{stats.hours}s</p>
-                 </div>
-              </div>
-              
-              <div className="space-y-4">
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="w-full py-5 bg-white/5 hover:bg-white/10 border border-white/5 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                >
-                  PROFİLİ DÜZENLE
-                </button>
-                <button 
-                  onClick={async () => {
-                    await signOut();
-                  }}
-                  className="w-full py-5 text-gray-600 hover:text-brand-red text-[9px] font-black uppercase tracking-[0.3em] transition-all"
-                >
-                  GÜVENLİ ÇIKIŞ
-                </button>
-              </div>
+        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30 shrink-0 relative z-10 bg-primary/20">
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-3xl font-black text-white">
+              {displayName.charAt(0).toUpperCase()}
             </div>
-
-            {/* Recommendations Mini-Widget */}
-            <div className="bg-brand-surface border border-white/5 p-8 rounded-[3rem]">
-               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">SİZE ÖZEL</h3>
-               <div className="space-y-4">
-                 {recommendations?.map(rec => (
-                   <Link key={rec.id} to={`/anime/${rec.id}`} className="flex gap-4 group items-center hover:bg-white/5 p-2 rounded-xl transition-all">
-                      <img src={rec.cover_image || ''} className="w-12 h-12 object-cover rounded-lg" />
-                      <div className="flex-1 min-w-0">
-                         <p className="text-[10px] font-black text-white uppercase truncate group-hover:text-brand-red">{rec.title.romaji}</p>
-                         <p className="text-[8px] text-gray-500 font-bold uppercase">{rec.genres[0]}</p>
-                      </div>
-                   </Link>
-                 ))}
-               </div>
-            </div>
+          )}
+        </div>
+        <div className="flex-1 z-10 min-w-0">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-4xl font-black tracking-tight text-white">{displayName}</h1>
+            {profile?.role === 'admin' ? (
+              <span className="px-2 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded text-[10px] font-bold uppercase tracking-wider">
+                Admin
+              </span>
+            ) : null}
           </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 space-y-12 w-full">
-            
-            {/* Nav Tabs */}
-            <div className="flex gap-10 border-b border-white/5 px-4 overflow-x-auto scrollbar-hide">
-               {[
-                 { id: 'info', label: 'GENEL BAKIŞ' },
-                 { id: 'watchlist', label: 'MY LIST' },
-                 { id: 'history', label: 'İZLEME GEÇMİŞİ' }
-               ].map(tab => (
-                 <button
-                   key={tab.id}
-                   onClick={() => setActiveTab(tab.id as any)}
-                   className={`pb-6 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative whitespace-nowrap ${activeTab === tab.id ? 'text-brand-red' : 'text-gray-600 hover:text-white'}`}
-                 >
-                   {tab.label}
-                   {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-brand-red rounded-full shadow-lg shadow-brand-red/50" />}
-                 </button>
-               ))}
-            </div>
-
-            {/* Tab Panels */}
-            <div className="min-h-[600px] animate-fade-in-up">
-              {activeTab === 'info' && (
-                <div className="space-y-12">
-                   {/* Level Progress */}
-                   <section className="bg-brand-surface border border-white/5 p-10 rounded-[3rem] relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-red/5 rounded-full blur-[80px]" />
-                      <div className="flex items-end justify-between mb-4 relative z-10">
-                         <div>
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">MEVCUT SEVİYE</p>
-                            <h3 className="text-4xl font-black text-white italic">LEVEL {stats.level}</h3>
-                         </div>
-                         <p className="text-brand-red font-black text-xl">{stats.xp}% <span className="text-gray-600 text-xs">/ 100%</span></p>
-                      </div>
-                      <div className="h-4 bg-black/40 rounded-full overflow-hidden relative z-10">
-                         <div className="h-full bg-gradient-to-r from-brand-red to-red-500 w-[40%]" style={{ width: `${stats.xp}%` }} />
-                      </div>
-                      <p className="text-[9px] text-gray-500 mt-4 font-bold uppercase tracking-widest relative z-10">Bir sonraki seviye için {5 - (historyLength % 5)} bölüm daha izle</p>
-                   </section>
-
-                   <section className="bg-brand-surface border border-white/5 p-10 rounded-[3rem] relative overflow-hidden">
-                      <div className="flex items-center justify-between mb-5">
-                        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">
-                          Desktop <span className="text-brand-red">Access</span>
-                        </h3>
-                        <button
-                          onClick={() => void refreshEntitlements()}
-                          className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white"
-                        >
-                          Plan Yenile
-                        </button>
-                      </div>
-
-                      {activePlan === 'pro_max' ? (
-                        <div className="space-y-4">
-                          <p className="text-gray-300 text-sm">
-                            Desktop erisimin acik. Uygulamayi indirip 6 haneli kod ile hesabinla eslestirebilirsin.
-                          </p>
-                          <Link
-                            to={DESKTOP_ACCESS_PAGE}
-                            className="inline-flex px-6 py-4 rounded-2xl bg-brand-red hover:bg-brand-redHover text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
-                          >
-                            Desktop Sayfasina Git
-                          </Link>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <p className="text-gray-400 text-sm">Bu ozellik yalnizca PRO MAX uyeler icin kullanilabilir.</p>
-                          <p className="text-gray-500 text-xs">Satin alma islemi yalnizca Android uygulamada yapilir.</p>
-                          <Link
-                            to={DESKTOP_ACCESS_PAGE}
-                            className="inline-flex px-6 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase tracking-[0.18em] transition-all"
-                          >
-                            Android uygulamada etkinlestir
-                          </Link>
-                        </div>
-                      )}
-                   </section>
-
-                   <section>
-                      <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-8">SON <span className="text-brand-red">ETKİNLİKLER</span></h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         {historyStable?.slice(0, 4).map((h, i) => (
-                           <div key={i} className="flex items-center gap-6 p-6 bg-brand-surface border border-white/5 rounded-[2rem]">
-                              <img src={h.anime?.cover_image || ''} className="w-16 h-24 object-cover rounded-xl" />
-                              <div>
-                                 <p className="text-[9px] text-brand-red font-black uppercase tracking-widest mb-1">İZLENDİ</p>
-                                 <h4 className="text-sm font-black text-white uppercase italic line-clamp-1">{h.anime?.title.romaji}</h4>
-                                 <p className="text-xs text-gray-500 font-bold mt-1">Bölüm {h.episode?.episode_number}</p>
-                              </div>
-                           </div>
-                         ))}
-                      </div>
-                   </section>
-                </div>
-              )}
-
-              {activeTab === 'watchlist' && (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                   {watchlist?.map(entry => (
-                     entry.anime && (
-                       <div key={entry.id} className="relative group">
-                         <AnimeCard anime={entry.anime} />
-                         <div className="absolute top-2 right-2 bg-app-bg/85 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 z-20">
-                            <span className="text-[9px] text-brand-red font-black uppercase tracking-widest">{entry.status}</span>
-                         </div>
-                       </div>
-                     )
-                   ))}
-                   {(!watchlist || watchlist.length === 0) && (
-                     <div className="col-span-full py-40 text-center bg-white/[0.02] rounded-[4rem] border border-dashed border-white/10">
-                        <p className="text-xs font-black text-gray-700 uppercase tracking-[0.4em]">Henüz listene anime eklemedin.</p>
-                     </div>
-                   )}
-                </div>
-              )}
-
-              {activeTab === 'history' && (
-                <div className="bg-brand-surface rounded-[3.5rem] border border-white/5 overflow-hidden divide-y divide-white/5">
-                   {historyStable?.map((h, i) => (
-                     <div key={i} className="flex items-center gap-8 p-8 hover:bg-white/[0.02] transition-all group">
-                        <img src={h.anime?.cover_image || ''} className="w-24 h-32 object-cover rounded-2xl border border-white/5 group-hover:scale-105 transition-transform" />
-                        <div className="flex-1">
-                           <h4 className="text-xl font-black text-white uppercase italic tracking-tighter group-hover:text-brand-red transition-colors">{h.anime?.title.romaji}</h4>
-                           <div className="flex gap-4 mt-2">
-                             <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-lg">Bölüm {h.episode?.episode_number}</span>
-                             <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest py-1">{new Date(h.completed_at).toLocaleDateString('tr-TR')}</span>
-                           </div>
-                        </div>
-                        <Link to={`/watch/${h.anime?.slug || h.anime_id}/${h.episode?.season_number || 1}/${h.episode?.episode_number || 1}`} className="w-16 h-16 bg-white/5 hover:bg-brand-red text-white rounded-2xl flex items-center justify-center transition-all">
-                           <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        </Link>
-                     </div>
-                   ))}
-                </div>
-              )}
-            </div>
+          <p className="text-white/60 mb-4 max-w-md line-clamp-2">{displayProfile.bio || 'Henüz bir biyografi eklenmemiş.'}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            {activePlan === 'pro_max' ? (
+              <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-wide uppercase flex items-center gap-1.5">
+                Pro Max
+              </span>
+            ) : activePlan === 'pro' ? (
+              <span className="px-3 py-1 bg-primary/15 text-primary border border-primary/25 rounded-full text-xs font-bold uppercase">
+                Pro
+              </span>
+            ) : null}
+            <span className="text-white/50 text-sm font-medium">{memberSince}</span>
+            <span className="text-muted text-sm">Lv. {stats.level}</span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsEditing(true)}
+          className="px-6 py-3 bg-surface border border-white/10 rounded-lg font-bold hover:bg-white/10 transition-colors flex items-center gap-2 z-10 w-full md:w-auto justify-center text-white"
+        >
+          <span>Profili düzenle</span>
+        </button>
       </div>
+
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
+        <span className="text-primary">▍</span> İstatistikler
+      </h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
+          <span className="text-sm font-medium text-white/50">Yaklaşık izleme</span>
+          <span className="text-3xl font-black text-white">
+            {stats.hours}
+            <span className="text-lg text-white/50 ml-1 font-medium">saat</span>
+          </span>
+        </div>
+        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
+          <span className="text-sm font-medium text-white/50">İzlenen kayıt</span>
+          <span className="text-3xl font-black text-white">{stats.totalEps}</span>
+        </div>
+        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
+          <span className="text-sm font-medium text-white/50">Sık tür</span>
+          <span className="text-2xl font-black text-primary truncate">{favoriteGenre}</span>
+        </div>
+        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
+          <span className="text-sm font-medium text-white/50">Tamamlanan (liste)</span>
+          <span className="text-3xl font-black text-white">{completedSeries}</span>
+        </div>
+      </div>
+
+      <div className="mb-12">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
+            <span className="text-primary">▍</span> Son aktiviteler
+          </h2>
+          <div className="flex gap-4">
+            <Link to="/list" className="text-sm text-muted hover:text-white transition-colors">
+              Listem
+            </Link>
+            <Link to="/profile#gecmis" className="text-sm text-muted hover:text-white transition-colors">
+              Tüm geçmiş
+            </Link>
+          </div>
+        </div>
+        <div className="bg-surface-elevated rounded-xl border border-white/5 overflow-hidden">
+          {historyStable.length === 0 ? (
+            <p className="p-8 text-center text-muted text-sm">Henüz izleme geçmişi yok.</p>
+          ) : (
+            historyStable.slice(0, 6).map((h, i) => (
+              <div
+                key={`${h.anime_id}-${h.episode_id}-${i}`}
+                className="flex items-center gap-4 p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+              >
+                <img
+                  src={proxyImage(h.anime?.cover_image || '')}
+                  alt=""
+                  className="w-16 h-16 rounded object-cover shrink-0 bg-black/40"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-white line-clamp-1">
+                    {h.anime ? getDisplayTitle(h.anime.title) : 'Anime'}
+                  </h3>
+                  <p className="text-sm text-white/50">
+                    Bölüm {h.episode?.episode_number ?? '—'} izlendi
+                  </p>
+                </div>
+                <div className="text-sm text-white/40 hidden sm:block shrink-0">
+                  {new Date(h.completed_at).toLocaleDateString('tr-TR')}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <section id="gecmis" className="mb-12 scroll-mt-28">
+        <h2 className="text-2xl font-bold text-white mb-4">İzleme geçmişi</h2>
+        <div className="bg-surface-elevated rounded-xl border border-white/5 divide-y divide-white/5 overflow-hidden">
+          {historyStable.length === 0 ? (
+            <p className="p-8 text-center text-muted text-sm">Kayıt yok.</p>
+          ) : (
+            historyStable.map((h, i) => (
+              <div
+                key={`${h.anime_id}-${h.episode_id}-full-${i}`}
+                className="flex items-center gap-4 p-4 hover:bg-white/[0.03] transition-colors"
+              >
+                <img
+                  src={proxyImage(h.anime?.cover_image || '')}
+                  alt=""
+                  className="w-14 h-20 object-cover rounded-lg shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-white truncate">
+                    {h.anime ? getDisplayTitle(h.anime.title) : '—'}
+                  </h4>
+                  <p className="text-xs text-white/50">
+                    Bölüm {h.episode?.episode_number} · {new Date(h.completed_at).toLocaleDateString('tr-TR')}
+                  </p>
+                </div>
+                <Link
+                  to={`/watch/${h.anime?.slug || h.anime_id}/${h.episode?.season_number || 1}/${h.episode?.episode_number || 1}`}
+                  className="shrink-0 w-12 h-12 rounded-xl bg-white/5 hover:bg-primary hover:text-black text-white flex items-center justify-center transition-colors"
+                  aria-label="Oynat"
+                >
+                  <svg className="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </Link>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
+        <span className="text-primary">▍</span> Hesap
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Link
+          to={DESKTOP_ACCESS_PAGE}
+          className="bg-surface-elevated p-6 rounded-xl flex flex-col gap-4 border border-white/5 hover:border-primary/50 transition-all group shadow-lg"
+        >
+          <div className="text-primary text-sm font-black uppercase tracking-widest">Plan &amp; desktop</div>
+          <div>
+            <h3 className="text-lg font-bold mb-1 text-white">Abonelik &amp; erişim</h3>
+            <p className="text-white/50 text-sm leading-relaxed">
+              {activePlan === 'pro_max'
+                ? 'Desktop erişimin açık. Kod eşlemesi için sayfaya git.'
+                : 'PRO Max ile masaüstü uygulamasını etkinleştir.'}
+            </p>
+          </div>
+        </Link>
+        <Link
+          to="/list"
+          className="bg-surface-elevated p-6 rounded-xl flex flex-col gap-4 border border-white/5 hover:border-primary/50 transition-all group shadow-lg"
+        >
+          <div className="text-primary text-sm font-black uppercase tracking-widest">Koleksiyon</div>
+          <div>
+            <h3 className="text-lg font-bold mb-1 text-white">Listem</h3>
+            <p className="text-white/50 text-sm leading-relaxed">Kayıtlı seriler ve kaldığın yer.</p>
+          </div>
+        </Link>
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="bg-surface-elevated p-6 rounded-xl flex flex-col gap-4 text-left border border-white/5 hover:border-red-500/50 hover:bg-red-500/5 transition-all group shadow-lg"
+        >
+          <div className="text-red-500 text-sm font-black uppercase tracking-widest">Oturum</div>
+          <div>
+            <h3 className="text-lg font-bold text-red-500 mb-1">Çıkış yap</h3>
+            <p className="text-white/50 text-sm leading-relaxed">Bu cihazdan güvenle çık.</p>
+          </div>
+        </button>
+      </div>
+
+      {recommendations && recommendations.length > 0 ? (
+        <section className="mt-12">
+          <h2 className="text-xl font-bold text-white mb-4">Sana özel</h2>
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+            {recommendations.slice(0, 8).map((rec) => (
+              <div key={rec.id} className="w-[140px] shrink-0">
+                <AnimeCard anime={rec} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Edit Profile Modal */}
       {isEditing && (

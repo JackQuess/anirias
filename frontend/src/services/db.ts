@@ -924,6 +924,36 @@ export const db = {
     }
   },
 
+  removeWatchlistEntry: async (userId: string, animeId: string) => {
+    if (!checkEnv()) return;
+    try {
+      const { error } = await supabase!
+        .from('watchlist')
+        .delete()
+        .eq('user_id', userId)
+        .eq('anime_id', animeId);
+      if (error && import.meta.env.DEV) console.error('[db.removeWatchlistEntry]', error);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[db.removeWatchlistEntry] Unexpected', err);
+    }
+  },
+
+  isAnimeInWatchlist: async (userId: string, animeId: string): Promise<boolean> => {
+    if (!checkEnv()) return false;
+    try {
+      const { data, error } = await supabase!
+        .from('watchlist')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('anime_id', animeId)
+        .maybeSingle();
+      if (error) return false;
+      return !!data;
+    } catch {
+      return false;
+    }
+  },
+
   saveWatchProgress: async (progress: Partial<WatchProgress>) => {
     if (!checkEnv()) return;
     // User data - allowed with RLS protection

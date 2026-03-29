@@ -67,7 +67,7 @@ const HomeHeroCinematic: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="relative w-full h-[70vh] md:h-[85vh] bg-app-surfaceElevated animate-pulse flex items-end pb-24 md:pb-32 px-4 md:px-12 font-inter">
+      <div className="relative w-full h-[85vh] min-h-[600px] bg-app-surfaceElevated animate-pulse flex items-end pb-24 md:pb-32 px-4 md:px-12 font-inter">
         <div className="space-y-6 w-full max-w-2xl">
           <div className="h-16 md:h-24 bg-white/5 rounded-lg w-3/4" />
           <div className="h-6 bg-white/5 rounded w-1/2" />
@@ -102,13 +102,13 @@ const HomeHeroCinematic: React.FC = () => {
   const scorePct = Math.min(100, Math.round((Number(current.score) || 0) * 10));
 
   const variants = {
-    enter: (dir: number) => ({ x: dir > 0 ? 900 : -900, opacity: 0 }),
+    enter: (dir: number) => ({ x: dir > 0 ? 1000 : -1000, opacity: 0 }),
     center: { zIndex: 1, x: 0, opacity: 1 },
-    exit: (dir: number) => ({ zIndex: 0, x: dir < 0 ? 900 : -900, opacity: 0 }),
+    exit: (dir: number) => ({ zIndex: 0, x: dir < 0 ? 1000 : -1000, opacity: 0 }),
   };
 
   return (
-    <div className="relative w-full h-[85vh] min-h-[560px] flex items-end pb-20 md:pb-24 overflow-hidden group font-inter bg-app-bg">
+    <div className="relative w-full h-[85vh] min-h-[600px] flex items-end pb-20 md:pb-24 overflow-hidden group font-inter bg-app-bg">
       <AnimatePresence initial={false} custom={direction} mode="wait">
         <motion.div
           key={currentIndex}
@@ -118,8 +118,8 @@ const HomeHeroCinematic: React.FC = () => {
           animate="center"
           exit="exit"
           transition={{
-            x: { type: 'spring', stiffness: 280, damping: 32 },
-            opacity: { duration: 0.35 },
+            x: { type: 'spring', stiffness: 300, damping: 30 },
+            opacity: { duration: 0.4 },
           }}
           className="absolute inset-0 w-full h-full"
         >
@@ -133,7 +133,7 @@ const HomeHeroCinematic: React.FC = () => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-app-bg via-app-bg/65 to-transparent w-[85%]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-app-bg via-app-bg/60 to-transparent w-[80%]" />
             <div className="absolute inset-0 bg-gradient-to-t from-app-bg via-transparent to-transparent h-full" />
           </div>
 
@@ -141,31 +141,29 @@ const HomeHeroCinematic: React.FC = () => {
             <div className="max-w-2xl flex flex-col gap-5">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-brand-red font-black text-xl tracking-tighter">A</span>
-                  <span className="text-white/80 font-bold tracking-[0.2em] text-xs">N I R I A S</span>
+                  <span className="text-primary font-black text-xl tracking-tighter">A</span>
+                  <span className="text-white/80 font-bold tracking-[0.2em] text-xs">
+                    S E R İ S İ
+                  </span>
                 </div>
-                <div className="h-4 w-px bg-white/20 hidden sm:block" />
-                <span className="text-brand-red font-bold text-xs tracking-widest uppercase">Vitrin özel</span>
+                <div className="h-4 w-px bg-white/20" />
+                <span className="text-primary font-bold text-xs tracking-widest uppercase">VİTRİN ÖZEL</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight text-white leading-[0.95] drop-shadow-lg uppercase italic">
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight text-white leading-none drop-shadow-lg uppercase">
                 {title}
               </h1>
 
               <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90 drop-shadow-md">
-                <span className="text-emerald-400 font-bold">%{scorePct} beğeni</span>
-                <span>{current.year || '—'}</span>
-                {current.is_adult ? (
-                  <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white/80">
-                    18+
-                  </span>
-                ) : null}
+                <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+                <span>{current.year || '2024'}</span>
+                <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white/80">18+</span>
                 <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white/80 uppercase">
                   {genreLabel}
                 </span>
-                <span className="flex items-center gap-1.5 text-white/80">
+                <span className="flex items-center gap-1.5">
                   <Subtitles className="w-4 h-4" />
-                  Altyazılı
+                  Türkçe
                 </span>
               </div>
 
@@ -176,14 +174,14 @@ const HomeHeroCinematic: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <Link
                   to={`/watch/${slug}/1/1`}
-                  className="flex items-center justify-center gap-2 bg-white text-black px-8 py-3 rounded font-bold text-base hover:bg-white/85 transition-colors active:scale-95 shadow-lg"
+                  className="flex items-center justify-center gap-2 bg-white text-black px-8 py-3 rounded font-bold text-base hover:bg-white/80 transition-colors active:scale-95"
                 >
                   <Play className="w-6 h-6 fill-current" />
                   Hemen İzle
                 </Link>
                 <Link
                   to={`/anime/${slug}`}
-                  className="flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md border border-white/15 text-white px-8 py-3 rounded font-bold text-base hover:bg-white/20 transition-colors active:scale-95"
+                  className="flex items-center justify-center gap-2 bg-gray-500/40 backdrop-blur-sm text-white px-8 py-3 rounded font-bold text-base hover:bg-gray-500/60 transition-colors active:scale-95"
                 >
                   <Info className="w-6 h-6" />
                   Detaylar
@@ -193,12 +191,10 @@ const HomeHeroCinematic: React.FC = () => {
 
             <div className="hidden lg:flex flex-col items-end gap-6 mb-4">
               <div className="flex flex-col gap-2">
-                <span className="text-white/40 text-[10px] font-bold tracking-[0.2em] uppercase text-right">
-                  Sıradaki
-                </span>
+                <span className="text-white/40 text-[10px] font-bold tracking-[0.2em] uppercase text-right">SIRADAKİ</span>
                 <Link
                   to={`/anime/${nextAnime.slug || nextAnime.id}`}
-                  className="group/next relative w-48 aspect-video rounded-md overflow-hidden border border-white/10 hover:border-brand-red/60 transition-colors"
+                  className="group/next relative w-48 aspect-video rounded-md overflow-hidden border border-white/10 hover:border-primary/50 transition-colors"
                 >
                   <img
                     src={nextBanner}
@@ -215,20 +211,18 @@ const HomeHeroCinematic: React.FC = () => {
                 </Link>
               </div>
 
-              <div className="bg-black/45 backdrop-blur-md border border-white/10 rounded-lg p-4 flex flex-col gap-3 min-w-[200px] text-sm">
+              <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded p-4 flex flex-col gap-3 min-w-[200px] text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-white/60">Puan</span>
+                  <span className="text-white/60">Bölümler</span>
                   <span className="text-white font-bold flex items-center gap-1">
-                    <MonitorPlay className="w-4 h-4 text-brand-red" />
-                    {current.score ?? '—'}
+                    <MonitorPlay className="w-4 h-4 text-primary" />
+                    24
                   </span>
                 </div>
                 <div className="h-px w-full bg-white/10" />
                 <div className="flex items-center justify-between">
-                  <span className="text-white/60">Görüntülenme</span>
-                  <span className="text-white font-bold text-right tabular-nums">
-                    {current.view_count?.toLocaleString('tr-TR') ?? '—'}
-                  </span>
+                  <span className="text-white/60">Durum</span>
+                  <span className="text-white font-bold text-right">Devam Ediyor</span>
                 </div>
               </div>
             </div>
@@ -250,7 +244,7 @@ const HomeHeroCinematic: React.FC = () => {
                 }}
                 className={cn(
                   'h-1 transition-all duration-300 rounded-full',
-                  idx === currentIndex ? 'w-8 bg-brand-red' : 'w-4 bg-white/25 hover:bg-white/45'
+                  idx === currentIndex ? 'w-8 bg-primary' : 'w-4 bg-white/20 hover:bg-white/40'
                 )}
               />
             ))}

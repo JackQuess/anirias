@@ -4,7 +4,7 @@ import { useInfiniteEpisodes } from '@/hooks/useInfiniteEpisodes';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import AnimeCard from '../components/AnimeCard';
-import PageBandCinematic from '@/components/cinematic/PageBandCinematic';
+import PageHero from '@/components/cinematic/PageHero';
 
 const NewEpisodes: React.FC = () => {
   const { episodes, loading, loadingMore, hasMore, error, loadMore, reload } = useInfiniteEpisodes();
@@ -33,15 +33,15 @@ const NewEpisodes: React.FC = () => {
   }, [hasMore, loadingMore, loading, loadMore]);
 
   return (
-    <div className="min-h-screen bg-app-bg pb-40 font-inter">
-      <PageBandCinematic
-        accent="Güncel içerik"
-        title="Yeni"
-        titleHighlight="bölümler"
-        description="Japonya ile aynı anda yayınlanan en yeni bölümleri kaçırma."
+    <div className="min-h-screen bg-background pb-40 font-inter">
+      <PageHero
+        title="Yeni Bölümler"
+        description="En sevdiğin anime serilerinin en yeni bölümlerini keşfet. Güncel kal, hiçbir anı kaçırma."
+        image="https://images.unsplash.com/photo-1578632738981-4330c7091f35?auto=format&fit=crop&q=80&w=1920"
+        className="rounded-none mb-0 h-[400px] md:h-[500px]"
       />
 
-      <div className="max-w-[1600px] mx-auto px-6 md:px-14 mt-12 md:mt-16">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-20 relative z-20 pt-4 md:pt-6">
         {loading && episodes.length === 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-12">
             <LoadingSkeleton type="card" count={24} />

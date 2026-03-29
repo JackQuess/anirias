@@ -1,390 +1,357 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { Play, Plus, Check, Share2, Subtitles } from 'lucide-react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { useAuth } from '@/services/auth';
-import LoadingSkeleton from '../components/LoadingSkeleton';
-import { WatchlistStatus } from '../types';
-import AnimeCard from '../components/AnimeCard';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
+import { WatchlistStatus } from '@/types';
+import AnimeCard from '@/components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
 
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
-  const [userRating, setUserRating] = useState<number>(0);
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
-  
-  // Memoize fetcher functions to prevent recreation on every render
-  // These are stable references that only change when their dependencies change
-  // CRITICAL: All fetchers wrapped in try/catch for fail-safe rendering
+
   const fetchAnime = useCallback(async () => {
     if (!id) return null;
     try {
       return await db.getAnimeByIdOrSlug(id);
     } catch (err) {
-      if (import.meta.env.DEV) console.error('[AnimeDetail] Anime fetch error:', err);
-      return null; // Fail-safe: return null instead of throwing
+      if (import.meta.env.DEV) console.error('[AnimeDetail]', err);
+      return null;
     }
   }, [id]);
-  
-  // Memoize watchlist fetcher - only recreates when userId changes
+
   const fetchWatchlist = useCallback(async () => {
     if (!user?.id) return [];
     try {
       return await db.getWatchlist(user.id);
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('[AnimeDetail] Watchlist fetch error:', err);
-      return []; // Fail-safe: return empty array
+    } catch {
+      return [];
     }
   }, [user?.id]);
-  
-  // Fetch anime - only depends on id (primitive), fetcher is memoized
+
   const { data: anime, loading: animeLoading, error: animeError } = useLoad(fetchAnime, [id]);
-  
-  // Extract animeId as string to prevent object reference issues (after anime is fetched)
   const animeId = anime?.id || null;
-  
-  // Memoize episode fetcher with animeId - only recreates when animeId changes
+
   const fetchEpisodesWithId = useCallback(async () => {
     if (!animeId) return [];
     try {
       return await db.getEpisodes(animeId);
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('[AnimeDetail] Episodes fetch error:', err);
-      return []; // Fail-safe: return empty array
+    } catch {
+      return [];
     }
   }, [animeId]);
-  
-  // Memoize similar fetcher with animeId - only recreates when animeId changes
+
   const fetchSimilarWithId = useCallback(async () => {
     if (!animeId) return [];
     try {
       return await db.getSimilarAnimes(animeId);
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('[AnimeDetail] Similar animes fetch error:', err);
-      return []; // Fail-safe: return empty array
+    } catch {
+      return [];
     }
   }, [animeId]);
-  
-  // Fetch episodes - only after anime is loaded, depends on animeId string
-  const { data: allEpisodes, loading: episodesLoading, reload: reloadEpisodes } = useLoad(
-    fetchEpisodesWithId,
-    [animeId]
-  );
-  
-  // Fetch similar animes - only after anime is loaded, depends on animeId string
+
+  const { data: allEpisodes, loading: episodesLoading } = useLoad(fetchEpisodesWithId, [animeId]);
   const { data: similarAnimes } = useLoad(fetchSimilarWithId, [animeId]);
-  
-  // Fetch watchlist - only depends on userId (primitive), completely separate from anime
   const { data: watchlist } = useLoad(fetchWatchlist, [user?.id]);
 
-  // Group episodes by season_number
   const episodesBySeason = React.useMemo(() => {
-    if (!allEpisodes || allEpisodes.length === 0) return {};
-    const grouped: Record<number, typeof allEpisodes> = {};
-    allEpisodes.forEach(ep => {
-      const seasonNum = ep.season_number || 1;
-      if (!grouped[seasonNum]) {
-        grouped[seasonNum] = [];
-      }
-      grouped[seasonNum].push(ep);
+    if (!allEpisodes?.length) return {};
+    const grouped: Record<number, NonNullable<typeof allEpisodes>> = {};
+    allEpisodes.forEach((ep) => {
+      const sn = ep.season_number || 1;
+      if (!grouped[sn]) grouped[sn] = [];
+      grouped[sn].push(ep);
     });
-    // Sort episodes within each season by episode_number
-    Object.keys(grouped).forEach(seasonNum => {
-      grouped[Number(seasonNum)].sort((a, b) => a.episode_number - b.episode_number);
+    Object.keys(grouped).forEach((k) => {
+      grouped[Number(k)].sort((a, b) => a.episode_number - b.episode_number);
     });
     return grouped;
   }, [allEpisodes]);
 
-  // Get unique season numbers from episodes, sorted
-  const seasonNumbers = React.useMemo(() => {
-    const nums = Object.keys(episodesBySeason).map(Number).sort((a, b) => a - b);
-    return nums;
-  }, [episodesBySeason]);
+  const seasonNumbers = React.useMemo(() => Object.keys(episodesBySeason).map(Number).sort((a, b) => a - b), [episodesBySeason]);
 
-  // Initialize selected season from URL or first available season
   useEffect(() => {
-    const querySeason = searchParams.get('season');
-    const querySeasonNum = querySeason ? parseInt(querySeason) : null;
-    
+    const qs = searchParams.get('season');
+    const qn = qs ? parseInt(qs, 10) : null;
     if (seasonNumbers.length === 0) {
       setSelectedSeasonNumber(null);
       return;
     }
-
     if (!selectedSeasonNumber) {
-      // Use season from URL if valid, otherwise first season
-      const validSeason = querySeasonNum && seasonNumbers.includes(querySeasonNum) 
-        ? querySeasonNum 
-        : seasonNumbers[0];
-      setSelectedSeasonNumber(validSeason);
-      if (validSeason && !querySeason) {
-        setSearchParams({ season: String(validSeason) });
-      }
-    } else if (querySeasonNum && querySeasonNum !== selectedSeasonNumber && seasonNumbers.includes(querySeasonNum)) {
-      // Update from URL if valid
-      setSelectedSeasonNumber(querySeasonNum);
+      const valid = qn && seasonNumbers.includes(qn) ? qn : seasonNumbers[0];
+      setSelectedSeasonNumber(valid);
+      if (valid && !qs) setSearchParams({ season: String(valid) });
+    } else if (qn && qn !== selectedSeasonNumber && seasonNumbers.includes(qn)) {
+      setSelectedSeasonNumber(qn);
     }
   }, [seasonNumbers, selectedSeasonNumber, searchParams, setSearchParams]);
 
-  // Get episodes for selected season
   const visibleEpisodes = React.useMemo(() => {
     if (!selectedSeasonNumber) return [];
     return episodesBySeason[selectedSeasonNumber] || [];
   }, [selectedSeasonNumber, episodesBySeason]);
 
-  // Update watchlist status - only when watchlist data changes, not on every render
   useEffect(() => {
     if (!watchlist || !animeId) return;
-    const entry = watchlist.find(w => w.anime_id === animeId);
-    if (entry) {
-      setWatchlistStatus(entry.status);
-    } else {
-      setWatchlistStatus('none');
-    }
+    const entry = watchlist.find((w) => w.anime_id === animeId);
+    setWatchlistStatus(entry ? entry.status : 'none');
   }, [watchlist, animeId]);
 
-  const handleStatusChange = async (status: WatchlistStatus) => {
-    if (!user || !animeId) return alert('Lütfen önce giriş yapın!');
-    await db.updateWatchlist(user.id, animeId, status);
-    setWatchlistStatus(status);
-    setShowStatusMenu(false);
+  const titleString = anime ? getDisplayTitle(anime.title) : '';
+  const slug = anime?.slug || anime?.id || '';
+  const banner = anime ? proxyImage(anime.banner_image || anime.cover_image || '') : '';
+  const cover = anime ? proxyImage(anime.cover_image || '') : '';
+  const scorePct = anime ? Math.min(100, Math.round((Number(anime.score) || 0) * 10)) : 98;
+  const synopsis = anime?.description?.replace(/<[^>]*>/g, '') || '';
+
+  const toggleList = async () => {
+    if (!user || !animeId) {
+      alert('Lütfen önce giriş yapın.');
+      return;
+    }
+    try {
+      if (watchlistStatus !== 'none') {
+        await db.removeWatchlistEntry(user.id, animeId);
+        setWatchlistStatus('none');
+      } else {
+        await db.updateWatchlist(user.id, animeId, 'planning');
+        setWatchlistStatus('planning');
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.error(e);
+    }
   };
 
-  const titleString = anime ? getDisplayTitle(anime.title) : '';
+  const shareAnime = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: titleString, url });
+      else await navigator.clipboard.writeText(url);
+    } catch {
+      /* ignore */
+    }
+  };
 
-  if (animeLoading) return <div className="min-h-screen bg-app-bg font-inter pt-20"><LoadingSkeleton type="banner" /></div>;
+  if (animeLoading) {
+    return (
+      <div className="min-h-screen bg-background font-inter pt-8">
+        <LoadingSkeleton type="banner" />
+      </div>
+    );
+  }
+
   if (animeError || !anime) {
     return (
-      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center text-white font-black italic">
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center text-white">
         <div className="text-center space-y-4">
-          <div className="text-6xl mb-4">404</div>
-          <div>ANİME BULUNAMADI</div>
-          {id && (
-            <div className="text-sm text-gray-500 mt-4 font-normal">
-              {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) 
-                ? `UUID: ${id}` 
-                : `Slug: ${id}`}
-            </div>
-          )}
+          <div className="text-6xl font-black">404</div>
+          <div className="font-bold">Anime bulunamadı.</div>
         </div>
       </div>
     );
   }
 
-  const statusLabels: Record<string, string> = {
-    watching: 'İzliyorum',
-    planning: 'Planlıyorum',
-    completed: 'Tamamladım',
-    dropped: 'Bıraktım',
-    paused: 'Durdurdum',
-    none: 'Listeye Ekle'
-  };
+  const inList = watchlistStatus !== 'none';
+  const firstSeason = seasonNumbers[0] ?? 1;
 
   return (
-    <div className="bg-app-bg min-h-screen pb-40 overflow-x-hidden font-inter">
-      {/* Background Banner - Fail-safe: show gradient if image fails */}
-      <div className="relative h-[40vh] md:h-[60vh] lg:h-[75vh] w-full overflow-hidden bg-gradient-to-br from-brand-red/20 via-app-bg to-app-bg">
-        {(anime.banner_image || anime.cover_image) && (
+    <div className="min-h-screen bg-background pb-24 font-inter">
+      <div className="relative w-full h-[60vh] md:h-[70vh] bg-black">
+        {banner ? (
           <img
-            src={proxyImage(anime.banner_image || anime.cover_image || '')}
-            className="w-full h-full object-cover opacity-50 blur-sm scale-105"
+            src={banner}
+            alt={titleString}
+            className="w-full h-full object-cover opacity-50"
+            referrerPolicy="no-referrer"
             onError={(e) => {
-              // Hide image on error - gradient background will show
               (e.target as HTMLImageElement).style.display = 'none';
             }}
-            alt=""
           />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-app-bg via-app-bg/45 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-app-bg/85 via-transparent to-transparent" />
-      </div>
+        ) : null}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent w-[90%] md:w-[60%]" />
 
-      <div className="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-16 -mt-32 md:-mt-64 lg:-mt-96 relative z-10">
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-16">
-          
-          {/* Sidebar (Poster & Actions) */}
-          <div className="w-full sm:w-64 lg:w-[320px] mx-auto lg:mx-0 space-y-6 lg:space-y-8 flex-shrink-0">
-            <div className="aspect-[2/3] rounded-[1.5rem] lg:rounded-[2.5rem] overflow-hidden border-4 border-white/5 shadow-2xl relative group bg-brand-surface">
-              {anime.cover_image && (
-                <img
-                  src={proxyImage(anime.cover_image)}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  onError={(e) => {
-                    // Hide image on error - fail-safe rendering
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                  alt=""
-                />
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                 <Link to={seasonNumbers.length > 0 ? `/watch/${anime.slug || anime.id}/${seasonNumbers[0]}/1` : `/watch/${anime.slug || anime.id}/1/1`} className="bg-brand-red text-white p-6 rounded-full shadow-2xl scale-0 group-hover:scale-100 transition-transform duration-500 hover:bg-brand-redHover">
-                    <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                 </Link>
-              </div>
+        <div className="absolute bottom-0 left-0 w-full px-6 md:px-12 pb-12">
+          <div className="max-w-4xl flex flex-col gap-4">
+            <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-lg">{titleString}</h1>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-white/90">
+              <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+              <span>{anime.year || '2024'}</span>
+              {anime.is_adult ? (
+                <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">18+</span>
+              ) : null}
+              <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">4K HDR</span>
+              <span className="flex items-center gap-1.5">
+                <Subtitles className="w-4 h-4" />
+                Türkçe
+              </span>
             </div>
 
-            <div className="space-y-3 lg:space-y-4 relative">
-              <button 
-                onClick={() => setShowStatusMenu(!showStatusMenu)}
-                className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-3 border shadow-xl ${
-                  watchlistStatus !== 'none' ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-                }`}
+            <p className="text-base md:text-lg text-white/80 line-clamp-3 max-w-2xl mt-2 leading-relaxed">{synopsis}</p>
+
+            <div className="flex flex-wrap items-center gap-4 mt-6">
+              <Link
+                to={`/watch/${slug}/${firstSeason}/1`}
+                className="flex items-center justify-center gap-2 bg-white text-black px-8 py-3 rounded font-bold text-base hover:bg-white/80 transition-colors active:scale-95"
               >
-                {statusLabels[watchlistStatus]}
-                <svg className={`w-3 h-3 transition-transform ${showStatusMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"/></svg>
-              </button>
-
-              {showStatusMenu && (
-                <div className="absolute bottom-full left-0 right-0 mb-4 bg-brand-dark border border-white/10 rounded-[2rem] p-4 shadow-2xl z-20 animate-fade-in origin-bottom">
-                  {['watching', 'planning', 'completed', 'dropped'].map((status) => (
-                    <button 
-                      key={status} 
-                      onClick={() => handleStatusChange(status as WatchlistStatus)}
-                      className="w-full text-left px-6 py-4 rounded-xl text-[9px] font-black text-gray-500 hover:text-white hover:bg-white/5 uppercase tracking-widest transition-all"
-                    >
-                      {statusLabels[status]}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <Link to={seasonNumbers.length > 0 ? `/watch/${anime.slug || anime.id}/${seasonNumbers[0]}/1` : `/watch/${anime.slug || anime.id}/1/1`} className="w-full bg-white text-app-bg py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center hover:scale-[1.02] transition-all shadow-xl">
-                HEMEN İZLE
+                <Play className="w-6 h-6 fill-current" />
+                Oynat
               </Link>
+              <button
+                type="button"
+                onClick={toggleList}
+                className="flex items-center justify-center gap-2 bg-transparent border border-white/40 text-white px-8 py-3 rounded font-bold text-base hover:bg-white/10 transition-colors active:scale-95"
+              >
+                {inList ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                {inList ? 'Listemde' : 'Listeme Ekle'}
+              </button>
+              <button
+                type="button"
+                onClick={shareAnime}
+                className="w-12 h-12 rounded-full border border-white/40 flex items-center justify-center hover:bg-white/10 transition-colors"
+                aria-label="Paylaş"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
             </div>
-
-            {/* Mobile: Info moved below */}
-            <div className="hidden lg:block bg-brand-dark/80 backdrop-blur-xl border border-white/5 p-8 rounded-[2.5rem] space-y-6 shadow-xl">
-               <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-widest border-l-4 border-brand-red pl-4">ANİME BİLGİLERİ</h4>
-               <div className="space-y-4">
-                  <div className="flex justify-between items-center"><span className="text-[10px] text-gray-500 font-bold uppercase">PUAN</span><span className="text-brand-red font-black italic">★ {anime.score}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-[10px] text-gray-500 font-bold uppercase">YIL</span><span className="text-white font-black">{anime.year}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-[10px] text-gray-500 font-bold uppercase">SÜRE</span><span className="text-white font-black">24 DK</span></div>
-                  <div className="flex justify-between items-center"><span className="text-[10px] text-gray-500 font-bold uppercase">DURUM</span><span className="text-white font-black">DEVAM EDİYOR</span></div>
-               </div>
-               <div className="flex flex-wrap gap-2 pt-4">
-                  {anime.genres.map(g => <span key={g} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-[8px] font-black text-gray-400 uppercase">{translateGenre(g)}</span>)}
-               </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-grow lg:pt-24 text-center lg:text-left overflow-x-hidden">
-            <h1 className="text-4xl md:text-5xl lg:text-8xl font-black text-white uppercase italic tracking-tighter leading-[0.9] mb-6 lg:mb-10 drop-shadow-2xl">{titleString}</h1>
-            
-            <p className="text-gray-300 text-sm md:text-lg leading-relaxed max-w-4xl mb-8 lg:mb-12 opacity-90">{anime.description}</p>
-            
-            <div className="flex flex-col md:flex-row gap-6 md:gap-12 items-center justify-center lg:justify-start border-b border-white/5 pb-10 mb-12 lg:mb-16">
-               <div className="flex flex-col items-center lg:items-start">
-                  <span className="text-[9px] font-black text-brand-red uppercase tracking-[0.4em] mb-2">SENİN PUANIN</span>
-                  <div className="flex gap-2">
-                    {[1,2,3,4,5].map(star => (
-                      <button key={star} onClick={() => setUserRating(star)} className={`text-3xl transition-all hover:scale-110 ${userRating >= star ? 'text-yellow-500' : 'text-gray-800 hover:text-gray-600'}`}>★</button>
-                    ))}
-                  </div>
-               </div>
-               <div className="w-full md:w-px h-px md:h-16 bg-white/10" />
-               <div className="flex flex-col items-center lg:items-start">
-                  <span className="text-[9px] font-black text-brand-red uppercase tracking-[0.4em] mb-2">TOPLAM İZLENME</span>
-                  <span className="text-4xl font-black text-white italic tracking-tighter">{(anime.view_count || 0).toLocaleString()}</span>
-               </div>
-            </div>
-
-             {/* Mobile Info Block */}
-            <div className="lg:hidden bg-brand-surface border border-white/5 p-6 rounded-3xl mb-12 text-left">
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                     <span className="text-[9px] text-gray-500 font-bold uppercase">YIL</span>
-                     <p className="text-white font-black">{anime.year}</p>
-                  </div>
-                  <div className="space-y-1">
-                     <span className="text-[9px] text-gray-500 font-bold uppercase">PUAN</span>
-                     <p className="text-brand-red font-black">★ {anime.score}</p>
-                  </div>
-               </div>
-               <div className="flex flex-wrap gap-2 mt-6">
-                  {anime.genres.map(g => <span key={g} className="px-3 py-1 bg-white/5 border border-white/5 rounded-lg text-[8px] font-black text-gray-400 uppercase">{translateGenre(g)}</span>)}
-               </div>
-            </div>
-
-            <section className="space-y-8 lg:space-y-12 mb-16 lg:mb-24 text-left overflow-x-hidden">
-               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <h3 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter">BÖLÜM <span className="text-brand-red">LİSTESİ</span></h3>
-                  
-                  {/* Season Selector - Only show if multiple seasons */}
-                  {seasonNumbers.length > 1 && (
-                    <div className="flex bg-brand-dark/50 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full flex-shrink-0">
-                      {seasonNumbers.map(seasonNum => (
-                        <button 
-                          key={seasonNum} 
-                          onClick={() => {
-                            setSelectedSeasonNumber(seasonNum);
-                            setSearchParams({ season: String(seasonNum) });
-                          }} 
-                          className={`px-4 lg:px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedSeasonNumber === seasonNum ? 'bg-brand-red text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
-                        >
-                          SEZON {seasonNum}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-               </div>
-
-               <div className="flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden max-h-[520px] pr-1 w-full">
-                  {episodesLoading ? (
-                    <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest py-8">
-                      Yükleniyor...
-                    </div>
-                  ) : visibleEpisodes.length > 0 ? (
-                    visibleEpisodes.map(ep => {
-                      const seasonNum = ep.season_number || selectedSeasonNumber || 1;
-                      return (
-                        <Link 
-                          key={`${ep.id}-${ep.episode_number}`} 
-                          to={`/watch/${anime.slug || anime.id}/${seasonNum}/${ep.episode_number}`} 
-                          className="group w-full bg-brand-surface rounded-lg border border-white/5 hover:border-brand-red/40 transition-all flex items-center gap-2 px-2.5 py-1.5 min-h-[44px] hover:bg-white/[0.02]"
-                        >
-                          <div className="w-6 h-6 bg-black/40 rounded-md flex items-center justify-center text-brand-red font-black text-[9px] italic group-hover:bg-brand-red group-hover:text-white transition-all shadow-inner flex-shrink-0">
-                            {ep.episode_number}
-                          </div>
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-[9px] font-black text-white uppercase tracking-tight truncate group-hover:text-brand-red transition-colors leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className="text-[7px] font-bold text-gray-600 uppercase mt-0.5">24 DK</p>
-                          </div>
-                        </Link>
-                      );
-                    })
-                  ) : (
-                    <div className="w-full text-center text-gray-500 text-xs font-black uppercase tracking-widest py-8">
-                      Yakında
-                    </div>
-                  )}
-               </div>
-            </section>
-
-            <section className="space-y-8 lg:space-y-12 text-left">
-               <div className="flex justify-between items-end">
-                  <h3 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter">BENZER <span className="text-brand-red">İÇERİKLER</span></h3>
-               </div>
-               
-               <div className="flex gap-4 lg:gap-6 overflow-x-auto pb-10 scrollbar-hide snap-x -mx-4 px-4 lg:mx-0 lg:px-0">
-                  {similarAnimes?.map(sim => (
-                    <div key={sim.id} className="w-36 lg:w-48 flex-shrink-0 snap-start">
-                        <AnimeCard anime={sim} />
-                    </div>
-                  ))}
-               </div>
-            </section>
           </div>
         </div>
       </div>
+
+      <div className="px-6 md:px-12 py-12 flex flex-col lg:flex-row gap-12">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <h2 className="text-2xl font-bold text-white">Bölümler</h2>
+            {seasonNumbers.length > 1 ? (
+              <select
+                value={selectedSeasonNumber ?? firstSeason}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setSelectedSeasonNumber(n);
+                  setSearchParams({ season: String(n) });
+                }}
+                className="bg-surface border border-white/10 text-white px-4 py-2 rounded outline-none focus:border-white/30 max-w-xs"
+              >
+                {seasonNumbers.map((sn) => (
+                  <option key={sn} value={sn}>
+                    {sn}. Sezon
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-white/50 text-sm">{seasonNumbers.length ? `${seasonNumbers[0]}. Sezon` : 'Sezon'}</span>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {episodesLoading ? (
+              <p className="text-muted text-sm py-8">Yükleniyor...</p>
+            ) : visibleEpisodes.length > 0 ? (
+              visibleEpisodes.map((ep, i) => {
+                const epNum = ep.episode_number;
+                const epTitle = ep.title || `Bölüm ${epNum}`;
+                const sn = ep.season_number || selectedSeasonNumber || 1;
+                const mins = ep.duration_seconds ? Math.floor(ep.duration_seconds / 60) : 24;
+                const blurb =
+                  ep.short_note?.replace(/<[^>]*>/g, '') ||
+                  'Bu bölümde hikâye ilerliyor ve karakterler yeni gelişmelerle karşılaşıyor.';
+                return (
+                  <Link
+                    key={ep.id || i}
+                    to={`/watch/${slug}/${sn}/${epNum}`}
+                    className="flex items-center gap-4 p-4 rounded-lg hover:bg-surface-elevated transition-colors group cursor-pointer border border-transparent hover:border-white/5"
+                  >
+                    <div className="text-2xl font-bold text-white/20 w-8 text-center group-hover:text-white/40 transition-colors shrink-0">
+                      {epNum}
+                    </div>
+                    <div className="relative w-32 md:w-40 aspect-video bg-surface rounded overflow-hidden shrink-0">
+                      <img
+                        src={cover}
+                        alt=""
+                        className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                        <Play className="w-8 h-8 text-white fill-current" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-bold text-sm md:text-base truncate">{epTitle}</h4>
+                      <p className="text-white/50 text-xs md:text-sm line-clamp-2 mt-1">{blurb}</p>
+                    </div>
+                    <div className="text-white/40 text-sm hidden sm:block shrink-0">{mins} dk</div>
+                  </Link>
+                );
+              })
+            ) : (
+              <p className="text-muted text-sm py-8">Henüz bölüm yok.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full lg:w-80 shrink-0 space-y-8">
+          <div>
+            <h3 className="text-white/60 text-sm mb-2">Öne çıkan</h3>
+            <p className="text-white text-sm">{anime.is_featured ? 'Vitrin içeriği' : 'Katalog içeriği'}</p>
+          </div>
+
+          <div>
+            <h3 className="text-white/60 text-sm mb-2">Türler</h3>
+            <div className="flex flex-wrap gap-2">
+              {anime.genres?.map((g) => (
+                <span key={g} className="text-white text-sm">
+                  {translateGenre(g)}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {anime.tags && anime.tags.length > 0 ? (
+            <div>
+              <h3 className="text-white/60 text-sm mb-2">Etiketler</h3>
+              <div className="flex flex-wrap gap-2">
+                {anime.tags.slice(0, 8).map((t) => (
+                  <span key={t} className="text-white text-sm">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-white/60 text-sm mb-2">Bu dizi</h3>
+              <p className="text-white text-sm">Sürükleyici hikâye ve güçlü görsellik.</p>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-white/60 text-sm mb-2">Bilgi</h3>
+            <p className="text-white text-sm">İzlenme: {(anime.view_count || 0).toLocaleString('tr-TR')}</p>
+          </div>
+        </div>
+      </div>
+
+      {similarAnimes && similarAnimes.length > 0 ? (
+        <div className="px-6 md:px-12 pb-16">
+          <h2 className="text-2xl font-bold text-white mb-6">Benzer içerikler</h2>
+          <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 no-scrollbar snap-x">
+            {similarAnimes.map((sim) => (
+              <div key={sim.id} className="w-[100px] sm:w-[130px] md:w-[160px] lg:w-[180px] shrink-0 snap-start">
+                <AnimeCard anime={sim} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

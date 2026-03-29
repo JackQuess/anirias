@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Subtitles, Share2, ChevronLeft, Plus, Check } from 'lucide-react';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
 import { useAuth } from '../services/auth';
@@ -8,11 +9,126 @@ import VideoPlayer from '../components/VideoPlayer';
 import MascotLayer from '../components/decorative/MascotLayer';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
-import type { WatchProgress, Anime, Season, Episode } from '../types';
+import { translateGenre } from '@/utils/genreTranslations';
+import type { WatchProgress, Anime, Season, Episode, WatchlistStatus } from '../types';
 import NotFound from './NotFound';
 import { parseSeasonSlug, generateSeasonSlug } from '@/utils/seasonSlug';
 
 const Comments = lazy(() => import('../components/Comments'));
+
+type WatchInfoPanelProps = {
+  anime: Anime;
+  episode: Episode;
+  seasonNum: number;
+  titleString: string;
+  synopsis: string;
+  scorePct: number;
+  inList: boolean;
+  onToggleList: () => void | Promise<void>;
+  onShare: () => void | Promise<void>;
+  hasSubtitles: boolean;
+  user: { id: string } | null;
+};
+
+const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
+  anime,
+  episode,
+  seasonNum,
+  titleString,
+  synopsis,
+  scorePct,
+  inList,
+  onToggleList,
+  onShare,
+  hasSubtitles,
+  user,
+}) => {
+  const detailPath = `/anime/${anime.slug || anime.id}`;
+  const epTitle = episode.title?.replace(/<[^>]*>/g, '') || '';
+  const epBlurb = episode.short_note?.replace(/<[^>]*>/g, '') || '';
+
+  return (
+    <div className="space-y-5">
+      <Link
+        to={detailPath}
+        className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-muted hover:text-white transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4 shrink-0" />
+        Dizi sayfasına dön
+      </Link>
+
+      <div>
+        <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">{titleString}</h1>
+        <p className="text-primary text-xs font-black uppercase tracking-widest mt-2">
+          Sezon {seasonNum} · Bölüm {episode.episode_number}
+          {epTitle ? ` · ${epTitle}` : ''}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-medium text-white/85">
+        <span className="text-emerald-400 font-bold">%{scorePct} uyum</span>
+        {anime.year ? <span className="text-white/70">{anime.year}</span> : null}
+        {anime.is_adult ? (
+          <span className="px-1.5 py-0.5 border border-white/25 rounded text-[11px] text-white/75">18+</span>
+        ) : null}
+        <span className="px-1.5 py-0.5 border border-white/25 rounded text-[11px] text-white/75">4K HDR</span>
+        {hasSubtitles ? (
+          <span className="flex items-center gap-1.5 text-white/75">
+            <Subtitles className="w-4 h-4 shrink-0" />
+            Türkçe altyazı
+          </span>
+        ) : null}
+      </div>
+
+      {anime.genres?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {anime.genres.slice(0, 8).map((g) => (
+            <span
+              key={g}
+              className="text-[11px] font-semibold text-white/80 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg"
+            >
+              {translateGenre(g)}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {epBlurb ? (
+        <p className="text-sm text-white/65 leading-relaxed border-l-2 border-primary/60 pl-4">{epBlurb}</p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void onShare()}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors"
+        >
+          <Share2 className="w-4 h-4" />
+          Paylaş
+        </button>
+        {user ? (
+          <button
+            type="button"
+            onClick={() => void onToggleList()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors"
+          >
+            {inList ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {inList ? 'Listemde' : 'Listeme ekle'}
+          </button>
+        ) : null}
+      </div>
+
+      <section className="rounded-2xl border border-white/5 bg-surface-elevated p-5 md:p-6 shadow-lg">
+        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-primary mb-4 flex items-center gap-2">
+          <span className="text-lg leading-none">▍</span> Özet
+        </h2>
+        <p className="text-sm text-white/70 leading-relaxed whitespace-pre-line">
+          {synopsis.trim() ? synopsis : 'Bu içerik için özet henüz eklenmedi.'}
+        </p>
+      </section>
+    </div>
+  );
+};
 
 interface WatchPagePayload {
   anime: Anime;
@@ -100,6 +216,53 @@ const WatchSlug: React.FC = () => {
     },
     [user, anime?.id]
   );
+
+  const { data: watchlistRows } = useLoad(
+    () => (user?.id ? db.getWatchlist(user.id) : Promise.resolve([])),
+    [user?.id]
+  );
+
+  const [listStatus, setListStatus] = useState<WatchlistStatus | 'none'>('none');
+
+  useEffect(() => {
+    if (!watchlistRows) return;
+    if (!anime?.id) {
+      setListStatus('none');
+      return;
+    }
+    const row = watchlistRows.find((w) => w.anime_id === anime.id);
+    setListStatus(row?.status ?? 'none');
+  }, [anime?.id, watchlistRows]);
+
+  const toggleWatchlist = useCallback(async () => {
+    if (!user || !anime?.id) {
+      alert('Lütfen önce giriş yapın.');
+      return;
+    }
+    try {
+      if (listStatus !== 'none') {
+        await db.removeWatchlistEntry(user.id, anime.id);
+        setListStatus('none');
+      } else {
+        await db.updateWatchlist(user.id, anime.id, 'watching');
+        setListStatus('watching');
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[WatchSlug] watchlist:', err);
+    }
+  }, [user, anime?.id, listStatus]);
+
+  const shareWatch = useCallback(async () => {
+    if (!anime || !episode || seasonNum == null) return;
+    const url = window.location.href;
+    const t = `${getDisplayTitle(anime.title)} · S${seasonNum} B${episode.episode_number}`;
+    try {
+      if (navigator.share) await navigator.share({ title: t, url });
+      else await navigator.clipboard.writeText(url);
+    } catch {
+      /* ignore */
+    }
+  }, [anime, episode, seasonNum]);
 
   // CRITICAL: Update currentEpisodeId when episode changes (for episode switch optimization)
   useEffect(() => {
@@ -293,7 +456,7 @@ const WatchSlug: React.FC = () => {
 
   if (watchError && !watchLoading) {
     return (
-      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center px-6">
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center px-6">
         <div className="max-w-xl w-full rounded-3xl border border-white/10 bg-brand-surface/80 p-8 text-center">
           <p className="text-brand-red text-[10px] font-black uppercase tracking-[0.25em] mb-3">Izleme Verisi Alinamadi</p>
           <h2 className="text-white text-2xl font-black uppercase tracking-tight mb-3">Sayfa su an yuklenemiyor</h2>
@@ -316,7 +479,7 @@ const WatchSlug: React.FC = () => {
 
   if (watchLoading || !anime || !season || !episode) {
     return (
-      <div className="min-h-screen bg-app-bg font-inter pt-20">
+      <div className="min-h-screen bg-background font-inter pt-20">
         <LoadingSkeleton type="banner" />
       </div>
     );
@@ -341,8 +504,18 @@ const WatchSlug: React.FC = () => {
       }))
     : undefined;
 
+  const synopsis = (anime.description || '').replace(/<[^>]*>/g, '');
+  const scorePct = Math.min(100, Math.round((Number(anime.score) || 0) * 10));
+  const hasSubtitles = !!(subtitleFiles && subtitleFiles.length > 0);
+
+  const commentsFallback = (
+    <div className="text-muted text-sm font-semibold py-10 text-center rounded-2xl border border-white/5 bg-surface-elevated/50">
+      Yorumlar yükleniyor…
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-app-bg font-inter" data-watch-page>
+    <div className="min-h-screen bg-background font-inter" data-watch-page>
       {/* Mobile-First Layout */}
       <div className="xl:hidden">
         {/* Mobile Player - Full Width */}
@@ -377,19 +550,37 @@ const WatchSlug: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile Comments */}
-        <div className="px-4 py-6">
-          <Comments animeId={anime.id} episodeId={episode.id} />
+        <div className="px-4 py-8 bg-background border-t border-white/5">
+          <WatchInfoPanel
+            anime={anime}
+            episode={episode}
+            seasonNum={seasonNum}
+            titleString={titleString}
+            synopsis={synopsis}
+            scorePct={scorePct}
+            inList={listStatus !== 'none'}
+            onToggleList={toggleWatchlist}
+            onShare={shareWatch}
+            hasSubtitles={hasSubtitles}
+            user={user}
+          />
+        </div>
+
+        <div className="px-4 pb-6">
+          <Suspense fallback={commentsFallback}>
+            <Comments animeId={anime.id} episodeId={episode.id} />
+          </Suspense>
         </div>
 
         {/* Mobile Episode List - Bottom Sheet */}
         <div className="fixed bottom-4 left-0 right-0 z-[120] px-4">
           <div className="flex justify-end">
             <button
+              type="button"
               onClick={() => setShowMobileEpisodeSheet(true)}
-              className="bg-red-500 text-white font-bold uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-red-500/30"
+              className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/35 hover:opacity-95 transition-opacity"
             >
-              Bölüm Listesi
+              Bölüm listesi
             </button>
           </div>
         </div>
@@ -404,7 +595,7 @@ const WatchSlug: React.FC = () => {
             />
             
             {/* Bottom Sheet */}
-            <div className="fixed bottom-0 left-0 right-0 z-[140] bg-brand-surface border-t border-brand-border rounded-t-[2.5rem] shadow-2xl max-h-[80vh] flex flex-col animate-slide-up">
+            <div className="fixed bottom-0 left-0 right-0 z-[140] bg-surface-elevated border-t border-white/10 rounded-t-[2rem] shadow-2xl max-h-[80vh] flex flex-col animate-slide-up">
               {/* Handle */}
               <div className="flex justify-center pt-3 pb-2">
                 <div className="w-12 h-1 bg-white/20 rounded-full" />
@@ -412,11 +603,11 @@ const WatchSlug: React.FC = () => {
               
               {/* Header */}
               <div className="flex items-center justify-between px-6 pb-4 border-b border-white/5 flex-shrink-0">
-                <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
-                  BÖLÜM LİSTESİ
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-primary pl-3">
+                  Bölüm listesi
                 </h3>
-                <span className="text-[9px] font-black text-gray-500 uppercase">
-                  {episodes?.length || 0} BÖLÜM
+                <span className="text-[9px] font-black text-muted uppercase tracking-wide">
+                  {episodes?.length || 0} bölüm
                 </span>
               </div>
               
@@ -434,9 +625,9 @@ const WatchSlug: React.FC = () => {
                         navigateToEpisode(seasonNum!, ep.episode_number);
                         setShowMobileEpisodeSheet(false);
                       }}
-                      className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto ${
+                      className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto ${
                         isCurrent
-                          ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
+                          ? 'bg-primary text-white shadow-md shadow-primary/25'
                           : 'hover:bg-white/5 text-gray-400 hover:text-white active:bg-white/10'
                       } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
@@ -507,26 +698,43 @@ const WatchSlug: React.FC = () => {
                   onPlayerReady={handlePlayerReady}
                 />
               ) : (
-                <div className="w-full aspect-video bg-black flex items-center justify-center rounded-[16px]">
+                <div className="w-full aspect-video bg-black flex items-center justify-center rounded-2xl border border-white/5">
                   <div className="text-white/50 text-sm font-semibold">Video yükleniyor...</div>
                 </div>
               )}
 
-              {/* Comments */}
+              <div className="px-4 lg:px-0 pt-2">
+                <WatchInfoPanel
+                  anime={anime}
+                  episode={episode}
+                  seasonNum={seasonNum}
+                  titleString={titleString}
+                  synopsis={synopsis}
+                  scorePct={scorePct}
+                  inList={listStatus !== 'none'}
+                  onToggleList={toggleWatchlist}
+                  onShare={shareWatch}
+                  hasSubtitles={hasSubtitles}
+                  user={user}
+                />
+              </div>
+
               <div className="px-4 lg:px-0">
-                <Comments animeId={anime.id} episodeId={episode.id} />
+                <Suspense fallback={commentsFallback}>
+                  <Comments animeId={anime.id} episodeId={episode.id} />
+                </Suspense>
               </div>
             </div>
 
             {/* Episode List Sidebar */}
-            <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8 relative z-20">
-              <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
+            <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-6 relative z-20">
+              <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 h-[600px] flex flex-col shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                  <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">
-                    BÖLÜM LİSTESİ
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-primary pl-3">
+                    Bölüm listesi
                   </h3>
-                  <span className="text-[9px] font-black text-gray-500 uppercase">
-                    {episodes?.length || 0} BÖLÜM
+                  <span className="text-[9px] font-black text-muted uppercase tracking-wide">
+                    {episodes?.length || 0} bölüm
                   </span>
                 </div>
                 <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
@@ -541,9 +749,9 @@ const WatchSlug: React.FC = () => {
                           if (!ep.video_url && !ep.hls_url) return;
                           navigateToEpisode(seasonNum!, ep.episode_number);
                         }}
-                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto relative z-30 ${
+                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto relative z-30 ${
                           isCurrent
-                            ? 'bg-brand-red text-white shadow-md shadow-brand-red/20'
+                            ? 'bg-primary text-white shadow-md shadow-primary/25'
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                         } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
@@ -579,7 +787,7 @@ const WatchSlug: React.FC = () => {
               </div>
 
               {/* Now Watching Card */}
-              <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 flex gap-4 items-center">
+              <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 flex gap-4 items-center shadow-lg">
                 <img
                   src={poster}
                   onError={(e) => {
@@ -590,16 +798,19 @@ const WatchSlug: React.FC = () => {
                       target.src = fallbackPoster;
                     }
                   }}
-                  className="w-16 h-24 object-cover rounded-xl shadow-lg"
+                  className="w-16 h-24 object-cover rounded-xl shadow-lg border border-white/10"
                   alt={titleString}
                 />
-                <div>
-                  <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1">
-                    ŞİMDİ İZLENİYOR
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">
+                    Şimdi izleniyor
                   </p>
-                  <h4 className="text-sm font-bold text-white uppercase italic leading-tight line-clamp-2">
+                  <h4 className="text-sm font-bold text-white leading-tight line-clamp-2">
                     {titleString}
                   </h4>
+                  <p className="text-[10px] text-muted mt-1 font-semibold">
+                    S{seasonNum} · B{episode.episode_number}
+                  </p>
                 </div>
               </div>
             </aside>

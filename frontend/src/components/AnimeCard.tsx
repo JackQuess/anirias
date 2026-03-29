@@ -1,144 +1,176 @@
-
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Anime, Episode } from '../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Play, Plus, Subtitles, Check } from 'lucide-react';
+import { Anime, Episode } from '@/types';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/services/auth';
+import { db } from '@/services/db';
 
-interface AnimeCardProps {
+export interface AnimeCardProps {
   anime: Anime;
   episode?: Episode;
-  rank?: number;
+  /** Legacy; zip home rails do not use rank numbers */
   featured?: boolean;
-  /** landscape = 16:9 (continue-watching style from cinematic home rails) */
   layout?: 'poster' | 'landscape';
-  /** 0–100: show watch progress bar (continue watching) */
+  /** 0–100 watch progress (continue watching) */
   progressPercent?: number;
 }
 
-const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, rank, featured, layout = 'poster', progressPercent }) => {
-  const title = getDisplayTitle(anime.title);
-  const cover = anime.cover_image || '';
-  const coverSrc = proxyImage(cover);
-  const seasonNumber = episode?.season_number || 1;
-  const link = episode 
-    ? `/watch/${anime.slug || anime.id}/${seasonNumber}/${episode.episode_number}` 
-    : `/anime/${anime.slug || anime.id}`;
-  
+const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster', progressPercent }) => {
+  const [imgErrorCount, setImgErrorCount] = useState(0);
+  const [inList, setInList] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const displayTitle = getDisplayTitle(anime.title);
+  const slug = anime.slug || anime.id;
+  const isLandscape = layout === 'landscape';
+  const rawPortrait = proxyImage(anime.cover_image || '');
+  const rawLandscape = proxyImage(anime.banner_image || anime.cover_image || '');
+  const displayImage = isLandscape ? rawLandscape : rawPortrait;
+
+  const pct = Math.min(100, Math.round((Number(anime.score) || 0) * 10));
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!user) {
+        setInList(false);
+        return;
+      }
+      const ok = await db.isAnimeInWatchlist(user.id, anime.id);
+      if (!cancelled) setInList(ok);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, anime.id]);
+
+  const getImageUrl = useCallback(() => {
+    if (imgErrorCount === 0) return displayImage;
+    if (imgErrorCount === 1 && displayImage) {
+      return `https://images.weserv.nl/?url=${encodeURIComponent(displayImage.replace(/^https?:\/\//, ''))}&w=${isLandscape ? 1280 : 600}&h=${isLandscape ? 720 : 900}&fit=cover&q=80`;
+    }
+    return isLandscape
+      ? `https://picsum.photos/seed/${encodeURIComponent(anime.id)}c/1280/720`
+      : `https://picsum.photos/seed/${encodeURIComponent(anime.id)}p/600/900`;
+  }, [imgErrorCount, displayImage, isLandscape, anime.id]);
+
+  const handleAction = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      alert('Lütfen önce giriş yapın.');
+      return;
+    }
+    try {
+      if (inList) {
+        await db.removeWatchlistEntry(user.id, anime.id);
+        setInList(false);
+      } else {
+        await db.updateWatchlist(user.id, anime.id, 'planning');
+        setInList(true);
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Watchlist toggle', err);
+    }
+  };
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const season = episode?.season_number ?? 1;
+    const epNum = episode?.episode_number ?? 1;
+    navigate(`/watch/${slug}/${season}/${epNum}`);
+  };
+
+  const showProgress = typeof progressPercent === 'number' && progressPercent >= 0;
+
   return (
-    <Link to={link} className={`group relative flex flex-col w-full flex-shrink-0 ${featured ? 'md:col-span-2' : ''}`}>
-      {/* Netflix-Style Large Outline Rank Number */}
-      {rank && (
-        <div className="absolute -left-8 md:-left-12 bottom-0 z-0 pointer-events-none select-none">
-          <span 
-            className="block text-[100px] md:text-[180px] font-black leading-none tracking-tighter"
-            style={{
-              WebkitTextStroke: '4px rgba(255,255,255,0.12)',
-              WebkitTextFillColor: 'transparent',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
-              fontWeight: 900,
-              fontStyle: 'italic'
-            }}
-          >
-            {rank}
-          </span>
-        </div>
+    <Link
+      to={`/anime/${slug}`}
+      className={cn(
+        'group relative w-full rounded-md overflow-hidden bg-app-surface transition-all duration-300 hover:scale-105 hover:z-20 hover:shadow-xl hover:shadow-black/50 block',
+        isLandscape ? 'aspect-video' : 'aspect-[2/3]'
       )}
+    >
+      <img
+        src={getImageUrl()}
+        alt={displayTitle}
+        onError={() => setImgErrorCount((prev) => prev + 1)}
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        referrerPolicy="no-referrer"
+        loading="lazy"
+      />
 
-      {/* Main Card Container */}
-      <div
-        className={`relative w-full rounded-2xl md:rounded-[2rem] overflow-hidden border border-white/5 transition-all duration-500 lg:group-hover:border-brand-red lg:group-hover:shadow-[0_0_30px_rgba(229,9,20,0.3)] bg-brand-surface z-10 ${
-          layout === 'landscape' ? 'aspect-video' : episode ? 'aspect-[4/5]' : 'aspect-[2/3]'
-        }`}
-      >
-        
-        {/* Image */}
-        <img 
-          src={coverSrc} 
-          referrerPolicy="no-referrer" 
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-700 lg:group-hover:scale-110 lg:group-hover:rotate-1" 
-          alt={title}
-          onError={(e) => {
-            // Hide image on error - gradient background will show
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-        
-        {/* Dark Gradient Overlay - Always visible on mobile to show text */}
-        <div className="absolute inset-0 bg-gradient-to-t from-app-bg/92 via-app-bg/25 to-transparent opacity-100 lg:opacity-60 lg:group-hover:opacity-90 transition-opacity duration-300" />
-        
-        {/* Play Icon Overlay (Desktop Hover Only) */}
-        <div className="absolute inset-0 hidden lg:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-50 group-hover:scale-100">
-           <div className="w-16 h-16 bg-brand-red/90 text-white rounded-full flex items-center justify-center shadow-2xl backdrop-blur-sm border border-white/20">
-              <svg className="w-6 h-6 fill-current ml-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-           </div>
-        </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Badges */}
-        <div className="absolute top-2 left-2 md:top-3 md:left-3 flex flex-row gap-2 flex-wrap">
-           {episode ? (
-             <>
-               <span className="bg-brand-red text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-lg shadow-lg uppercase tracking-widest animate-pulse">
-                  YENİ
-               </span>
-               {(episode.seasons?.season_number ?? episode.season_number) && (
-                 <span className="bg-gray-800/80 backdrop-blur-md text-gray-300 text-[8px] md:text-[9px] font-black px-2 md:px-2.5 py-1 rounded-lg border border-gray-700/50 uppercase tracking-wide">
-                  {(episode.seasons?.season_number ?? episode.season_number)}. Sezon
-               </span>
-               )}
-             </>
-           ) : (
-             <span className="bg-white/10 backdrop-blur-md text-white text-[8px] md:text-[9px] font-black px-2 py-1 rounded border border-white/10">
-                HD
-             </span>
-           )}
-        </div>
-
-        {/* Rating Badge */}
-        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-app-bg/65 backdrop-blur-md text-brand-red text-[9px] md:text-[10px] font-black px-2 py-1 rounded-lg border border-white/10 flex items-center gap-1 lg:group-hover:bg-brand-red lg:group-hover:text-white transition-colors">
-          <span>★</span> {anime.score}
-        </div>
-
-        {/* Bottom Content Info */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 md:p-5 transform lg:translate-y-2 lg:group-hover:translate-y-0 transition-transform duration-300">
-          
-          {episode && (
-             <p className="text-[8px] md:text-[9px] font-black text-white uppercase tracking-widest mb-1">
-               {episode.season_number ? `S${episode.season_number} E${episode.episode_number}` : `BÖLÜM ${episode.episode_number}`}
-             </p>
-          )}
-
-          {!episode && (
-             <p className="text-[8px] md:text-[9px] font-black text-brand-red uppercase tracking-widest mb-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 delay-75 transform lg:translate-y-2 lg:group-hover:translate-y-0">
-               {anime.genres?.[0] ? translateGenre(anime.genres[0]) : ''}
-             </p>
-          )}
-
-          <h3 className={`text-white font-black uppercase italic tracking-tight leading-none mb-1 md:mb-2 drop-shadow-lg ${episode ? 'text-sm md:text-lg line-clamp-2' : 'text-sm md:text-xl truncate'}`}>
-            {title}
-          </h3>
-
-          <div className="flex items-center gap-2 md:gap-3 opacity-90 lg:opacity-80 lg:group-hover:opacity-100 transition-opacity">
-            <span className="text-[9px] md:text-[10px] text-gray-300 font-bold">{anime.year}</span>
-            <span className="w-1 h-1 bg-gray-500 rounded-full" />
-            <span className="text-[9px] md:text-[10px] text-gray-300 font-bold">{episode ? '24dk' : 'TV Serisi'}</span>
-          </div>
-        </div>
-        {typeof progressPercent === 'number' && progressPercent >= 0 ? (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/15">
-            <div
-              className="h-full bg-brand-red shadow-[0_0_10px_#E50914] transition-[width] duration-300"
-              style={{ width: `${Math.min(100, progressPercent)}%` }}
-            />
-          </div>
+      <div className="absolute top-2 left-2 flex flex-col gap-1 z-20">
+        {anime.is_featured ? (
+          <span className="px-1.5 py-0.5 bg-primary text-white text-[10px] font-bold rounded-sm uppercase tracking-wider">
+            Vitrin
+          </span>
+        ) : null}
+        {episode ? (
+          <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold rounded-sm uppercase tracking-wider border border-white/10">
+            S{episode.season_number ?? 1} E{episode.episode_number}
+          </span>
         ) : null}
       </div>
+
+      <div className="absolute inset-0 p-4 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+        <h3 className="text-white font-bold text-sm md:text-base line-clamp-2 mb-2 leading-tight drop-shadow-md">
+          {displayTitle}
+        </h3>
+
+        <div className="flex items-center gap-2 mb-3 text-[11px] font-medium text-white/80 flex-wrap">
+          <span className="text-green-400 font-bold">%{pct}</span>
+          {anime.is_adult ? (
+            <span className="px-1 border border-white/30 rounded text-white/70">18+</span>
+          ) : null}
+          <span>
+            {episode
+              ? `Bölüm ${episode.episode_number}`
+              : anime.genres?.[0]
+                ? translateGenre(anime.genres[0])
+                : 'Anime'}
+          </span>
+          <span className="flex items-center gap-0.5 text-white/60">
+            <Subtitles className="w-3 h-3" /> TR
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePlay}
+            className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:bg-white/80 transition-colors"
+            aria-label="Oynat"
+          >
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleAction}
+            className="w-8 h-8 rounded-full bg-black/50 border border-white/30 text-white flex items-center justify-center hover:border-white transition-colors"
+            aria-label={inList ? 'Listeden çıkar' : 'Listeye ekle'}
+          >
+            {inList ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {showProgress ? (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 z-20">
+          <div className="h-full bg-primary" style={{ width: `${Math.min(100, progressPercent)}%` }} />
+        </div>
+      ) : null}
     </Link>
   );
 };
 
-// PERFORMANCE FIX: Memoize component to prevent unnecessary re-renders
-// When parent (Browse) updates filters, unchanged cards won't re-render
 export default React.memo(AnimeCard);

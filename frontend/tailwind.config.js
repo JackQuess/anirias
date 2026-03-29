@@ -7,6 +7,10 @@ export default {
   theme: {
     extend: {
       colors: {
+        /* Zip semantic tokens (aliases for cinematic UI) */
+        primary: '#e50914',
+        background: '#08080c',
+        muted: '#94a3b8',
         brand: {
           black: '#050505',
           dark: '#0b0b0b',
@@ -21,6 +25,10 @@ export default {
           surface: '#12121a',
           surfaceElevated: '#1a1a24',
           accent: '#00f2ff',
+        },
+        surface: {
+          DEFAULT: '#12121a',
+          elevated: '#1a1a24',
         },
       },
       fontFamily: {

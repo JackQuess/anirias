@@ -1,286 +1,228 @@
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Filter, SortAsc, ChevronDown } from 'lucide-react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
-import { useSearchParams } from 'react-router-dom';
-import LoadingSkeleton from '../components/LoadingSkeleton';
-import ErrorState from '../components/ErrorState';
-import AnimeCard from '../components/AnimeCard';
-import { getDisplayTitle } from '@/utils/title';
-import { translateGenre, translateGenreToEnglish } from '@/utils/genreTranslations';
-import SectionHeaderCinematic from '@/components/cinematic/SectionHeaderCinematic';
+import AnimeCard from '@/components/AnimeCard';
+import PageHero from '@/components/cinematic/PageHero';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
+import ErrorState from '@/components/ErrorState';
+import type { Anime } from '@/types';
+
+const SORT_OPTIONS = [
+  { value: 'view_count' as const, label: 'Popülerlik' },
+  { value: 'score' as const, label: 'Puan' },
+  { value: 'created_at' as const, label: 'Çıkış Tarihi' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'ALL' as const, label: 'Tümü' },
+  { value: 'RELEASING' as const, label: 'Devam Ediyor' },
+  { value: 'FINISHED' as const, label: 'Tamamlandı' },
+];
+
+/** Zip katalog türleri (Türkçe) → DB genres İngilizce */
+const ZIP_GENRES: { label: string; en: string | null }[] = [
+  { label: 'Tümü', en: null },
+  { label: 'Aksiyon', en: 'Action' },
+  { label: 'Macera', en: 'Adventure' },
+  { label: 'Dram', en: 'Drama' },
+  { label: 'Fantastik', en: 'Fantasy' },
+  { label: 'Korku', en: 'Horror' },
+  { label: 'Komedi', en: 'Comedy' },
+  { label: 'Romantik', en: 'Romance' },
+  { label: 'Bilim Kurgu', en: 'Sci-Fi' },
+];
 
 const Browse: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const initialGenre = searchParams.get('genre') || 'Hepsi';
-  
-  // PERFORMANCE FIX: Fetch with reasonable limit for Browse page
-  // Reduced from 200 to 100 to improve initial load time (-50% payload)
-  // If catalog grows beyond this, implement server-side filtering/pagination
-  const { data: allAnimes, loading, error, reload } = useLoad(() => db.getAllAnimes('created_at', 100));
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState<string>(initialGenre);
-  const [selectedSort, setSelectedSort] = useState<'popular' | 'newest' | 'score'>('popular');
-  const [selectedYear, setSelectedYear] = useState<string>('Hepsi');
-  
+  const genreParam = searchParams.get('genre');
+
+  const [sortBy, setSortBy] = useState<(typeof SORT_OPTIONS)[number]['value']>('created_at');
+  const [filterStatus, setFilterStatus] = useState<(typeof STATUS_OPTIONS)[number]['value']>('ALL');
+  const [selectedLabel, setSelectedLabel] = useState('Tümü');
+
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(24); // Initial cards to render
-  const observerTarget = useRef<HTMLDivElement>(null);
-
-  // PERFORMANCE FIX: Debounce search input to prevent excessive filtering
-  // Delays filter recalculation by 300ms after user stops typing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 300);
-    
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  const sortRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 80);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    if (!genreParam) return;
+    const normalized = genreParam.trim();
+    const found = ZIP_GENRES.find((g) => g.label.toLowerCase() === normalized.toLowerCase());
+    if (found) setSelectedLabel(found.label);
+  }, [genreParam]);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setIsSortOpen(false);
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const genres = useMemo(() => {
-    // Standart anime türleri listesi (Mock veri olmasa bile görünsün)
-    const defaultGenres = [
-      'Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 
-      'Horror', 'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological', 
-      'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller'
-    ];
-    const s = new Set<string>(['Hepsi', ...defaultGenres]);
-    allAnimes?.forEach(a => a.genres?.forEach(g => s.add(g)));
-    
-    // Türkçe'ye çevir ve sırala
-    return Array.from(s).map(g => g === 'Hepsi' ? g : translateGenre(g)).sort();
-  }, [allAnimes]);
+  const fetcher = useCallback(() => db.getAllAnimes(sortBy, 2000), [sortBy]);
+  const { data: rawList, loading, error, reload } = useLoad(fetcher, [sortBy]);
 
-  const years = useMemo(() => {
-    const s = new Set<string>(['Hepsi']);
-    allAnimes?.forEach(a => {
-      if (a.year !== null && a.year !== undefined) {
-        s.add(String(a.year));
-      }
-    });
-    return Array.from(s).sort((a,b) => b.localeCompare(a));
-  }, [allAnimes]);
-
-  const filteredResults = useMemo(() => {
-    if (!allAnimes) return [];
-    
-    let results = allAnimes.filter(anime => {
-      const title = getDisplayTitle(anime.title).toLowerCase();
-      const matchesSearch = title.includes(debouncedSearch.toLowerCase());
-      
-      // Seçilen tür Türkçe ise İngilizce'ye çevir (database'de İngilizce tutuluyor)
-      const genreToMatch = selectedGenre === 'Hepsi' ? 'Hepsi' : translateGenreToEnglish(selectedGenre);
-      const matchesGenre = genreToMatch === 'Hepsi' || anime.genres?.includes(genreToMatch);
-      
-      const animeYear = anime.year !== null && anime.year !== undefined ? String(anime.year) : '';
-      const matchesYear = selectedYear === 'Hepsi' || animeYear === selectedYear;
-      return matchesSearch && matchesGenre && matchesYear;
-    });
-
-    // Sorting
-    results.sort((a, b) => {
-      if (selectedSort === 'popular') return (b.view_count || 0) - (a.view_count || 0);
-      if (selectedSort === 'newest') return b.year - a.year;
-      if (selectedSort === 'score') return b.score - a.score;
-      return 0;
-    });
-
-    return results;
-  }, [allAnimes, debouncedSearch, selectedGenre, selectedYear, selectedSort]);
-
-  // PERFORMANCE FIX: Intersection observer for progressive card rendering
-  // Only render visible cards to reduce initial DOM load
-  // Pattern reused from NewEpisodes.tsx
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && visibleCount < filteredResults.length) {
-          setVisibleCount(prev => Math.min(prev + 24, filteredResults.length));
-        }
-      },
-      { threshold: 0.1, rootMargin: '400px' } // Trigger 400px before reaching bottom
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget && filteredResults.length > visibleCount) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
-  }, [visibleCount, filteredResults.length]);
-
-  // Reset visible count when filters change
-  useEffect(() => {
-    setVisibleCount(24);
-  }, [debouncedSearch, selectedGenre, selectedYear, selectedSort]);
-
-  if (loading) return (
-    <div className="min-h-screen pt-32 px-10 space-y-12 bg-app-bg font-inter">
-      <LoadingSkeleton type="banner" />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
-        <LoadingSkeleton type="card" count={5} />
-      </div>
-    </div>
+  const selectedEn = useMemo(
+    () => ZIP_GENRES.find((g) => g.label === selectedLabel)?.en ?? null,
+    [selectedLabel]
   );
+
+  const filteredItems = useMemo(() => {
+    const list = rawList || [];
+    const cy = new Date().getFullYear();
+
+    return list.filter((anime: Anime) => {
+      if (selectedEn) {
+        const ok = anime.genres?.some((g) => g.toLowerCase() === selectedEn.toLowerCase());
+        if (!ok) return false;
+      }
+      if (filterStatus === 'RELEASING') {
+        const y = anime.year || 0;
+        if (y && y < cy - 2) return false;
+      }
+      if (filterStatus === 'FINISHED') {
+        const y = anime.year || 0;
+        if (!y || y >= cy - 1) return false;
+      }
+      return true;
+    });
+  }, [rawList, selectedEn, filterStatus]);
+
+  const pageInfo = {
+    title: 'Katalog',
+    description:
+      'Binlerce anime serisi arasından dilediğini seç. Aksiyondan romantizme, her zevke uygun içerikler burada.',
+    image: 'https://images.unsplash.com/photo-1541562232579-512a21360020?auto=format&fit=crop&q=80&w=1920',
+  };
 
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
 
-  // Popüler hızlı türler - Türkçe gösterilecek
-  const popularQuickGenres = ['Action', 'Romance', 'Sci-Fi', 'Fantasy', 'Sports', 'Slice of Life'].map(translateGenre);
-
   return (
-    <div className="min-h-screen bg-app-bg pb-40 font-inter">
-      {/* Sticky Filter Bar */}
-      <div className={`fixed top-0 left-0 right-0 z-[120] transition-all duration-500 px-4 md:px-8 py-4 ${scrolled ? 'bg-app-bg/95 backdrop-blur-2xl border-b border-white/5 shadow-2xl shadow-black/30 pt-4' : 'bg-transparent pt-24 lg:pt-32'}`}>
-        <div className="max-w-[1600px] mx-auto">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative flex-grow w-full">
-              <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input 
-                type="text"
-                placeholder="ARADIĞIN ANİMEYİ BUL..."
-                className="w-full bg-white/5 border border-white/10 rounded-[2rem] pl-16 pr-8 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] outline-none focus:border-brand-red focus:bg-white/10 transition-all shadow-xl"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <div className="flex gap-4 w-full md:w-auto">
-               <select 
-                  value={selectedSort}
-                  onChange={(e) => setSelectedSort(e.target.value as any)}
-                  className="bg-white/5 border border-white/10 rounded-[2rem] px-8 py-4 text-[10px] font-black text-gray-300 uppercase tracking-widest outline-none focus:border-brand-red appearance-none cursor-pointer hover:bg-white/10"
-               >
-                  <option value="popular">POPÜLER</option>
-                  <option value="newest">EN YENİ</option>
-                  <option value="score">PUAN</option>
-               </select>
-
-               <button 
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`flex items-center gap-3 px-8 py-4 rounded-[2rem] border transition-all text-[10px] font-black uppercase tracking-[0.2em] shadow-xl ${isFilterOpen ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}
-              >
-                FİLTRELER
-                <svg className={`w-3 h-3 transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"/></svg>
-              </button>
-            </div>
-          </div>
-          
-          {/* Quick Categories Row (Visible when filters closed) */}
-          <div className={`overflow-hidden transition-all duration-300 ${isFilterOpen ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100 mt-4'}`}>
-             <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-                <button 
-                   onClick={() => setSelectedGenre('Hepsi')}
-                   className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${selectedGenre === 'Hepsi' ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/5 text-gray-500 hover:text-white'}`}
-                >
-                   HEPSİ
-                </button>
-                {popularQuickGenres.map(g => (
-                   <button 
-                      key={g}
-                      onClick={() => setSelectedGenre(g)}
-                      className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${selectedGenre === g ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/5 text-gray-500 hover:text-white'}`}
-                   >
-                      {g}
-                   </button>
-                ))}
-             </div>
-          </div>
-
-          <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isFilterOpen ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}>
-             <div className="bg-app-surface/90 border border-white/10 rounded-[3rem] p-8 space-y-8 shadow-2xl backdrop-blur-xl">
-                <div>
-                   <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 border-l-4 border-brand-red pl-3">TÜM TÜRLER</h4>
-                   <div className="flex flex-wrap gap-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">
-                      {genres.map(genre => (
-                        <button 
-                          key={genre}
-                          onClick={() => setSelectedGenre(genre)}
-                          className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${selectedGenre === genre ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' : 'text-gray-500 hover:text-white bg-black/40 border border-white/5'}`}
-                        >
-                          {genre}
-                        </button>
-                      ))}
-                   </div>
-                </div>
-                <div>
-                   <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 border-l-4 border-brand-red pl-3">YIL</h4>
-                   <div className="flex flex-wrap gap-3">
-                      {years.map(year => (
-                        <button 
-                          key={year}
-                          onClick={() => setSelectedYear(year)}
-                          className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${selectedYear === year ? 'bg-brand-red text-white shadow-lg shadow-brand-red/20' : 'text-gray-500 hover:text-white bg-black/40 border border-white/5'}`}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                   </div>
-                </div>
-             </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background pb-24 font-inter">
+      <div className="px-0 md:px-0">
+        <PageHero
+          title={pageInfo.title}
+          description={pageInfo.description}
+          image={pageInfo.image}
+          className="rounded-none mb-0 h-[400px] md:h-[500px]"
+        />
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 md:px-14 pt-64 lg:pt-80">
-         <SectionHeaderCinematic
-           className="mb-16 pb-8 border-b border-white/5"
-           title={
-             <>
-               {selectedGenre === 'Hepsi' ? 'Tüm' : selectedGenre}{' '}
-               <span className="text-brand-red">içerikler</span>
-             </>
-           }
-           right={
-             <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] bg-app-surface/50 px-6 py-3 rounded-full border border-white/10">
-               {filteredResults.length} sonuç
-             </span>
-           }
-         />
-         
-         {filteredResults.length > 0 ? (
-           <>
-             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-12">
-               {filteredResults.slice(0, visibleCount).map(anime => (
-                 <AnimeCard key={anime.id} anime={anime} />
-               ))}
-             </div>
-             
-             {/* Intersection observer target for progressive loading */}
-             {visibleCount < filteredResults.length && (
-               <div ref={observerTarget} className="h-4 mt-12" />
-             )}
-           </>
-         ) : (
-           <div className="py-40 text-center bg-app-surface/35 rounded-[4rem] border border-dashed border-white/5 flex flex-col items-center animate-fade-in-up">
-              <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8 border border-white/10 animate-pulse">
-                 <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              </div>
-              <h3 className="text-3xl font-black text-white uppercase italic tracking-widest mb-2">HİÇBİR ŞEY BULAMADIK</h3>
-              <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] max-w-md">
-                "{selectedGenre}" türünde veya aradığın kriterde anime henüz eklenmemiş olabilir.
-              </p>
-              <button 
-                 onClick={() => {setSelectedGenre('Hepsi'); setSelectedYear('Hepsi'); setSearchQuery('');}}
-                 className="mt-8 text-brand-red text-xs font-black uppercase tracking-widest hover:text-white transition-colors border-b border-brand-red hover:border-white pb-1"
+      <div className="px-4 md:px-12 -mt-20 relative z-20">
+        <div className="glass-panel p-6 rounded-2xl mb-12 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative z-30">
+          <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto no-scrollbar pb-2 md:pb-0">
+            {ZIP_GENRES.map(({ label }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setSelectedLabel(label)}
+                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
+                  selectedLabel === label
+                    ? 'bg-primary text-white'
+                    : 'bg-white/5 hover:bg-white/10 text-muted hover:text-white'
+                }`}
               >
-                 FİLTRELERİ SIFIRLA
+                {label}
               </button>
-           </div>
-         )}
+            ))}
+          </div>
+
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="relative" ref={filterRef}>
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="flex items-center gap-2 text-muted text-sm font-bold px-4 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors w-full md:w-auto justify-between md:justify-start"
+              >
+                <Filter className="w-4 h-4 shrink-0" />
+                <span>Durum: {STATUS_OPTIONS.find((o) => o.value === filterStatus)?.label}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform shrink-0 ${isFilterOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isFilterOpen ? (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                  {STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setFilterStatus(option.value);
+                        setIsFilterOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                        filterStatus === option.value
+                          ? 'bg-primary/20 text-primary font-bold'
+                          : 'text-white/70 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="relative" ref={sortRef}>
+              <button
+                type="button"
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="flex items-center gap-2 text-muted text-sm font-bold px-4 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors w-full md:w-auto justify-between md:justify-start"
+              >
+                <SortAsc className="w-4 h-4 shrink-0" />
+                <span>{SORT_OPTIONS.find((o) => o.value === sortBy)?.label}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform shrink-0 ${isSortOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isSortOpen ? (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                  {SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setSortBy(option.value);
+                        setIsSortOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                        sortBy === option.value
+                          ? 'bg-primary/20 text-primary font-bold'
+                          : 'text-white/70 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-12">
+            <LoadingSkeleton type="card" count={8} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-8 relative z-10">
+            {filteredItems.map((anime) => (
+              <AnimeCard key={anime.id} anime={anime} />
+            ))}
+          </div>
+        )}
+
+        {!loading && filteredItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center text-white">
+            <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6">
+              <Filter className="w-10 h-10 text-muted" />
+            </div>
+            <h3 className="text-2xl font-bold mb-2">Sonuç Bulunamadı</h3>
+            <p className="text-muted">Filtrelerinizi değiştirerek tekrar deneyebilirsiniz.</p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

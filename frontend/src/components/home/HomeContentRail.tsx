@@ -117,11 +117,11 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
   const isLandscape = type === 'continue';
   const cardWidth = isLandscape
     ? 'w-[160px] sm:w-[200px] md:w-[240px] lg:w-[280px]'
-    : 'w-[108px] sm:w-[140px] md:w-[168px] lg:w-[188px]';
+    : 'w-[100px] sm:w-[130px] md:w-[160px] lg:w-[180px]';
 
   if (loading) {
     return (
-      <div className="w-full px-4 md:px-12 mb-12 font-inter">
+      <div className="w-full px-4 md:px-16 mb-12 font-inter">
         <div className="h-8 w-48 bg-white/5 rounded animate-pulse mb-6" />
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -152,14 +152,14 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-center gap-4 px-6 md:px-14 mb-5 flex-wrap">
-        <div className="w-1 h-8 bg-brand-red shadow-[0_0_12px_rgba(229,9,20,0.35)] shrink-0" />
+      <div className="flex items-center gap-4 px-6 md:px-16 mb-6">
+        <div className="w-1 h-8 bg-primary shadow-[0_0_10px_rgba(229,9,20,0.35)]" />
         <h2 className="text-xl md:text-3xl font-black text-white uppercase italic tracking-tighter">{title}</h2>
-        <div className="flex-1 h-px bg-white/5 min-w-[2rem]" />
+        <div className="flex-1 h-px bg-white/5" />
         {seeAllHref ? (
           <Link
             to={seeAllHref}
-            className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45 hover:text-brand-red transition-colors shrink-0"
+            className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45 hover:text-primary transition-colors shrink-0"
           >
             {seeAllLabel}
           </Link>
@@ -172,18 +172,18 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
           aria-label="Sola kaydır"
           onClick={() => scrollBy('left')}
           className={cn(
-            'hidden md:flex absolute left-0 top-0 bottom-0 w-14 z-40 bg-gradient-to-r from-app-bg to-transparent items-center justify-center transition-opacity duration-300',
-            hovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            'hidden md:flex absolute left-0 top-0 bottom-0 w-16 z-40 bg-gradient-to-r from-app-bg to-transparent items-center justify-center transition-all duration-300 hover:w-20',
+            hovered ? 'opacity-100' : 'opacity-0'
           )}
         >
-          <div className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-brand-red hover:border-brand-red transition-all">
+          <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-primary hover:border-primary transition-all">
             <ChevronLeft className="w-6 h-6 text-white" />
           </div>
         </button>
 
         <div
           ref={scrollRef}
-          className="flex gap-4 md:gap-6 overflow-x-auto px-6 md:px-14 pb-6 pt-2 no-scrollbar snap-x snap-mandatory"
+          className="flex gap-4 md:gap-6 overflow-x-auto px-6 md:px-16 pb-10 pt-2 no-scrollbar snap-x snap-mandatory"
         >
           {type === 'continue' &&
             continueItems.map((item) => {
@@ -209,9 +209,9 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
             )}
 
           {type === 'trending' &&
-            ranked.map((anime, idx) => (
-              <div key={anime.id} className={cn('snap-start shrink-0 pl-12 md:pl-16 relative', cardWidth)}>
-                <AnimeCard anime={anime} rank={idx + 1} />
+            ranked.map((anime) => (
+              <div key={anime.id} className={cn('snap-start shrink-0', cardWidth)}>
+                <AnimeCard anime={anime} />
               </div>
             ))}
 
@@ -237,11 +237,11 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
           aria-label="Sağa kaydır"
           onClick={() => scrollBy('right')}
           className={cn(
-            'hidden md:flex absolute right-0 top-0 bottom-0 w-14 z-40 bg-gradient-to-l from-app-bg to-transparent items-center justify-center transition-opacity duration-300',
-            hovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            'hidden md:flex absolute right-0 top-0 bottom-0 w-16 z-40 bg-gradient-to-l from-app-bg to-transparent items-center justify-center transition-all duration-300 hover:w-20',
+            hovered ? 'opacity-100' : 'opacity-0'
           )}
         >
-          <div className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-brand-red hover:border-brand-red transition-all">
+          <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-primary hover:border-primary transition-all">
             <ChevronRight className="w-6 h-6 text-white" />
           </div>
         </button>
