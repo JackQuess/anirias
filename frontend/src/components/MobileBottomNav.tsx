@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, LayoutGrid, PlaySquare, User } from 'lucide-react';
+import { Home, Search, PlaySquare, User } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/services/auth';
@@ -10,7 +10,7 @@ const MobileBottomNav: React.FC = () => {
 
   const navItems = [
     { icon: Home, label: 'Ana Sayfa', path: '/' },
-    { icon: LayoutGrid, label: 'Katalog', path: '/browse' },
+    { icon: Search, label: 'Ara', path: '/search' },
     { icon: PlaySquare, label: 'Listem', path: user ? '/list' : '/login' },
     { icon: User, label: 'Profil', path: user ? '/profile' : '/login' },
   ];

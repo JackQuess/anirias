@@ -1010,8 +1010,24 @@ export const db = {
 
   saveWatchProgress: async (progress: Partial<WatchProgress>) => {
     if (!checkEnv()) return;
-    // User data - allowed with RLS protection
-    await supabase!.from('watch_progress').upsert(progress);
+    const userId = progress.user_id;
+    const animeId = progress.anime_id;
+    const episodeId = progress.episode_id;
+    if (!userId || !animeId || !episodeId) return;
+
+    const row = {
+      user_id: userId,
+      anime_id: animeId,
+      episode_id: episodeId,
+      progress_seconds: Math.max(0, Math.floor(progress.progress_seconds ?? 0)),
+      duration_seconds: Math.max(0, Math.floor(progress.duration_seconds ?? 0)),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase!.from('watch_progress').upsert(row, {
+      onConflict: 'user_id,episode_id',
+    });
+    if (error && import.meta.env.DEV) console.error('[db.saveWatchProgress]', error);
     
     // NOTE: View count updates should be handled by:
     // 1. Database triggers (preferred)
@@ -1215,7 +1231,15 @@ export const db = {
     }
 
     try {
-      const { data: topLevel, error: topErr } = await supabase!
+      const schemaMentionsUnknownColumn = (e: any, col: string) => {
+        const t = `${e?.message || ''} ${e?.details || ''} ${e?.hint || ''}`;
+        return new RegExp(col, 'i').test(t) && /schema cache|column|42703|PGRST/i.test(t);
+      };
+
+      let topLevel: any[] | null = null;
+      let topErr: any = null;
+
+      const primaryTop = await supabase!
         .from('comments')
         .select('*, profiles(username,avatar_id)')
         .match({
@@ -1224,6 +1248,26 @@ export const db = {
         })
         .is('parent_id', null)
         .order('created_at', { ascending: false });
+
+      topLevel = primaryTop.data as any[] | null;
+      topErr = primaryTop.error;
+
+      if (topErr && schemaMentionsUnknownColumn(topErr, 'parent_id')) {
+        const legacy = await supabase!
+          .from('comments')
+          .select('*, profiles(username,avatar_id)')
+          .match({
+            anime_id: animeId,
+            episode_id: episodeId,
+          })
+          .order('created_at', { ascending: false });
+        if (!legacy.error && legacy.data) {
+          topLevel = (legacy.data as any[]).filter((c) => !c.parent_id);
+          topErr = null;
+        } else {
+          topErr = legacy.error;
+        }
+      }
 
       if (topErr) {
         if (import.meta.env.DEV) console.error('[db.getComments] Query error:', topErr);
@@ -1241,7 +1285,7 @@ export const db = {
           .in('parent_id', parentIds)
           .order('created_at', { ascending: true });
         if (repErr && import.meta.env.DEV) console.error('[db.getComments] replies:', repErr);
-        replies = Array.isArray(repData) ? repData : [];
+        replies = !repErr && Array.isArray(repData) ? repData : [];
       }
 
       const allIds = [...parentIds, ...replies.map((r: any) => r.id)];
@@ -1292,8 +1336,24 @@ export const db = {
     if (comment.parent_id) {
       payload.parent_id = comment.parent_id;
     }
-    payload.is_spoiler = !!comment.is_spoiler;
-    const { error } = await supabase!.from('comments').insert([payload]);
+    // Sadece spoiler işaretliyse gönder: DB'de is_spoiler sütunu yoksa false göndermek 400 verir.
+    if (comment.is_spoiler) {
+      payload.is_spoiler = true;
+    }
+
+    let { error } = await supabase!.from('comments').insert([payload]);
+    // Spoiler açık ama sütun yoksa: spoiler olmadan tekrar dene (kullanıcıya içerik kaybı olmaması için uyar)
+    if (error && comment.is_spoiler && payload.is_spoiler === true) {
+      const msg = `${(error as any).message || ''} ${(error as any).details || ''}`;
+      if (/is_spoiler|schema cache|column|42703|PGRST/i.test(msg)) {
+        const rest = { ...payload };
+        delete rest.is_spoiler;
+        ({ error } = await supabase!.from('comments').insert([rest]));
+        if (!error && import.meta.env.DEV) {
+          console.warn('[db.addComment] is_spoiler sütunu yok; yorum spoilersız kaydedildi. add_comment_is_spoiler.sql çalıştırın.');
+        }
+      }
+    }
     if (error) throw error;
   },
 
