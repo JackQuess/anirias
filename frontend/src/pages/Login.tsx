@@ -5,9 +5,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, AlertCircle, Star, LayoutDashboard } from 'lucide-react';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
-// TODO [v2]: Re-enable email verification
-// import EmailVerificationCard from '@/components/EmailVerificationCard';
-// import MascotLayer from '@/components/decorative/MascotLayer';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -33,11 +30,8 @@ const Login: React.FC = () => {
 
   const configMissing = !hasSupabaseEnv;
 
-  // TODO [v2]: Re-enable email verification check
-  // Temporarily disabled: Users can login immediately without email confirmation
   useEffect(() => {
     if (status === 'AUTHENTICATED' && user) {
-      // Direct navigation - no email verification required
       navigate('/');
     }
   }, [user, status, navigate]);
@@ -204,10 +198,6 @@ const Login: React.FC = () => {
       setResetLoading(false);
     }
   };
-
-  // TODO [v2]: Re-enable email verification card UI
-  // Temporarily disabled: No email verification card needed
-  // if (showEmailVerification && verificationEmail) { ... }
 
   return (
     <div className="min-h-screen bg-background font-inter flex items-center justify-center p-4 relative overflow-hidden">

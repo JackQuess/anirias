@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, LogIn } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Bell, LogIn } from 'lucide-react';
 import { useAuth } from '@/services/auth';
 import { db } from '@/services/db';
 import { Notification } from '../types';
@@ -12,7 +12,6 @@ import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 const Navbar: React.FC = () => {
   const { user, profile, activePlan, signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -102,24 +101,6 @@ const Navbar: React.FC = () => {
     };
   }, [user?.id]);
 
-  // Keyboard shortcut: zip parity — dedicated /search page
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
-      ) {
-        return;
-      }
-      if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key === 'k')) {
-        e.preventDefault();
-        navigate('/search');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
-
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const isActive = (path: string) => location.pathname === path;
   const isProMax = activePlan === 'pro_max';
@@ -127,7 +108,6 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { label: 'Ana Sayfa', path: '/' },
     { label: 'Katalog', path: '/browse' },
-    { label: 'Ara', path: '/search' },
     { label: 'Yeni Bölümler', path: '/new-episodes' },
     { label: 'Takvim', path: '/calendar' },
     { label: 'Listem', path: '/list' },
@@ -171,17 +151,6 @@ const Navbar: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4 md:gap-6 text-white shrink-0">
-          <Link
-            to="/search"
-            className="hover:text-white/70 transition-colors flex items-center gap-2 group"
-            aria-label="Ara"
-          >
-            <Search className="w-5 h-5" />
-            <span className="hidden lg:flex items-center gap-1 text-xs font-medium text-white/40 bg-white/5 px-2 py-1 rounded border border-white/10 group-hover:border-white/30 transition-colors">
-              <span className="text-[10px]">Ctrl</span> K
-            </span>
-          </Link>
-
             {user && isProMax && (
               <Link
                 to={DESKTOP_ACCESS_PAGE}

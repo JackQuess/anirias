@@ -9,6 +9,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
 import PlayerOverlay from '../components/PlayerOverlay';
 import AnimeCard from '@/components/AnimeCard';
+import ReportWatchModal from '@/components/ReportWatchModal';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { cn } from '@/lib/utils';
@@ -72,8 +73,8 @@ const Watch: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'episodes' | 'comments'>('episodes');
-  const [isLiked, setIsLiked] = useState(false);
   const [shareLabel, setShareLabel] = useState('Paylaş');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const [introSkipped, setIntroSkipped] = useState(false);
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
   const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
@@ -151,6 +152,28 @@ const Watch: React.FC = () => {
   const currentEpisode = (episodes || []).find(e => e.episode_number === currentEpNum);
   const prevEpisode = (episodes || []).find(e => e.episode_number === currentEpNum - 1);
   const nextEpisode = (episodes || []).find(e => e.episode_number === currentEpNum + 1);
+
+  const { data: episodeLikeSummary, reload: reloadEpisodeLikes } = useLoad(
+    () => {
+      if (!currentEpisode?.id) return Promise.resolve({ count: 0, liked: false });
+      return db.getEpisodeLikeSummary(currentEpisode.id, user?.id ?? null);
+    },
+    [currentEpisode?.id, user?.id]
+  );
+
+  const toggleEpisodeLikeWatch = useCallback(async () => {
+    if (!user || !currentEpisode?.id) {
+      alert('Beğenmek için giriş yapın.');
+      return;
+    }
+    try {
+      await db.toggleEpisodeLike(user.id, currentEpisode.id);
+      reloadEpisodeLikes();
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[Watch] episode like:', err);
+      alert('Beğeni kaydedilemedi.');
+    }
+  }, [user, currentEpisode?.id, reloadEpisodeLikes]);
   const progressMap = useMemo(() => {
     const map = new Map<string, { progress: number; duration: number }>();
     if (progressList) {
@@ -924,14 +947,17 @@ const Watch: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                 <button
                   type="button"
-                  onClick={() => setIsLiked((v) => !v)}
+                  onClick={() => void toggleEpisodeLikeWatch()}
                   className={cn(
                     'flex items-center gap-2 px-3 py-1.5 rounded transition-colors',
-                    isLiked ? 'bg-primary/20 text-primary' : 'hover:bg-white/10'
+                    episodeLikeSummary?.liked ? 'bg-primary/20 text-primary' : 'hover:bg-white/10'
                   )}
                 >
-                  <ThumbsUp className={cn('w-5 h-5', isLiked ? 'fill-current' : '')} />
-                  <span className="text-sm font-medium">{isLiked ? 'Beğenildi' : 'Beğen'}</span>
+                  <ThumbsUp className={cn('w-5 h-5', episodeLikeSummary?.liked ? 'fill-current' : '')} />
+                  <span className="text-sm font-medium">
+                    {episodeLikeSummary?.liked ? 'Beğenildi' : 'Beğen'}
+                    {(episodeLikeSummary?.count ?? 0) > 0 ? ` · ${episodeLikeSummary?.count}` : ''}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -943,6 +969,7 @@ const Watch: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setReportModalOpen(true)}
                   className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors"
                 >
                   <Flag className="w-5 h-5" />
@@ -1082,6 +1109,24 @@ const Watch: React.FC = () => {
           </div>
         ) : null}
       </div>
+
+      <ReportWatchModal
+        open={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        context={
+          anime && currentEpisode && querySeasonNumber != null
+            ? {
+                userId: user?.id ?? null,
+                animeId: anime.id,
+                animeTitle: titleString,
+                animeSlug: anime.slug ?? null,
+                seasonNumber: querySeasonNumber,
+                episodeNumber: currentEpNum,
+                episodeId: currentEpisode.id,
+              }
+            : null
+        }
+      />
     </div>
   );
 };

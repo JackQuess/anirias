@@ -8,7 +8,7 @@ router.use((req, res, next) => {
   const origin = normalizeOrigin(process.env.CORS_ORIGIN) || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-ADMIN-TOKEN');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
@@ -190,6 +190,96 @@ router.post('/create-season', async (req: Request, res: Response) => {
       error: 'Internal server error',
       details: err?.message || 'Unknown error',
     });
+  }
+});
+
+/**
+ * PUT /api/admin/update-season/:id
+ *
+ * Patch season metadata (admin only). Does not change season_number or anime_id here.
+ */
+router.put('/update-season/:id', async (req: Request, res: Response) => {
+  try {
+    const adminToken = req.header('x-admin-token');
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const seasonId = req.params.id;
+    if (!seasonId || typeof seasonId !== 'string') {
+      return res.status(400).json({ success: false, error: 'season id is required' });
+    }
+
+    const body = req.body || {};
+
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (typeof body.title === 'string') patch.title = body.title;
+    if (body.title === null) patch.title = null;
+
+    if (body.title_override !== undefined) {
+      patch.title_override = body.title_override === null ? null : String(body.title_override);
+    }
+
+    if (body.year !== undefined) {
+      if (body.year === null) {
+        patch.year = null;
+      } else if (typeof body.year === 'number' && Number.isFinite(body.year)) {
+        patch.year = body.year;
+      } else {
+        return res.status(400).json({ success: false, error: 'year must be a number or null' });
+      }
+    }
+
+    if (body.episode_count !== undefined) {
+      if (body.episode_count === null) {
+        patch.episode_count = null;
+      } else if (typeof body.episode_count === 'number' && Number.isFinite(body.episode_count) && body.episode_count >= 0) {
+        patch.episode_count = body.episode_count;
+      } else {
+        return res.status(400).json({ success: false, error: 'episode_count must be a non-negative number or null' });
+      }
+    }
+
+    if (body.anilist_id !== undefined) {
+      if (body.anilist_id === null) {
+        patch.anilist_id = null;
+      } else if (typeof body.anilist_id === 'number' && Number.isFinite(body.anilist_id)) {
+        patch.anilist_id = body.anilist_id;
+      } else {
+        return res.status(400).json({ success: false, error: 'anilist_id must be a number or null' });
+      }
+    }
+
+    const keysInPatch = Object.keys(patch);
+    const hasFieldUpdate = keysInPatch.some((k) => k !== 'updated_at');
+    if (!hasFieldUpdate) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('seasons')
+      .update(patch)
+      .eq('id', seasonId)
+      .select(
+        'id, anime_id, season_number, title, title_override, year, episode_count, anilist_id, created_at, updated_at'
+      )
+      .maybeSingle();
+
+    if (updateError) {
+      console.error('[update-season]', updateError);
+      return res.status(500).json({ success: false, error: updateError.message });
+    }
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Season not found' });
+    }
+
+    return res.json({ success: true, season: updated });
+  } catch (err: any) {
+    console.error('[update-season] Unexpected', err);
+    return res.status(500).json({ success: false, error: err?.message || 'update failed' });
   }
 });
 

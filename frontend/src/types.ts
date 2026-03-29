@@ -180,10 +180,16 @@ export interface Comment {
   anime_id: string;
   episode_id?: number | string | null;
   episode_no?: number | null;
+  parent_id?: string | null;
+  is_spoiler?: boolean;
   text: string;
   created_at: string;
   user?: Profile;
   profiles?: CommentProfile;
+  /** Enriched on read; not a DB column */
+  like_count?: number;
+  liked_by_me?: boolean;
+  replies?: Comment[];
 }
 
 export interface AdminNotification {

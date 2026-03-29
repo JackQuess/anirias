@@ -5,9 +5,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User as UserIcon, Mail, Lock, AlertCircle, Star, LayoutDashboard } from 'lucide-react';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
-// TODO [v2]: Re-enable email verification
-// import EmailVerificationCard from '@/components/EmailVerificationCard';
-// import MascotLayer from '@/components/decorative/MascotLayer';
 import { validateUsername } from '@/utils/usernameValidation';
 
 const Signup: React.FC = () => {
@@ -20,15 +17,9 @@ const Signup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const AUTH_TIMEOUT_MS = 35000;
-  // TODO [v2]: Re-enable email verification
-  // const [showEmailVerification, setShowEmailVerification] = useState(false);
-  // const [signedUpEmail, setSignedUpEmail] = useState('');
 
-  // TODO [v2]: Re-enable email verification check
-  // Temporarily disabled: Users can register and login immediately without email confirmation
   useEffect(() => {
     if (status === 'AUTHENTICATED' && user) {
-      // Direct navigation - no email verification required
       navigate('/');
     }
   }, [user, status, navigate]);
@@ -52,17 +43,12 @@ const Signup: React.FC = () => {
         return;
       }
 
-      // Email doğrulama redirect URL'i (BrowserRouter: path-based)
-      const emailRedirectTo = `${window.location.origin}/auth/callback`;
-      
       const signUpPromise = supabase.auth.signUp({
         email,
         password,
         options: {
           data: { username: username.trim(), role: 'user' },
-          // TODO [v2]: Re-enable email confirmation redirect
-          // emailRedirectTo: emailRedirectTo
-        }
+        },
       });
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Kayit istegi zaman asimina ugradi. Baglantini kontrol et.')), AUTH_TIMEOUT_MS)
@@ -71,10 +57,7 @@ const Signup: React.FC = () => {
 
       if (authError) throw authError;
       
-      // TODO [v2]: Re-enable email verification flow
-      // Temporarily disabled: Users are automatically logged in after signup
       if (data.user) {
-        // Signup successful - user is automatically authenticated
         navigate('/');
       }
     } catch (err: any) {
@@ -83,10 +66,6 @@ const Signup: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // TODO [v2]: Re-enable email verification card UI
-  // Temporarily disabled: No email verification card needed
-  // if (showEmailVerification && signedUpEmail) { ... }
 
   return (
     <div className="min-h-screen bg-background font-inter flex items-center justify-center p-4 relative overflow-hidden">

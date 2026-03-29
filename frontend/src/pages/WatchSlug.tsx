@@ -15,6 +15,7 @@ import NotFound from './NotFound';
 import { parseSeasonSlug } from '@/utils/seasonSlug';
 import WatchSidebar from '@/components/watch/WatchSidebar';
 import WatchMobileEpisodeSheet from '@/components/watch/WatchMobileEpisodeSheet';
+import ReportWatchModal from '@/components/ReportWatchModal';
 
 const Comments = lazy(() => import('../components/Comments'));
 
@@ -30,6 +31,10 @@ type WatchInfoPanelProps = {
   onShare: () => void | Promise<void>;
   hasSubtitles: boolean;
   user: { id: string } | null;
+  onReport: () => void;
+  episodeLikeCount: number;
+  episodeLiked: boolean;
+  onToggleEpisodeLike: () => void | Promise<void>;
 };
 
 const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
@@ -44,9 +49,12 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
   onShare,
   hasSubtitles,
   user,
+  onReport,
+  episodeLikeCount,
+  episodeLiked,
+  onToggleEpisodeLike,
 }) => {
   const detailPath = `/anime/${anime.slug || anime.id}`;
-  const [isLiked, setIsLiked] = React.useState(false);
   const [shareLabel, setShareLabel] = React.useState('Paylaş');
 
   const handleShare = () => {
@@ -86,14 +94,23 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
         <div className="flex flex-wrap items-center gap-4">
           <button
             type="button"
-            onClick={() => setIsLiked((v) => !v)}
+            onClick={() => {
+              if (!user) {
+                alert('Beğenmek için giriş yapın.');
+                return;
+              }
+              void onToggleEpisodeLike();
+            }}
             className={cn(
               'flex items-center gap-2 px-3 py-1.5 rounded transition-colors',
-              isLiked ? 'bg-primary/20 text-primary' : 'hover:bg-white/10 text-white'
+              episodeLiked ? 'bg-primary/20 text-primary' : 'hover:bg-white/10 text-white'
             )}
           >
-            <ThumbsUp className={cn('w-5 h-5', isLiked && 'fill-current')} />
-            <span className="text-sm font-medium">{isLiked ? 'Beğenildi' : 'Beğen'}</span>
+            <ThumbsUp className={cn('w-5 h-5', episodeLiked && 'fill-current')} />
+            <span className="text-sm font-medium">
+              {episodeLiked ? 'Beğenildi' : 'Beğen'}
+              {episodeLikeCount > 0 ? ` · ${episodeLikeCount}` : ''}
+            </span>
           </button>
           <button
             type="button"
@@ -103,7 +120,11 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
             <Share2 className="w-5 h-5" />
             <span className="text-sm font-medium">{shareLabel}</span>
           </button>
-          <button type="button" className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors text-white">
+          <button
+            type="button"
+            onClick={onReport}
+            className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors text-white"
+          >
             <Flag className="w-5 h-5" />
             <span className="text-sm font-medium">Bildir</span>
           </button>
@@ -172,6 +193,7 @@ const WatchSlug: React.FC = () => {
   
   // Mobile bottom sheet state
   const [showMobileEpisodeSheet, setShowMobileEpisodeSheet] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Parse season slug to get anime slug
   const seasonSlugInfo = useMemo(() => {
@@ -230,6 +252,25 @@ const WatchSlug: React.FC = () => {
     () => (user?.id ? db.getWatchlist(user.id) : Promise.resolve([])),
     [user?.id]
   );
+
+  const { data: episodeLikeSummary, reload: reloadEpisodeLikes } = useLoad(
+    () => {
+      if (!episode?.id) return Promise.resolve({ count: 0, liked: false });
+      return db.getEpisodeLikeSummary(episode.id, user?.id ?? null);
+    },
+    [episode?.id, user?.id]
+  );
+
+  const toggleEpisodeLikeSlug = useCallback(async () => {
+    if (!user || !episode?.id) return;
+    try {
+      await db.toggleEpisodeLike(user.id, episode.id);
+      reloadEpisodeLikes();
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[WatchSlug] episode like:', err);
+      alert('Beğeni kaydedilemedi. episode_likes tablosu ve RLS politikalarını kontrol edin.');
+    }
+  }, [user, episode?.id, reloadEpisodeLikes]);
 
   const [listStatus, setListStatus] = useState<WatchlistStatus | 'none'>('none');
 
@@ -583,6 +624,10 @@ const WatchSlug: React.FC = () => {
             onShare={shareWatch}
             hasSubtitles={hasSubtitles}
             user={user}
+            onReport={() => setReportModalOpen(true)}
+            episodeLikeCount={episodeLikeSummary?.count ?? 0}
+            episodeLiked={episodeLikeSummary?.liked ?? false}
+            onToggleEpisodeLike={toggleEpisodeLikeSlug}
           />
 
           <div className="lg:hidden flex border-b border-white/10">
@@ -669,6 +714,24 @@ const WatchSlug: React.FC = () => {
         progressMap={progressMap}
         blockWithoutVideo
         onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
+      />
+
+      <ReportWatchModal
+        open={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        context={
+          anime && episode && seasonNum != null && episodeNum != null
+            ? {
+                userId: user?.id ?? null,
+                animeId: anime.id,
+                animeTitle: titleString,
+                animeSlug: anime.slug ?? null,
+                seasonNumber: seasonNum,
+                episodeNumber: episodeNum,
+                episodeId: episode.id,
+              }
+            : null
+        }
       />
     </div>
   );

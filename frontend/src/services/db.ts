@@ -92,6 +92,25 @@ const callBackendApi = async (
   return data;
 };
 
+/** Aggregate comment_like rows into counts + whether current user liked */
+const mergeCommentLikeStats = (
+  commentIds: string[],
+  rows: { comment_id: string; user_id: string }[] | null | undefined,
+  userId: string | null | undefined
+): Record<string, { count: number; liked: boolean }> => {
+  const map: Record<string, { count: number; liked: boolean }> = {};
+  for (const id of commentIds) {
+    map[id] = { count: 0, liked: false };
+  }
+  for (const r of rows || []) {
+    const cid = r.comment_id;
+    if (!map[cid]) map[cid] = { count: 0, liked: false };
+    map[cid].count += 1;
+    if (userId && r.user_id === userId) map[cid].liked = true;
+  }
+  return map;
+};
+
 export const db = {
   getActivePlan: async (userId: string): Promise<'free' | 'pro' | 'pro_max'> => {
     if (!checkEnv() || !userId) return 'free';
@@ -525,13 +544,48 @@ export const db = {
     }
   },
 
-  updateSeason: async (id: string, updates: Partial<Season>, adminToken?: string): Promise<void> => {
-    // Admin operation - must use backend API
-    // TODO: Implement backend API endpoint and call it here
-    throw new Error(
-      'updateSeason: Admin operations must use backend API.\n' +
-      'Please implement backend endpoint: PUT /api/admin/update-season/:id'
-    );
+  updateSeason: async (id: string, updates: Partial<Season>, adminToken?: string): Promise<Season> => {
+    const apiBase = getApiBase();
+    const token = adminToken || getAdminToken() || (typeof window !== 'undefined' ? window.prompt('Admin Token (X-ADMIN-TOKEN)') : null) || '';
+    if (!token) {
+      throw new Error('Admin token is required');
+    }
+
+    const body: Record<string, unknown> = {};
+    if (updates.title !== undefined) body.title = updates.title;
+    if (updates.title_override !== undefined) body.title_override = updates.title_override;
+    if (updates.year !== undefined) body.year = updates.year;
+    if (updates.episode_count !== undefined) body.episode_count = updates.episode_count;
+    if (updates.anilist_id !== undefined) body.anilist_id = updates.anilist_id;
+
+    if (Object.keys(body).length === 0) {
+      throw new Error('updateSeason: Güncellenecek alan yok');
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/admin/update-season/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ADMIN-TOKEN': token,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Failed to update season`);
+      }
+
+      if (!data.success || !data.season) {
+        throw new Error(data?.error || 'Failed to update season');
+      }
+
+      return data.season as Season;
+    } catch (error: any) {
+      throw new Error(`Failed to update season: ${error?.message || 'Unknown error'}`);
+    }
   },
 
   deleteSeason: async (id: string, adminToken?: string): Promise<void> => {
@@ -1060,37 +1114,167 @@ export const db = {
     }
   },
 
-  // --- COMMENTS ---
-  getComments: async (animeId: string, episodeId: string): Promise<Comment[]> => {
+  // --- COMMENTS & EPISODE/COMMENT LIKES ---
+  getEpisodeLikeSummary: async (
+    episodeId: string,
+    userId: string | null | undefined
+  ): Promise<{ count: number; liked: boolean }> => {
+    if (!checkEnv() || !episodeId) return { count: 0, liked: false };
+    try {
+      const { count, error: countErr } = await supabase!
+        .from('episode_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('episode_id', episodeId);
+      if (countErr && import.meta.env.DEV) console.warn('[db.getEpisodeLikeSummary] count:', countErr);
+      let liked = false;
+      if (userId) {
+        const { data: row } = await supabase!
+          .from('episode_likes')
+          .select('id')
+          .eq('episode_id', episodeId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        liked = !!row;
+      }
+      return { count: count ?? 0, liked };
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[db.getEpisodeLikeSummary]', e);
+      return { count: 0, liked: false };
+    }
+  },
+
+  toggleEpisodeLike: async (userId: string, episodeId: string): Promise<{ liked: boolean }> => {
+    requireSupabaseEnv('toggleEpisodeLike');
+    const { data: existing } = await supabase!
+      .from('episode_likes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('episode_id', episodeId)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await supabase!
+        .from('episode_likes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('episode_id', episodeId);
+      if (error) throw error;
+      return { liked: false };
+    }
+    const { error } = await supabase!.from('episode_likes').insert({
+      user_id: userId,
+      episode_id: episodeId,
+    });
+    if (error) throw error;
+    return { liked: true };
+  },
+
+  toggleCommentLike: async (userId: string, commentId: string): Promise<{ liked: boolean }> => {
+    requireSupabaseEnv('toggleCommentLike');
+    const { data: existing } = await supabase!
+      .from('comment_likes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('comment_id', commentId)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await supabase!
+        .from('comment_likes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('comment_id', commentId);
+      if (error) throw error;
+      return { liked: false };
+    }
+    const { error } = await supabase!.from('comment_likes').insert({
+      user_id: userId,
+      comment_id: commentId,
+    });
+    if (error) throw error;
+    return { liked: true };
+  },
+
+  getComments: async (
+    animeId: string,
+    episodeId: string,
+    currentUserId?: string | null
+  ): Promise<Comment[]> => {
     if (!checkEnv()) return [];
-    
-    // CRITICAL: Never query with undefined/null/"all" IDs
-    if (!animeId || !episodeId || 
-        typeof animeId !== 'string' || typeof episodeId !== 'string' ||
-        animeId === 'all' || episodeId === 'all' ||
-        animeId.trim() === '' || episodeId.trim() === '') {
+
+    if (
+      !animeId ||
+      !episodeId ||
+      typeof animeId !== 'string' ||
+      typeof episodeId !== 'string' ||
+      animeId === 'all' ||
+      episodeId === 'all' ||
+      animeId.trim() === '' ||
+      episodeId.trim() === ''
+    ) {
       if (import.meta.env.DEV) console.warn('[db.getComments] Invalid IDs provided:', { animeId, episodeId });
       return [];
     }
-    
+
     try {
-      // Use .match() instead of .eq() to avoid RLS/nullable column issues
-      const { data, error } = await supabase!
+      const { data: topLevel, error: topErr } = await supabase!
         .from('comments')
         .select('*, profiles(username,avatar_id)')
         .match({
           anime_id: animeId,
           episode_id: episodeId,
         })
+        .is('parent_id', null)
         .order('created_at', { ascending: false });
-      
-      if (error) {
-        if (import.meta.env.DEV) console.error('[db.getComments] Query error:', error);
+
+      if (topErr) {
+        if (import.meta.env.DEV) console.error('[db.getComments] Query error:', topErr);
         return [];
       }
-      return Array.isArray(data) ? data : [];
+
+      const top = Array.isArray(topLevel) ? topLevel : [];
+      const parentIds = top.map((c: any) => c.id).filter(Boolean);
+
+      let replies: any[] = [];
+      if (parentIds.length > 0) {
+        const { data: repData, error: repErr } = await supabase!
+          .from('comments')
+          .select('*, profiles(username,avatar_id)')
+          .in('parent_id', parentIds)
+          .order('created_at', { ascending: true });
+        if (repErr && import.meta.env.DEV) console.error('[db.getComments] replies:', repErr);
+        replies = Array.isArray(repData) ? repData : [];
+      }
+
+      const allIds = [...parentIds, ...replies.map((r: any) => r.id)];
+      let likeMap: Record<string, { count: number; liked: boolean }> = {};
+      if (allIds.length > 0) {
+        const { data: likeRows } = await supabase!
+          .from('comment_likes')
+          .select('comment_id, user_id')
+          .in('comment_id', allIds);
+        likeMap = mergeCommentLikeStats(allIds, likeRows, currentUserId ?? null);
+      }
+
+      const byParent = new Map<string, any[]>();
+      for (const r of replies) {
+        const pid = r.parent_id as string;
+        if (!byParent.has(pid)) byParent.set(pid, []);
+        byParent.get(pid)!.push(r);
+      }
+
+      const enrich = (row: any): Comment => ({
+        ...row,
+        like_count: likeMap[row.id]?.count ?? 0,
+        liked_by_me: likeMap[row.id]?.liked ?? false,
+      });
+
+      return top.map((c: any) => {
+        const childRows = byParent.get(c.id) || [];
+        return {
+          ...enrich(c),
+          replies: childRows.map((r: any) => enrich(r)),
+        };
+      });
     } catch (err: any) {
-      // CRITICAL: Never throw - always return empty array on error
       if (import.meta.env.DEV) console.error('[db.getComments] Unexpected error:', err);
       return [];
     }
@@ -1098,14 +1282,19 @@ export const db = {
 
   addComment: async (comment: Partial<Comment>) => {
     if (!checkEnv()) return;
-    const payload = {
+    const payload: Record<string, unknown> = {
       user_id: comment.user_id,
       anime_id: comment.anime_id,
       episode_id: comment.episode_id ?? null,
       text: comment.text,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
-    await supabase!.from('comments').insert([payload]);
+    if (comment.parent_id) {
+      payload.parent_id = comment.parent_id;
+    }
+    payload.is_spoiler = !!comment.is_spoiler;
+    const { error } = await supabase!.from('comments').insert([payload]);
+    if (error) throw error;
   },
 
   // --- PROFILE ---
@@ -1541,6 +1730,44 @@ export const db = {
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.getFeedback] Unexpected error:', err);
       return [];
+    }
+  },
+
+  /**
+   * İzleme sayfası "Bildir" — kayıt admin Geri Bildirimler listesinde görünür ([İZLEME — İçerik bildirimi] ön eki).
+   */
+  submitWatchContentReport: async (params: {
+    userId: string | null;
+    animeId: string;
+    animeTitle: string;
+    animeSlug?: string | null;
+    seasonNumber: number;
+    episodeNumber: number;
+    episodeId?: string | null;
+    reason: string;
+    details?: string;
+  }): Promise<void> => {
+    if (!checkEnv()) {
+      throw new Error('Supabase yapılandırılmamış');
+    }
+    const lines = [
+      '[İZLEME — İçerik bildirimi]',
+      `Neden: ${params.reason}`,
+      ...(params.details?.trim() ? [`Not: ${params.details.trim()}`] : []),
+      `Anime: ${params.animeTitle}${params.animeSlug ? ` (slug: ${params.animeSlug})` : ''} — id: ${params.animeId}`,
+      `Bölüm: S${params.seasonNumber} E${params.episodeNumber}${params.episodeId ? ` — episode_id: ${params.episodeId}` : ''}`,
+    ];
+    const message = lines.join('\n');
+    const { error } = await supabase!.from('feedback').insert({
+      user_id: params.userId,
+      message,
+      rating: null,
+      page_url: typeof window !== 'undefined' ? window.location.href : null,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    });
+    if (error) {
+      if (import.meta.env.DEV) console.error('[db.submitWatchContentReport]', error);
+      throw new Error(error.message || 'Bildirim kaydedilemedi');
     }
   },
 
