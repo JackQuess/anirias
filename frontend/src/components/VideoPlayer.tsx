@@ -1433,7 +1433,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           : `relative w-full shadow-2xl ${
               isMobile 
                 ? 'rounded-none' 
-                : 'max-w-[1200px] mx-auto rounded-[16px] aspect-video'
+                : 'max-w-none mx-0 rounded-2xl border border-white/10 ring-1 ring-white/5 aspect-video'
             }`
       }`}
       style={{
@@ -1628,15 +1628,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               className="group cursor-pointer pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e50914] transition-colors ${
-                isMobile ? 'text-sm' : 'text-base md:text-lg'
+              <h2 className={`text-white font-bold tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] group-hover:text-primary transition-colors ${
+                isMobile ? 'text-sm' : 'text-base md:text-lg leading-snug max-w-[85vw] md:max-w-xl'
               }`}>
                 {title}
               </h2>
             </Link>
           ) : (
-            <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] ${
-              isMobile ? 'text-sm' : 'text-base md:text-lg'
+            <h2 className={`text-white font-bold tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] ${
+              isMobile ? 'text-sm' : 'text-base md:text-lg leading-snug max-w-[85vw] md:max-w-xl'
             }`}>
               {title}
             </h2>
@@ -1790,13 +1790,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               />
               {/* Progress */}
               <div
-                className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all"
+                className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all"
                 style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
               />
               {/* Hover indicator */}
               {!isMobile && (
                 <div 
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2 shadow-lg"
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2 shadow-lg ring-2 ring-white/30"
                   style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
                 />
               )}
@@ -1857,7 +1857,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 <div className="flex items-center gap-2 group relative">
                   <button
                     onClick={toggleMute}
-                    className={`flex items-center justify-center text-white/70 hover:text-[#e50914] transition-colors z-10 ${
+                    className={`flex items-center justify-center text-white/70 hover:text-primary transition-colors z-10 ${
                       isMobile ? 'w-9 h-9' : 'w-9 h-9'
                     }`}
                     aria-label={isMuted ? 'Sesi aç' : 'Sessize al'}
@@ -1936,7 +1936,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       }
                       onNextEpisode();
                     }}
-                    className={`flex items-center justify-center text-white/70 hover:text-[#e50914] transition-colors ${
+                    className={`flex items-center justify-center text-white/70 hover:text-primary transition-colors ${
                       isMobile ? 'w-9 h-9' : 'w-9 h-9'
                     }`}
                     aria-label="Sonraki Bölüm"
@@ -1987,7 +1987,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                         ? 'cursor-default text-white/35'
                         : subtitlesOn
                           ? 'text-[#e50914]'
-                          : 'text-white/70 hover:text-[#e50914]'
+                          : 'text-white/70 hover:text-primary'
                     }`}
                     aria-label={
                       subtitleOptions.length === 0
@@ -2053,7 +2053,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 {/* Fullscreen */}
                 <button
                   onClick={toggleFullscreen}
-                  className={`flex items-center justify-center text-white/70 hover:text-[#e50914] transition-colors ${
+                  className={`flex items-center justify-center text-white/70 hover:text-primary transition-colors ${
                     isMobile ? 'w-9 h-9' : 'w-9 h-9'
                   }`}
                   aria-label="Tam ekran"

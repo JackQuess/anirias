@@ -490,7 +490,7 @@ const WatchSlug: React.FC = () => {
   const shouldRenderPlayer = playbackUrl !== null && playbackUrl.trim() !== '';
 
   const titleString = getDisplayTitle(anime.title);
-  const playerTitle = `${titleString.toUpperCase()} – Sezon ${seasonNum} • Bölüm ${episode.episode_number}`;
+  const playerTitle = `${titleString} · Sezon ${seasonNum} · Bölüm ${episode.episode_number}`;
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
@@ -603,10 +603,10 @@ const WatchSlug: React.FC = () => {
               
               {/* Header */}
               <div className="flex items-center justify-between px-6 pb-4 border-b border-white/5 flex-shrink-0">
-                <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-primary pl-3">
+                <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">
                   Bölüm listesi
                 </h3>
-                <span className="text-[9px] font-black text-muted uppercase tracking-wide">
+                <span className="text-[11px] font-semibold text-muted tabular-nums">
                   {episodes?.length || 0} bölüm
                 </span>
               </div>
@@ -625,25 +625,25 @@ const WatchSlug: React.FC = () => {
                         navigateToEpisode(seasonNum!, ep.episode_number);
                         setShowMobileEpisodeSheet(false);
                       }}
-                      className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto ${
+                      className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 pointer-events-auto ${
                         isCurrent
-                          ? 'bg-primary text-white shadow-md shadow-primary/25'
+                          ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30'
                           : 'hover:bg-white/5 text-gray-400 hover:text-white active:bg-white/10'
                       } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
-                        isCurrent ? 'bg-black/20' : 'bg-white/5'
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                        isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'
                       }`}>
                         {ep.episode_number}
                       </div>
                       <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-[9px] font-black uppercase truncate leading-tight">
+                        <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">
                           {ep.title || `Bölüm ${ep.episode_number}`}
                         </p>
-                        <p className={`text-[7px] font-bold uppercase mt-0.5 ${
-                          isCurrent ? 'text-white/70' : 'text-gray-600'
+                        <p className={`text-[10px] font-medium mt-0.5 tabular-nums ${
+                          isCurrent ? 'text-white/65' : 'text-muted'
                         }`}>
-                          {ep.duration ? `${Math.floor(ep.duration / 60)} DK` : '24 DK'}
+                          {ep.duration ? `${Math.floor(ep.duration / 60)} dk` : '24 dk'}
                         </p>
                         {progress && progress.duration > 0 && (
                           <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
@@ -730,10 +730,10 @@ const WatchSlug: React.FC = () => {
             <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-6 relative z-20">
               <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 h-[600px] flex flex-col shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                  <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-primary pl-3">
+                  <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">
                     Bölüm listesi
                   </h3>
-                  <span className="text-[9px] font-black text-muted uppercase tracking-wide">
+                  <span className="text-[11px] font-semibold text-muted tabular-nums">
                     {episodes?.length || 0} bölüm
                   </span>
                 </div>
@@ -749,25 +749,25 @@ const WatchSlug: React.FC = () => {
                           if (!ep.video_url && !ep.hls_url) return;
                           navigateToEpisode(seasonNum!, ep.episode_number);
                         }}
-                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 pointer-events-auto relative z-30 ${
+                        className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 pointer-events-auto relative z-30 ${
                           isCurrent
-                            ? 'bg-primary text-white shadow-md shadow-primary/25'
+                            ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30'
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                         } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
-                          isCurrent ? 'bg-black/20' : 'bg-white/5'
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                          isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'
                         }`}>
                           {ep.episode_number}
                         </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
-                          <p className="text-[9px] font-black uppercase truncate leading-tight">
+                          <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">
                             {ep.title || `Bölüm ${ep.episode_number}`}
                           </p>
-                          <p className={`text-[7px] font-bold uppercase mt-0.5 ${
-                            isCurrent ? 'text-white/70' : 'text-gray-600'
+                          <p className={`text-[10px] font-medium mt-0.5 tabular-nums ${
+                            isCurrent ? 'text-white/65' : 'text-muted'
                           }`}>
-                            {ep.duration ? `${Math.floor(ep.duration / 60)} DK` : '24 DK'}
+                            {ep.duration ? `${Math.floor(ep.duration / 60)} dk` : '24 dk'}
                           </p>
                           {progress && progress.duration > 0 && (
                             <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">

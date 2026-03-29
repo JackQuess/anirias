@@ -762,10 +762,26 @@ const Watch: React.FC = () => {
           <div className="flex-1 space-y-4 lg:space-y-6 w-full min-w-0 overflow-hidden">
             <div 
               ref={playerContainerRef}
-              className="w-full aspect-video bg-black lg:rounded-[1.5rem] overflow-hidden lg:border border-white/5 shadow-2xl select-none sticky top-0 lg:static z-50 ring-1 ring-white/5 max-h-[80vh]"
+              className="w-full aspect-video bg-black lg:rounded-2xl overflow-hidden lg:border lg:border-white/10 shadow-2xl select-none sticky top-0 lg:static z-50 lg:ring-1 lg:ring-white/5 max-h-[80vh]"
               onDoubleClick={toggleFullscreen}
             >
               <div className="relative w-full h-full">
+                {(anime?.slug || anime?.id) && (
+                  <div className="absolute top-3 left-3 md:top-5 md:left-5 z-[55] pointer-events-none">
+                    <Link
+                      to={`/anime/${anime.slug || anime.id}`}
+                      className="pointer-events-auto group block text-left"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <h2 className="text-white font-bold text-sm md:text-base tracking-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] group-hover:text-primary transition-colors leading-snug max-w-[80vw] md:max-w-md">
+                        {titleString}
+                      </h2>
+                      <p className="text-white/75 text-xs font-medium mt-0.5 tabular-nums">
+                        Sezon {querySeasonNumber} · Bölüm {currentEpNum}
+                      </p>
+                    </Link>
+                  </div>
+                )}
                 <video 
                   ref={videoRef}
                   className="w-full h-full object-contain z-10"
@@ -931,10 +947,10 @@ const Watch: React.FC = () => {
           </div>
 
           <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
-             <div className="bg-surface-elevated border border-white/10 rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
+             <div className="bg-surface-elevated border border-white/10 rounded-2xl p-5 h-[600px] flex flex-col shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                   <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-primary pl-3">BÖLÜM LİSTESİ</h3>
-                   <span className="text-[9px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
+                   <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">Bölüm listesi</h3>
+                   <span className="text-[11px] font-semibold text-muted tabular-nums">{episodes?.length} bölüm</span>
                 </div>
                 
                 <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
@@ -944,18 +960,18 @@ const Watch: React.FC = () => {
                        <button 
                           key={`${ep.season_id}-${ep.episode_number}`} 
                           onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
-                          className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
+                          className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 ${
                             isCurrent 
-                            ? 'bg-primary text-white shadow-md shadow-primary/25' 
+                            ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30' 
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                           }`}
                        >
-                         <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-white/5'}`}>
+                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'}`}>
                             {ep.episode_number}
                          </div>
                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-[9px] font-black uppercase truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className={`text-[7px] font-bold uppercase mt-0.5 ${isCurrent ? 'text-white/70' : 'text-gray-600'}`}>24 DK</p>
+                            <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className={`text-[10px] font-medium mt-0.5 tabular-nums ${isCurrent ? 'text-white/65' : 'text-muted'}`}>24 dk</p>
                             {progressMap.has(ep.id) && (
                               <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
                                 <div
@@ -977,7 +993,7 @@ const Watch: React.FC = () => {
                 </div>
              </div>
 
-             <div className="bg-surface-elevated border border-white/10 rounded-[2.5rem] p-6 flex gap-4 items-center">
+             <div className="bg-surface-elevated border border-white/10 rounded-2xl p-5 flex gap-4 items-center shadow-lg">
                 <img 
                   src={poster} 
                   onError={(e) => { 
@@ -988,12 +1004,13 @@ const Watch: React.FC = () => {
                       target.src = fallbackPoster;
                     }
                   }}
-                  className="w-16 h-24 object-cover rounded-xl shadow-lg" 
+                  className="w-16 h-24 object-cover rounded-xl shadow-lg border border-white/10" 
                   alt={titleString}
                 />
-                <div>
-                   <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">ŞİMDİ İZLENİYOR</p>
-                   <h4 className="text-sm font-black text-white uppercase italic leading-tight line-clamp-2">{titleString}</h4>
+                <div className="min-w-0">
+                   <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Şimdi izleniyor</p>
+                   <h4 className="text-sm font-bold text-white leading-tight line-clamp-2">{titleString}</h4>
+                   <p className="text-[10px] text-muted mt-1 font-semibold tabular-nums">S{querySeasonNumber} · B{currentEpNum}</p>
                 </div>
              </div>
           </aside>
@@ -1003,16 +1020,16 @@ const Watch: React.FC = () => {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowMobileSheet((p) => !p)}
-                className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/30"
+                className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:opacity-95"
               >
-                Bölüm Listesi
+                Bölüm listesi
               </button>
             </div>
             {showMobileSheet && (
-              <div className="mt-3 bg-surface-elevated border border-white/10 rounded-3xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden shadow-2xl">
+              <div className="mt-3 bg-surface-elevated border border-white/10 rounded-2xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden shadow-2xl">
                 <div className="flex flex-col w-full">
                   <div className="flex items-center justify-between pb-2.5 border-b border-white/10 flex-shrink-0 mb-1.5">
-                    <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
+                    <h3 className="text-xs font-bold text-white tracking-tight">Bölüm listesi</h3>
                     <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-xs">✕</button>
                   </div>
                   <div className="flex flex-col space-y-1.5 w-full">
@@ -1022,16 +1039,16 @@ const Watch: React.FC = () => {
                         <button
                           key={`${ep.season_id}-${ep.episode_number}`}
                           onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
-                          className={`w-full max-w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left h-[56px] flex-shrink-0 ${
-                            isCurrent ? 'bg-primary text-white' : 'bg-white/5 text-gray-300'
+                          className={`w-full max-w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left min-h-[56px] flex-shrink-0 ${
+                            isCurrent ? 'bg-primary/20 text-white ring-1 ring-primary/40' : 'bg-white/5 text-gray-300'
                           }`}
                         >
-                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isCurrent ? 'bg-primary/35 text-white' : 'bg-black/30 text-muted'}`}>
                             {ep.episode_number}
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-[9px] font-black uppercase truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className="text-[7px] text-gray-400 mt-0.5">24 DK</p>
+                            <p className="text-xs font-semibold normal-case truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
+                            <p className="text-[10px] text-muted mt-0.5">24 dk</p>
                           </div>
                         </button>
                       );

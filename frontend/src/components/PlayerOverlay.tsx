@@ -188,7 +188,7 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
             {hasNextEpisode && onNextEpisode && (
               <button
                 onClick={onNextEpisode}
-                className="px-4 md:px-6 py-2 border-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white rounded-lg text-xs md:text-sm font-bold uppercase tracking-wide transition-all duration-200 hover:scale-105"
+                className="px-4 md:px-6 py-2 border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-lg text-xs md:text-sm font-bold uppercase tracking-wide transition-all duration-200 hover:scale-105"
               >
                 Sonraki Bölüm
               </button>
