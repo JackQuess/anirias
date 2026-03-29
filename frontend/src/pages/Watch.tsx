@@ -1,87 +1,18 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import Hls from 'hls.js';
+import { ThumbsUp, Share2, Flag, Play } from 'lucide-react';
 import { useLoad } from '../services/useLoad';
 import { db } from '../services/db';
 import { useAuth } from '../services/auth';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import Comments from '../components/Comments';
 import PlayerOverlay from '../components/PlayerOverlay';
+import AnimeCard from '@/components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
+import { cn } from '@/lib/utils';
 import { WatchProgress } from '../types';
-import WatchSidebar from '@/components/watch/WatchSidebar';
-import WatchMobileEpisodeSheet from '@/components/watch/WatchMobileEpisodeSheet';
-
-const PlayIcon = ({ size = 24 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M8 5v14l11-7z" />
-  </svg>
-);
-
-const PauseIcon = ({ size = 24 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-  </svg>
-);
-
-const VolumeIcon = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-  </svg>
-);
-
-const VolumeMuteIcon = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-    <line x1="23" y1="9" x2="17" y2="15" />
-    <line x1="17" y1="9" x2="23" y2="15" />
-  </svg>
-);
-
-const SettingsIcon = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24" />
-  </svg>
-);
-
-const ChevronDownIcon = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
-
-const MaximizeIcon = ({ size = 22 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-  </svg>
-);
-
-const MinimizeIcon = ({ size = 22 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-  </svg>
-);
-
-const ChevronRightIcon = ({ size = 18 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 18l6-6-6-6" />
-  </svg>
-);
-
-const SkipPrevIcon = ({ size = 28 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5v14m2-7l11 7V5L7 12z" />
-  </svg>
-);
-
-const SkipNextIcon = ({ size = 28 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 5v14m-2-7L6 5v14l11-7z" />
-  </svg>
-);
 
 const Watch: React.FC = () => {
   const { animeId, episodeId } = useParams<{ animeId: string; episodeId: string }>();
@@ -140,7 +71,9 @@ const Watch: React.FC = () => {
   const [showControls, setShowControls] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
-  const [showMobileSheet, setShowMobileSheet] = useState(false);
+  const [activeTab, setActiveTab] = useState<'episodes' | 'comments'>('episodes');
+  const [isLiked, setIsLiked] = useState(false);
+  const [shareLabel, setShareLabel] = useState('Paylaş');
   const [introSkipped, setIntroSkipped] = useState(false);
   const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
   const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
@@ -165,6 +98,36 @@ const Watch: React.FC = () => {
     () => (user && anime?.id ? db.getWatchProgressForAnime(user.id, anime.id) : Promise.resolve([])),
     [user, anime?.id]
   );
+
+  const { data: recSource } = useLoad(() => db.getAllAnimes('view_count', 16), []);
+  const recommendations = useMemo(() => {
+    if (!recSource?.length) return [];
+    const sid = anime?.id;
+    const list = sid ? recSource.filter((a) => a.id !== sid) : [...recSource];
+    return list.slice(0, 4);
+  }, [recSource, anime?.id]);
+
+  const synopsisPlain = useMemo(
+    () => (anime?.description || '').replace(/<[^>]*>/g, ''),
+    [anime?.description]
+  );
+
+  const handleShareZip = useCallback(async () => {
+    try {
+      if (navigator.share && anime) {
+        await navigator.share({
+          title: getDisplayTitle(anime.title),
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+      }
+      setShareLabel('Kopyalandı!');
+      setTimeout(() => setShareLabel('Paylaş'), 2000);
+    } catch {
+      setShareLabel('Paylaş');
+    }
+  }, [anime]);
 
   const queryEpisode = searchParams.get('episode');
   const querySeason = searchParams.get('season');
@@ -749,6 +712,11 @@ const Watch: React.FC = () => {
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
+  const watchSlug = anime.slug || anime.id;
+  const scorePct = Math.min(100, Math.round((Number(anime.score) || 0) * 10));
+  const epThumb = (i: number) =>
+    poster ||
+    `https://loremflickr.com/320/180/anime,scene?lock=${encodeURIComponent(anime.id + String(i))}`;
   // Show controls when: not started, paused, buffering, error, or user interaction
   const shouldShowControls = !hasStarted || !isPlaying || showControls || isBuffering || !!playbackError;
   
@@ -757,16 +725,14 @@ const Watch: React.FC = () => {
   const isInIntro = hasIntro && !introSkipped && currentTime >= introStart && currentTime < introEnd;
 
   return (
-    <div className="min-h-screen bg-background font-inter">
-      <div className="z-[130] mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
-        <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
-          
-          <div className="flex-1 space-y-4 lg:space-y-6 w-full min-w-0 overflow-hidden">
-            <div 
-              ref={playerContainerRef}
-              className="w-full aspect-video bg-black lg:rounded-2xl overflow-hidden lg:border lg:border-white/10 shadow-2xl select-none sticky top-0 lg:static z-50 lg:ring-1 lg:ring-white/5 max-h-[80vh]"
-              onDoubleClick={toggleFullscreen}
-            >
+    <div className="w-full min-h-screen bg-[#08080c] text-white flex flex-col font-inter pt-16 md:pt-20">
+      <div className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-4 md:px-8 gap-6 pb-28">
+        <div className="flex-1 flex flex-col gap-6 min-w-0">
+          <div
+            ref={playerContainerRef}
+            className="relative w-full aspect-video bg-black rounded-lg overflow-hidden group/player shadow-2xl select-none"
+            onDoubleClick={toggleFullscreen}
+          >
               <div className="relative w-full h-full">
                 {(anime?.slug || anime?.id) && (
                   <div className="absolute top-3 left-3 md:top-5 md:left-5 z-[55] pointer-events-none">
@@ -938,53 +904,181 @@ const Watch: React.FC = () => {
                   </div>
                 )}
 
-                {/* Old controls removed - replaced by PlayerOverlay */}
-
               </div>
             </div>
 
-            <div className="px-4 lg:px-0">
-              <Comments animeId={animeId!} episodeId={currentEpisode.id} />
+          <div className="flex flex-col gap-4">
+            <h1 className="text-2xl md:text-3xl font-bold">{titleString}</h1>
+            <p className="text-sm text-white/70 font-medium -mt-2">{episodeTitle}</p>
+
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-white/70">
+                <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+                <span>{anime.year || '—'}</span>
+                {anime.is_adult ? (
+                  <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs">18+</span>
+                ) : null}
+                <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs">HD</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setIsLiked((v) => !v)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 rounded transition-colors',
+                    isLiked ? 'bg-primary/20 text-primary' : 'hover:bg-white/10'
+                  )}
+                >
+                  <ThumbsUp className={cn('w-5 h-5', isLiked ? 'fill-current' : '')} />
+                  <span className="text-sm font-medium">{isLiked ? 'Beğenildi' : 'Beğen'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareZip}
+                  className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors"
+                >
+                  <Share2 className="w-5 h-5" />
+                  <span className="text-sm font-medium">{shareLabel}</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 hover:bg-white/10 px-3 py-1.5 rounded transition-colors"
+                >
+                  <Flag className="w-5 h-5" />
+                  <span className="text-sm font-medium">Bildir</span>
+                </button>
+              </div>
             </div>
+
+            {synopsisPlain ? (
+              <p className="text-white/80 text-sm md:text-base leading-relaxed">{synopsisPlain}</p>
+            ) : null}
           </div>
 
-          {episodes && episodes.length > 0 ? (
-            <WatchSidebar
-              episodes={episodes}
-              currentEpisodeNumber={currentEpNum}
-              seasonNum={querySeasonNumber ?? seasonNumber ?? 1}
-              titleString={titleString}
-              poster={poster}
-              rawPoster={rawPoster}
-              fallbackPoster={fallbackPoster}
-              progressMap={progressMap}
-              onEpisodeSelect={(ep) => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
-            />
-          ) : null}
-
-          <div className="xl:hidden fixed bottom-4 left-0 right-0 z-[120] px-4">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowMobileSheet(true)}
-                className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:opacity-95"
-              >
-                Bölüm listesi
-              </button>
-            </div>
+          <div className="lg:hidden flex border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => setActiveTab('episodes')}
+              className={cn(
+                'flex-1 py-3 text-sm font-bold border-b-2 transition-colors',
+                activeTab === 'episodes' ? 'border-primary text-white' : 'border-transparent text-white/50'
+              )}
+            >
+              BÖLÜMLER
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('comments')}
+              className={cn(
+                'flex-1 py-3 text-sm font-bold border-b-2 transition-colors',
+                activeTab === 'comments' ? 'border-primary text-white' : 'border-transparent text-white/50'
+              )}
+            >
+              YORUMLAR
+            </button>
           </div>
 
-          {episodes && episodes.length > 0 ? (
-            <WatchMobileEpisodeSheet
-              open={showMobileSheet}
-              onClose={() => setShowMobileSheet(false)}
-              episodes={episodes}
-              currentEpisodeNumber={currentEpNum}
-              progressMap={progressMap}
-              onEpisodeSelect={(ep) => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
-            />
+          <div className={cn(activeTab === 'comments' ? 'block' : 'hidden lg:block')}>
+            <Comments animeId={animeId!} episodeId={currentEpisode.id} />
+          </div>
+
+          {recommendations.length > 0 ? (
+            <div className="mt-6 mb-8 lg:mt-12">
+              <h3 className="text-xl font-bold mb-4">Önerilen içerikler</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {recommendations.map((item) => (
+                  <AnimeCard key={item.id} anime={item} layout="poster" />
+                ))}
+              </div>
+            </div>
           ) : null}
         </div>
+
+        {episodes && episodes.length > 0 ? (
+          <div
+            className={cn(
+              'w-full lg:w-96 shrink-0 flex flex-col gap-4',
+              activeTab === 'episodes' ? 'flex' : 'hidden lg:flex'
+            )}
+          >
+            <div className="flex items-center justify-between bg-[#12121a] p-4 rounded-lg border border-white/5">
+              <h3 className="font-bold text-lg">Bölümler</h3>
+              <span className="text-sm text-white/60">{episodes.length} bölüm</span>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
+              {episodes.map((ep, i) => {
+                const epNum = ep.episode_number;
+                const epTitle = ep.title || `${epNum}. Bölüm`;
+                const sn = ep.season_number ?? querySeasonNumber ?? seasonNumber ?? 1;
+                const isCurrent = currentEpNum === epNum;
+                const prog = progressMap.get(ep.id);
+                const durLabel = ep.duration_seconds
+                  ? `${Math.floor(ep.duration_seconds / 60)}:00`
+                  : '24:00';
+
+                return (
+                  <Link
+                    key={ep.id || `${ep.season_id}-${epNum}`}
+                    to={`/watch/${watchSlug}/${sn}/${epNum}`}
+                    onClick={(e) => {
+                      if (!ep.video_url && !ep.hls_url) e.preventDefault();
+                    }}
+                    className={cn(
+                      'flex gap-3 p-2 rounded-lg transition-all',
+                      isCurrent
+                        ? 'bg-[#1a1a24] border border-white/10'
+                        : 'hover:bg-[#1a1a24] border border-transparent',
+                      !ep.video_url && !ep.hls_url && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    <div className="relative w-32 aspect-video rounded overflow-hidden shrink-0 bg-black">
+                      <img
+                        src={epThumb(i)}
+                        alt=""
+                        className={cn(
+                          'w-full h-full object-cover transition-all duration-500',
+                          isCurrent ? 'opacity-100' : 'opacity-60'
+                        )}
+                        referrerPolicy="no-referrer"
+                      />
+                      {isCurrent && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <Play className="w-8 h-8 text-white fill-current" />
+                        </div>
+                      )}
+                      <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 text-[10px] font-bold rounded">
+                        {durLabel}
+                      </div>
+                      {prog && prog.duration > 0 ? (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20">
+                          <div
+                            className="h-full bg-emerald-400"
+                            style={{
+                              width: `${Math.min(100, (prog.progress / prog.duration) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col justify-center py-1 min-w-0">
+                      <h4
+                        className={cn(
+                          'font-bold text-sm line-clamp-2',
+                          isCurrent ? 'text-white' : 'text-white/80'
+                        )}
+                      >
+                        {epTitle}
+                      </h4>
+                      <p className="text-xs text-white/50 mt-1">Türkçe altyazılı</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
