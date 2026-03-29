@@ -49,6 +49,44 @@ interface VideoPlayerProps {
 
 type PlayerBootState = 'IDLE' | 'LOADING' | 'READY' | 'PLAYING';
 
+/** Tam ekran — Chrome + Safari (webkit) + Firefox + IE legacy */
+function requestFullscreenElement(el: Element | null): Promise<void> {
+  if (!el) return Promise.reject(new Error('no element'));
+  const anyEl = el as any;
+  const fn =
+    anyEl.requestFullscreen ||
+    anyEl.webkitRequestFullscreen ||
+    anyEl.webkitRequestFullScreen ||
+    anyEl.mozRequestFullScreen ||
+    anyEl.msRequestFullscreen;
+  if (!fn) return Promise.reject(new Error('fullscreen unsupported'));
+  const result = fn.call(anyEl);
+  return result && typeof result.then === 'function' ? result : Promise.resolve();
+}
+
+function exitFullscreenDocument(): Promise<void> {
+  const doc = document as any;
+  const fn =
+    document.exitFullscreen ||
+    doc.webkitExitFullscreen ||
+    doc.webkitCancelFullScreen ||
+    doc.mozCancelFullScreen ||
+    doc.msExitFullscreen;
+  if (!fn) return Promise.reject(new Error('exit fullscreen unsupported'));
+  const result = fn.call(document);
+  return result && typeof result.then === 'function' ? result : Promise.resolve();
+}
+
+function getFullscreenElement(): Element | null {
+  return (
+    document.fullscreenElement ||
+    (document as any).webkitFullscreenElement ||
+    (document as any).mozFullScreenElement ||
+    (document as any).msFullscreenElement ||
+    null
+  );
+}
+
 const formatTime = (seconds: number): string => {
   if (!seconds || isNaN(seconds)) return '00:00';
   const h = Math.floor(seconds / 3600);
@@ -908,12 +946,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // CRITICAL: Fullscreen change handling - sync body class and state (e.g. user presses Esc)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isFullscreenActive = !!(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
+      const isFullscreenActive = !!getFullscreenElement();
       if (!isFullscreenActive) {
         document.body.classList.remove('anirias-player-fullscreen');
       }
@@ -1113,76 +1146,60 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     showControlsTemporary();
   }, [volume, isMuted, showControlsTemporary]);
 
-  // CRITICAL: Fullscreen implementation - fullscreen BODY so header/sidebar hide; use CSS class to show only player
+  // Tam ekran: önce documentElement (Safari), sonra body, konteyner, video; webkit önekleri requestFullscreenElement içinde
   const toggleFullscreen = useCallback(() => {
     const video = videoRef.current;
     const container = containerRef.current;
     if (!video && !container) return;
 
-    const isCurrentlyFullscreen = !!(
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
-    );
-
-    if (!isCurrentlyFullscreen) {
-      // Prefer fullscreen on body so we can hide nav/sidebar via CSS; fallback to container then video
-      const target =
-        document.body.requestFullscreen ? document.body
-        : container && container.requestFullscreen ? container
-        : video && (video.requestFullscreen || (video as any).webkitEnterFullscreen) ? video
-        : null;
-      if (!target) return;
-
-      const onEntered = () => {
-        setIsFullscreen(true);
-        if (target === document.body) {
-          document.body.classList.add('anirias-player-fullscreen');
-        }
-      };
-
-      if (target === document.body) {
-        document.body.requestFullscreen().then(onEntered).catch(() => {
-          if (container && container.requestFullscreen) {
-            container.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-          } else if (video && video.requestFullscreen) {
-            video.requestFullscreen().then(onEntered).catch(() => {});
-          } else if (video && (video as any).webkitEnterFullscreen) {
-            (video as any).webkitEnterFullscreen();
-            setIsFullscreen(true);
-          }
-        });
-      } else if (target === container) {
-        container!.requestFullscreen().then(onEntered).catch(() => {
-          if (video && video.requestFullscreen) {
-            video.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-          } else if (video && (video as any).webkitEnterFullscreen) {
-            (video as any).webkitEnterFullscreen();
-            setIsFullscreen(true);
-          }
-        });
-      } else if (target === video) {
-        if ((video as any).webkitEnterFullscreen) {
-          (video as any).webkitEnterFullscreen();
-          setIsFullscreen(true);
-        } else if (video.requestFullscreen) {
-          video.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-        }
-      }
-    } else {
+    if (getFullscreenElement()) {
       document.body.classList.remove('anirias-player-fullscreen');
-      if (document.exitFullscreen) {
-        document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-      } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-      } else if ((document as any).mozCancelFullScreen) {
-        (document as any).mozCancelFullScreen().then(() => setIsFullscreen(false)).catch(() => {});
-      } else if ((document as any).msExitFullscreen) {
-        (document as any).msExitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-      }
+      exitFullscreenDocument()
+        .then(() => setIsFullscreen(false))
+        .catch(() => setIsFullscreen(false));
+      showControlsTemporary();
+      return;
     }
-    showControlsTemporary();
+
+    const candidates: (Element | null)[] = [
+      document.documentElement,
+      document.body,
+      container,
+      video,
+    ];
+
+    const tryEnter = (i: number) => {
+      if (i >= candidates.length) {
+        const v = videoRef.current;
+        if (v && typeof (v as any).webkitEnterFullscreen === 'function') {
+          try {
+            (v as any).webkitEnterFullscreen();
+            document.body.classList.add('anirias-player-fullscreen');
+            setIsFullscreen(true);
+          } catch {
+            /* iOS / eski WebKit */
+          }
+        } else if (import.meta.env.DEV) {
+          console.warn('[VideoPlayer] Tam ekran bu tarayıcıda desteklenmiyor.');
+        }
+        showControlsTemporary();
+        return;
+      }
+      const el = candidates[i];
+      if (!el) {
+        tryEnter(i + 1);
+        return;
+      }
+      requestFullscreenElement(el)
+        .then(() => {
+          document.body.classList.add('anirias-player-fullscreen');
+          setIsFullscreen(true);
+          showControlsTemporary();
+        })
+        .catch(() => tryEnter(i + 1));
+    };
+
+    tryEnter(0);
   }, [showControlsTemporary]);
 
   const handleMouseMove = useCallback(() => {
@@ -1305,6 +1322,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
 
       const video = videoRef.current;
+      const container = containerRef.current;
+
+      if (e.key === 'f' || e.key === 'F') {
+        if (!video && !container) return;
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFullscreen();
+        return;
+      }
+
       if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
 
       switch (e.key) {
@@ -1345,12 +1372,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             video.muted = false;
           }
           showControlsTemporary();
-          break;
-        case 'f':
-        case 'F':
-          e.preventDefault();
-          e.stopPropagation();
-          toggleFullscreen();
           break;
         case 'm':
         case 'M':
@@ -1592,7 +1613,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           playsInline
           webkit-playsinline="true"
           disablePictureInPicture
-          controlsList="nodownload nofullscreen noremoteplayback"
+          controlsList="nodownload noremoteplayback"
           onClick={handleVideoClick}
           onTouchStart={handleVideoTouch}
         >

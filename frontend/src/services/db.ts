@@ -111,22 +111,46 @@ const mergeCommentLikeStats = (
   return map;
 };
 
+/** comments.user_id -> profiles(id) FK ihlali 400 vermesin: satır yoksa oluşturmayı dene */
+const ensureProfileForCommentAuthor = async (userId: string | undefined) => {
+  if (!checkEnv() || !userId) return;
+  try {
+    const { data, error } = await supabase!.from('profiles').select('id').eq('id', userId).maybeSingle();
+    if (error || data) return;
+    await supabase!.from('profiles').insert({
+      id: userId,
+      username: `user_${userId.replace(/-/g, '').slice(0, 12)}`,
+      role: 'user',
+    });
+  } catch {
+    /* eşzamanlı kayıt veya RLS */
+  }
+};
+
 export const db = {
   getActivePlan: async (userId: string): Promise<'free' | 'pro' | 'pro_max'> => {
     if (!checkEnv() || !userId) return 'free';
 
     try {
+      // select('*'): bazı projelerde 'entitlements' sütunu yokken select('entitlements') 400 veriyor.
       const { data, error } = await supabase!
         .from('user_entitlements')
-        .select('entitlements')
+        .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (error || !data) return 'free';
 
-      const entitlements = (data as any).entitlements || {};
-      if (entitlements.pro_max) return 'pro_max';
-      if (entitlements.pro) return 'pro';
+      const row = data as Record<string, unknown>;
+      const raw = row.entitlements;
+      const entitlements =
+        raw && typeof raw === 'object' && !Array.isArray(raw)
+          ? (raw as Record<string, unknown>)
+          : {};
+      const planStr = typeof row.plan === 'string' ? row.plan : '';
+
+      if (entitlements.pro_max === true || planStr === 'pro_max') return 'pro_max';
+      if (entitlements.pro === true || planStr === 'pro') return 'pro';
       return 'free';
     } catch (err) {
       if (import.meta.env.DEV) console.warn('[db.getActivePlan] Failed:', err);
@@ -1326,12 +1350,13 @@ export const db = {
 
   addComment: async (comment: Partial<Comment>) => {
     if (!checkEnv()) return;
+    await ensureProfileForCommentAuthor(comment.user_id);
+
     const payload: Record<string, unknown> = {
       user_id: comment.user_id,
       anime_id: comment.anime_id,
       episode_id: comment.episode_id ?? null,
       text: comment.text,
-      created_at: new Date().toISOString(),
     };
     if (comment.parent_id) {
       payload.parent_id = comment.parent_id;

@@ -10,6 +10,7 @@ import AnimeCard from '@/components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
+import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -109,7 +110,14 @@ const AnimeDetail: React.FC = () => {
   const slug = anime?.slug || anime?.id || '';
   const banner = anime ? proxyImage(anime.banner_image || anime.cover_image || '') : '';
   const cover = anime ? proxyImage(anime.cover_image || '') : '';
-  const scorePct = anime ? Math.min(100, Math.round((Number(anime.score) || 0) * 10)) : 98;
+  const scorePct = React.useMemo(() => {
+    if (!anime) return 0;
+    return computeAnimeMatchPercent({
+      watchlist: watchlist ?? null,
+      targetAnime: anime,
+      userId: user?.id ?? null,
+    });
+  }, [anime, watchlist, user?.id]);
   const synopsis = anime?.description?.replace(/<[^>]*>/g, '') || '';
 
   const toggleList = async () => {
@@ -184,7 +192,7 @@ const AnimeDetail: React.FC = () => {
             <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-lg">{titleString}</h1>
 
             <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-white/90">
-              <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+              <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
               <span>{anime.year || '2024'}</span>
               {anime.is_adult ? (
                 <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">18+</span>

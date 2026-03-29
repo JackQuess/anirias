@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -10,7 +10,10 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { db } from '@/services/db';
+import { useAuth } from '@/services/auth';
+import { useLoad } from '@/services/useLoad';
 import { getDisplayTitle } from '@/utils/title';
+import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
 import { cn } from '@/lib/utils';
@@ -20,10 +23,26 @@ import type { Anime } from '@/types';
  * Zip (cinematic) hero: slide transitions, left gradients, next preview, rail-style controls.
  */
 const HomeHeroCinematic: React.FC = () => {
+  const { user } = useAuth();
+  const { data: watchlistHero } = useLoad(
+    () => (user?.id ? db.getWatchlist(user.id) : Promise.resolve([])),
+    [user?.id]
+  );
+
   const [heroPool, setHeroPool] = useState<Anime[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [direction, setDirection] = useState(0);
+
+  const currentPreview = heroPool[currentIndex];
+  const scorePct = useMemo(() => {
+    if (!currentPreview) return 0;
+    return computeAnimeMatchPercent({
+      watchlist: watchlistHero ?? null,
+      targetAnime: currentPreview,
+      userId: user?.id ?? null,
+    });
+  }, [currentPreview, watchlistHero, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,8 +118,6 @@ const HomeHeroCinematic: React.FC = () => {
   const banner = proxyImage(current.banner_image || current.cover_image || '');
   const nextBanner = proxyImage(nextAnime.banner_image || nextAnime.cover_image || '');
   const genreLabel = current.genres?.[0] ? translateGenre(current.genres[0]) : 'Anime';
-  const scorePct = Math.min(100, Math.round((Number(current.score) || 0) * 10));
-
   const variants = {
     enter: (dir: number) => ({ x: dir > 0 ? 1000 : -1000, opacity: 0 }),
     center: { zIndex: 1, x: 0, opacity: 1 },
@@ -155,7 +172,7 @@ const HomeHeroCinematic: React.FC = () => {
               </h1>
 
               <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90 drop-shadow-md">
-                <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+                <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
                 <span>{current.year || '2024'}</span>
                 <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white/80">18+</span>
                 <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white/80 uppercase">

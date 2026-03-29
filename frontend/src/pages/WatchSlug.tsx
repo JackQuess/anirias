@@ -16,6 +16,7 @@ import { parseSeasonSlug } from '@/utils/seasonSlug';
 import WatchSidebar from '@/components/watch/WatchSidebar';
 import WatchMobileEpisodeSheet from '@/components/watch/WatchMobileEpisodeSheet';
 import ReportWatchModal from '@/components/ReportWatchModal';
+import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 
 const Comments = lazy(() => import('../components/Comments'));
 
@@ -77,7 +78,7 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
-          <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+          <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
           {anime.year ? <span>{anime.year}</span> : null}
           {anime.is_adult ? (
             <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs">18+</span>
@@ -283,6 +284,15 @@ const WatchSlug: React.FC = () => {
     const row = watchlistRows.find((w) => w.anime_id === anime.id);
     setListStatus(row?.status ?? 'none');
   }, [anime?.id, watchlistRows]);
+
+  const scorePct = useMemo(() => {
+    if (!anime) return 0;
+    return computeAnimeMatchPercent({
+      watchlist: watchlistRows ?? null,
+      targetAnime: anime,
+      userId: user?.id ?? null,
+    });
+  }, [anime, watchlistRows, user?.id]);
 
   const toggleWatchlist = useCallback(async () => {
     if (!user || !anime?.id) {
@@ -561,7 +571,6 @@ const WatchSlug: React.FC = () => {
     : undefined;
 
   const synopsis = (anime.description || '').replace(/<[^>]*>/g, '');
-  const scorePct = Math.min(100, Math.round((Number(anime.score) || 0) * 10));
   const hasSubtitles = !!(subtitleFiles && subtitleFiles.length > 0);
 
   const commentsFallback = (

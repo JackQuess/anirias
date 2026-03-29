@@ -14,6 +14,7 @@ import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { cn } from '@/lib/utils';
 import { WatchProgress } from '../types';
+import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 
 const Watch: React.FC = () => {
   const { animeId, episodeId } = useParams<{ animeId: string; episodeId: string }>();
@@ -107,6 +108,20 @@ const Watch: React.FC = () => {
     const list = sid ? recSource.filter((a) => a.id !== sid) : [...recSource];
     return list.slice(0, 4);
   }, [recSource, anime?.id]);
+
+  const { data: watchlistForMatch } = useLoad(
+    () => (user?.id ? db.getWatchlist(user.id) : Promise.resolve([])),
+    [user?.id]
+  );
+
+  const scorePct = useMemo(() => {
+    if (!anime) return 0;
+    return computeAnimeMatchPercent({
+      watchlist: watchlistForMatch ?? null,
+      targetAnime: anime,
+      userId: user?.id ?? null,
+    });
+  }, [anime, watchlistForMatch, user?.id]);
 
   const synopsisPlain = useMemo(
     () => (anime?.description || '').replace(/<[^>]*>/g, ''),
@@ -736,7 +751,6 @@ const Watch: React.FC = () => {
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
   const watchSlug = anime.slug || anime.id;
-  const scorePct = Math.min(100, Math.round((Number(anime.score) || 0) * 10));
   const epThumb = (i: number) =>
     poster ||
     `https://loremflickr.com/320/180/anime,scene?lock=${encodeURIComponent(anime.id + String(i))}`;
@@ -936,7 +950,7 @@ const Watch: React.FC = () => {
 
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-white/70">
-                <span className="text-green-400 font-bold">%{scorePct} Uyum</span>
+                <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
                 <span>{anime.year || '—'}</span>
                 {anime.is_adult ? (
                   <span className="px-1.5 py-0.5 border border-white/20 rounded text-xs">18+</span>
