@@ -12,13 +12,23 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('react-dom') || id.includes('react/')) return 'vendor-react';
+            // React core + anything that must see the same React instance (peer deps)
+            if (
+              id.includes('react-dom') ||
+              id.includes('/react/') ||
+              id.includes('\\react\\') ||
+              id.includes('motion') ||
+              id.includes('lucide-react')
+            ) {
+              return 'vendor-react';
+            }
             if (id.includes('react-router')) return 'vendor-router';
             if (id.includes('@supabase')) return 'vendor-supabase';
             return 'vendor';
