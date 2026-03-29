@@ -12,7 +12,9 @@ import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
 import type { WatchProgress, Anime, Season, Episode, WatchlistStatus } from '../types';
 import NotFound from './NotFound';
-import { parseSeasonSlug, generateSeasonSlug } from '@/utils/seasonSlug';
+import { parseSeasonSlug } from '@/utils/seasonSlug';
+import WatchSidebar from '@/components/watch/WatchSidebar';
+import WatchMobileEpisodeSheet from '@/components/watch/WatchMobileEpisodeSheet';
 
 const Comments = lazy(() => import('../components/Comments'));
 
@@ -284,12 +286,17 @@ const WatchSlug: React.FC = () => {
   // OPTIMIZED: Episode switch - instant switching with React Router
   const navigateToEpisode = useCallback((targetSeasonNum: number, targetEpisodeNum: number) => {
     if (!anime?.slug) return;
-    
-    // Always use navigate with replace: true for instant switching
-    // This ensures React Router updates useParams and triggers useLoad
-    const seasonSlug = generateSeasonSlug(anime.slug, targetSeasonNum);
-    navigate(`/watch/${seasonSlug}/${targetSeasonNum}/${targetEpisodeNum}`, { replace: true });
+    navigate(`/watch/${encodeURIComponent(anime.slug)}/${targetSeasonNum}/${targetEpisodeNum}`, { replace: true });
   }, [anime?.slug, navigate]);
+
+  /** Eski /watch/foo-season-4/4/1 adreslerini /watch/foo/4/1 yap */
+  useEffect(() => {
+    if (!anime?.slug || !seasonNum || !episodeNum || !animeSlug) return;
+    const parsed = parseSeasonSlug(animeSlug);
+    if (!parsed || parsed.animeSlug !== anime.slug) return;
+    if (animeSlug === anime.slug) return;
+    navigate(`/watch/${encodeURIComponent(anime.slug)}/${seasonNum}/${episodeNum}`, { replace: true });
+  }, [anime?.slug, animeSlug, seasonNum, episodeNum, navigate]);
 
   const progressMap = useMemo(() => {
     const map = new Map<string, { progress: number; duration: number }>();
@@ -585,84 +592,15 @@ const WatchSlug: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Bottom Sheet Overlay */}
-        {showMobileEpisodeSheet && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 bg-black/80 z-[130] transition-opacity"
-              onClick={() => setShowMobileEpisodeSheet(false)}
-            />
-            
-            {/* Bottom Sheet */}
-            <div className="fixed bottom-0 left-0 right-0 z-[140] bg-surface-elevated border-t border-white/10 rounded-t-[2rem] shadow-2xl max-h-[80vh] flex flex-col animate-slide-up">
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-2">
-                <div className="w-12 h-1 bg-white/20 rounded-full" />
-              </div>
-              
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 pb-4 border-b border-white/5 flex-shrink-0">
-                <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">
-                  Bölüm listesi
-                </h3>
-                <span className="text-[11px] font-semibold text-muted tabular-nums">
-                  {episodes?.length || 0} bölüm
-                </span>
-              </div>
-              
-              {/* Episode List */}
-              <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 custom-scrollbar space-y-1.5 min-h-0">
-                {episodes?.map((ep) => {
-                  const isCurrent = ep.episode_number === episodeNum;
-                  const progress = progressMap.get(ep.id);
-                  return (
-                    <button
-                      key={`${ep.season_id}-${ep.episode_number}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!ep.video_url && !ep.hls_url) return;
-                        navigateToEpisode(seasonNum!, ep.episode_number);
-                        setShowMobileEpisodeSheet(false);
-                      }}
-                      className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 pointer-events-auto ${
-                        isCurrent
-                          ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30'
-                          : 'hover:bg-white/5 text-gray-400 hover:text-white active:bg-white/10'
-                      } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                        isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'
-                      }`}>
-                        {ep.episode_number}
-                      </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">
-                          {ep.title || `Bölüm ${ep.episode_number}`}
-                        </p>
-                        <p className={`text-[10px] font-medium mt-0.5 tabular-nums ${
-                          isCurrent ? 'text-white/65' : 'text-muted'
-                        }`}>
-                          {ep.duration ? `${Math.floor(ep.duration / 60)} dk` : '24 dk'}
-                        </p>
-                        {progress && progress.duration > 0 && (
-                          <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-emerald-400"
-                              style={{
-                                width: `${Math.min(100, (progress.progress / progress.duration) * 100)}%`
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
+        <WatchMobileEpisodeSheet
+          open={showMobileEpisodeSheet}
+          onClose={() => setShowMobileEpisodeSheet(false)}
+          episodes={episodes}
+          currentEpisodeNumber={episodeNum}
+          progressMap={progressMap}
+          blockWithoutVideo
+          onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
+        />
       </div>
 
       {/* Desktop Layout */}
@@ -726,94 +664,18 @@ const WatchSlug: React.FC = () => {
               </div>
             </div>
 
-            {/* Episode List Sidebar */}
-            <aside className="w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-6 relative z-20">
-              <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 h-[600px] flex flex-col shadow-xl overflow-hidden">
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                  <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">
-                    Bölüm listesi
-                  </h3>
-                  <span className="text-[11px] font-semibold text-muted tabular-nums">
-                    {episodes?.length || 0} bölüm
-                  </span>
-                </div>
-                <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
-                  {episodes?.map((ep) => {
-                    const isCurrent = ep.episode_number === episodeNum;
-                    const progress = progressMap.get(ep.id);
-                    return (
-                      <button
-                        key={`${ep.season_id}-${ep.episode_number}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!ep.video_url && !ep.hls_url) return;
-                          navigateToEpisode(seasonNum!, ep.episode_number);
-                        }}
-                        className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 pointer-events-auto relative z-30 ${
-                          isCurrent
-                            ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30'
-                            : 'hover:bg-white/5 text-gray-400 hover:text-white'
-                        } ${(!ep.video_url && !ep.hls_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                      >
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                          isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'
-                        }`}>
-                          {ep.episode_number}
-                        </div>
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">
-                            {ep.title || `Bölüm ${ep.episode_number}`}
-                          </p>
-                          <p className={`text-[10px] font-medium mt-0.5 tabular-nums ${
-                            isCurrent ? 'text-white/65' : 'text-muted'
-                          }`}>
-                            {ep.duration ? `${Math.floor(ep.duration / 60)} dk` : '24 dk'}
-                          </p>
-                          {progress && progress.duration > 0 && (
-                            <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-emerald-400"
-                                style={{
-                                  width: `${Math.min(100, (progress.progress / progress.duration) * 100)}%`
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Now Watching Card */}
-              <div className="bg-surface-elevated border border-white/5 rounded-2xl p-5 flex gap-4 items-center shadow-lg">
-                <img
-                  src={poster}
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (rawPoster && target.src !== rawPoster) {
-                      target.src = rawPoster;
-                    } else {
-                      target.src = fallbackPoster;
-                    }
-                  }}
-                  className="w-16 h-24 object-cover rounded-xl shadow-lg border border-white/10"
-                  alt={titleString}
-                />
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">
-                    Şimdi izleniyor
-                  </p>
-                  <h4 className="text-sm font-bold text-white leading-tight line-clamp-2">
-                    {titleString}
-                  </h4>
-                  <p className="text-[10px] text-muted mt-1 font-semibold">
-                    S{seasonNum} · B{episode.episode_number}
-                  </p>
-                </div>
-              </div>
-            </aside>
+            <WatchSidebar
+              episodes={episodes}
+              currentEpisodeNumber={episodeNum}
+              seasonNum={seasonNum}
+              titleString={titleString}
+              poster={poster}
+              rawPoster={rawPoster}
+              fallbackPoster={fallbackPoster}
+              progressMap={progressMap}
+              blockWithoutVideo
+              onEpisodeSelect={(ep) => navigateToEpisode(seasonNum!, ep.episode_number)}
+            />
           </div>
         </div>
       </div>

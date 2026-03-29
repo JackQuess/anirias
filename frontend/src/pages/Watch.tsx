@@ -10,6 +10,8 @@ import PlayerOverlay from '../components/PlayerOverlay';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { WatchProgress } from '../types';
+import WatchSidebar from '@/components/watch/WatchSidebar';
+import WatchMobileEpisodeSheet from '@/components/watch/WatchMobileEpisodeSheet';
 
 const PlayIcon = ({ size = 24 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -946,118 +948,42 @@ const Watch: React.FC = () => {
             </div>
           </div>
 
-          <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
-             <div className="bg-surface-elevated border border-white/10 rounded-2xl p-5 h-[600px] flex flex-col shadow-xl overflow-hidden">
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                   <h3 className="text-sm font-bold text-white tracking-tight border-l-4 border-primary pl-3">Bölüm listesi</h3>
-                   <span className="text-[11px] font-semibold text-muted tabular-nums">{episodes?.length} bölüm</span>
-                </div>
-                
-                <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar space-y-1.5 min-h-0 w-full">
-                   {episodes?.map((ep) => {
-                     const isCurrent = ep.episode_number === currentEpNum;
-                     return (
-                       <button 
-                          key={`${ep.season_id}-${ep.episode_number}`} 
-                          onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
-                          className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full max-w-full text-left min-h-[56px] flex-shrink-0 ${
-                            isCurrent 
-                            ? 'bg-primary/20 text-white ring-1 ring-primary/40 shadow-md shadow-black/30' 
-                            : 'hover:bg-white/5 text-gray-400 hover:text-white'
-                          }`}
-                       >
-                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isCurrent ? 'bg-primary/35 text-white' : 'bg-white/5 text-muted'}`}>
-                            {ep.episode_number}
-                         </div>
-                         <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-xs font-semibold text-white/95 normal-case truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className={`text-[10px] font-medium mt-0.5 tabular-nums ${isCurrent ? 'text-white/65' : 'text-muted'}`}>24 dk</p>
-                            {progressMap.has(ep.id) && (
-                              <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-emerald-400"
-                                  style={{
-                                    width: `${(() => {
-                                      const p = progressMap.get(ep.id);
-                                      if (!p || !p.duration) return 0;
-                                      return Math.min(100, (p.progress / p.duration) * 100);
-                                    })()}%`
-                                  }}
-                                />
-                              </div>
-                            )}
-                         </div>
-                       </button>
-                     );
-                   })}
-                </div>
-             </div>
+          {episodes && episodes.length > 0 ? (
+            <WatchSidebar
+              episodes={episodes}
+              currentEpisodeNumber={currentEpNum}
+              seasonNum={querySeasonNumber ?? seasonNumber ?? 1}
+              titleString={titleString}
+              poster={poster}
+              rawPoster={rawPoster}
+              fallbackPoster={fallbackPoster}
+              progressMap={progressMap}
+              onEpisodeSelect={(ep) => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
+            />
+          ) : null}
 
-             <div className="bg-surface-elevated border border-white/10 rounded-2xl p-5 flex gap-4 items-center shadow-lg">
-                <img 
-                  src={poster} 
-                  onError={(e) => { 
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (rawPoster && target.src !== rawPoster) {
-                      target.src = rawPoster;
-                    } else {
-                      target.src = fallbackPoster;
-                    }
-                  }}
-                  className="w-16 h-24 object-cover rounded-xl shadow-lg border border-white/10" 
-                  alt={titleString}
-                />
-                <div className="min-w-0">
-                   <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Şimdi izleniyor</p>
-                   <h4 className="text-sm font-bold text-white leading-tight line-clamp-2">{titleString}</h4>
-                   <p className="text-[10px] text-muted mt-1 font-semibold tabular-nums">S{querySeasonNumber} · B{currentEpNum}</p>
-                </div>
-             </div>
-          </aside>
-
-          {/* Mobile bottom sheet for episode list */}
           <div className="xl:hidden fixed bottom-4 left-0 right-0 z-[120] px-4">
             <div className="flex justify-end">
               <button
-                onClick={() => setShowMobileSheet((p) => !p)}
+                type="button"
+                onClick={() => setShowMobileSheet(true)}
                 className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:opacity-95"
               >
                 Bölüm listesi
               </button>
             </div>
-            {showMobileSheet && (
-              <div className="mt-3 bg-surface-elevated border border-white/10 rounded-2xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden shadow-2xl">
-                <div className="flex flex-col w-full">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-white/10 flex-shrink-0 mb-1.5">
-                    <h3 className="text-xs font-bold text-white tracking-tight">Bölüm listesi</h3>
-                    <button onClick={() => setShowMobileSheet(false)} className="text-gray-400 text-xs">✕</button>
-                  </div>
-                  <div className="flex flex-col space-y-1.5 w-full">
-                    {episodes?.map((ep) => {
-                      const isCurrent = ep.episode_number === currentEpNum;
-                      return (
-                        <button
-                          key={`${ep.season_id}-${ep.episode_number}`}
-                          onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
-                          className={`w-full max-w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left min-h-[56px] flex-shrink-0 ${
-                            isCurrent ? 'bg-primary/20 text-white ring-1 ring-primary/40' : 'bg-white/5 text-gray-300'
-                          }`}
-                        >
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isCurrent ? 'bg-primary/35 text-white' : 'bg-black/30 text-muted'}`}>
-                            {ep.episode_number}
-                          </div>
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-xs font-semibold normal-case truncate leading-tight">{ep.title || `Bölüm ${ep.episode_number}`}</p>
-                            <p className="text-[10px] text-muted mt-0.5">24 dk</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+
+          {episodes && episodes.length > 0 ? (
+            <WatchMobileEpisodeSheet
+              open={showMobileSheet}
+              onClose={() => setShowMobileSheet(false)}
+              episodes={episodes}
+              currentEpisodeNumber={currentEpNum}
+              progressMap={progressMap}
+              onEpisodeSelect={(ep) => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
+            />
+          ) : null}
         </div>
       </div>
     </div>
