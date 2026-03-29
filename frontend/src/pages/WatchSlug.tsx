@@ -538,7 +538,7 @@ const WatchSlug: React.FC = () => {
     >
       <div className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-4 md:px-8 gap-6 pb-24">
         <div className="flex-1 flex flex-col gap-6 min-w-0">
-          <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl">
+          <div className="relative w-full aspect-video rounded-lg border border-white/5 bg-black shadow-2xl overflow-hidden">
             {shouldRenderPlayer ? (
               <VideoPlayer
                 src={playbackUrl}
@@ -609,9 +609,11 @@ const WatchSlug: React.FC = () => {
           </div>
 
           <div className={cn(activeTab === 'comments' ? 'block' : 'hidden lg:block')}>
-            <Suspense fallback={commentsFallback}>
-              <Comments animeId={anime.id} episodeId={episode.id} />
-            </Suspense>
+            <div className="rounded-lg border border-white/5 bg-[#0c0c10] p-5 md:p-6 shadow-xl">
+              <Suspense fallback={commentsFallback}>
+                <Comments animeId={anime.id} episodeId={episode.id} variant="watch" />
+              </Suspense>
+            </div>
           </div>
 
           {recommendations.length > 0 ? (

@@ -107,7 +107,14 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
         loading="lazy"
       />
 
-      <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-[5]" />
+
+      {/* Başlık: her zaman görünür; hover’da tam panel açılınca gizlenir */}
+      <div className="absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 pt-10 bg-gradient-to-t from-black/95 via-black/55 to-transparent pointer-events-none transition-opacity duration-300 group-hover:opacity-0">
+        <h3 className="text-white font-bold text-xs sm:text-sm line-clamp-2 leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,.85)]">
+          {displayTitle}
+        </h3>
+      </div>
 
       <div className="absolute top-2 left-2 flex flex-col gap-1 z-20">
         {anime.is_featured ? (
@@ -122,7 +129,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
         ) : null}
       </div>
 
-      <div className="absolute inset-0 p-4 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+      <div className="absolute inset-0 z-[25] p-4 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
         <h3 className="text-white font-bold text-sm md:text-base line-clamp-2 mb-2 leading-tight drop-shadow-md">
           {displayTitle}
         </h3>
@@ -165,7 +172,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
       </div>
 
       {showProgress ? (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 z-20">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 z-[40]">
           <div className="h-full bg-primary" style={{ width: `${Math.min(100, progressPercent)}%` }} />
         </div>
       ) : null}

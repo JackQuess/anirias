@@ -730,7 +730,7 @@ const Watch: React.FC = () => {
         <div className="flex-1 flex flex-col gap-6 min-w-0">
           <div
             ref={playerContainerRef}
-            className="relative w-full aspect-video bg-black rounded-lg overflow-hidden group/player shadow-2xl select-none"
+            className="relative w-full aspect-video bg-black rounded-lg border border-white/5 overflow-hidden group/player shadow-2xl select-none"
             onDoubleClick={toggleFullscreen}
           >
               <div className="relative w-full h-full">
@@ -980,7 +980,9 @@ const Watch: React.FC = () => {
           </div>
 
           <div className={cn(activeTab === 'comments' ? 'block' : 'hidden lg:block')}>
-            <Comments animeId={animeId!} episodeId={currentEpisode.id} />
+            <div className="rounded-lg border border-white/5 bg-[#0c0c10] p-5 md:p-6 shadow-xl">
+              <Comments animeId={animeId!} episodeId={currentEpisode.id} variant="watch" />
+            </div>
           </div>
 
           {recommendations.length > 0 ? (
