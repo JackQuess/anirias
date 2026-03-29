@@ -11,8 +11,8 @@ const DesktopAccess: React.FC = () => {
 
   if (status === 'LOADING') {
     return (
-      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-brand-red" />
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary" />
       </div>
     );
   }
@@ -72,23 +72,23 @@ const DesktopAccess: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-app-bg font-inter px-4 md:px-8 py-10">
+    <div className="min-h-screen bg-background font-inter px-4 md:px-8 py-10">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tight">
-            Desktop <span className="text-brand-red">Access</span>
+            Desktop <span className="text-primary">Access</span>
           </h1>
           <p className="text-gray-400 mt-3 text-sm">
             Mac veya Windows icin masaustu uygulamasini indir ve 6 haneli kod ile hesabini eslestir.
           </p>
         </div>
 
-        <div className="bg-brand-surface border border-white/10 rounded-3xl p-6 md:p-8 mb-8">
+        <div className="bg-surface-elevated border border-white/10 rounded-3xl p-6 md:p-8 mb-8">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[11px] text-gray-500 font-black uppercase tracking-[0.2em]">Aktif Plan</p>
             <span
               className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                isProMax ? 'bg-brand-red text-white' : 'bg-white/10 text-gray-300'
+                isProMax ? 'bg-primary text-white' : 'bg-white/10 text-gray-300'
               }`}
             >
               {isProMax ? 'PRO MAX' : activePlan.toUpperCase()}
@@ -101,7 +101,7 @@ const DesktopAccess: React.FC = () => {
                 type="button"
                 onClick={handleProtectedDownload}
                 disabled={downloading}
-                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.18em] transition-all bg-brand-red text-white hover:bg-brand-redHover disabled:opacity-60"
+                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.18em] transition-all bg-primary text-white hover:opacity-90 disabled:opacity-60"
               >
                 {downloading ? 'Baglanti Hazirlaniyor...' : 'Desktop Uygulamasini Indir'}
               </button>
@@ -120,7 +120,7 @@ const DesktopAccess: React.FC = () => {
 
               <Link
                 to="/profile"
-                className="inline-block text-xs font-black uppercase tracking-[0.15em] text-brand-red hover:text-white"
+                className="inline-block text-xs font-black uppercase tracking-[0.15em] text-primary hover:text-white"
               >
                 Cihaz yonetimi icin profile git
               </Link>
@@ -138,7 +138,7 @@ const DesktopAccess: React.FC = () => {
                 href={ANDROID_APP_ACTIVATION_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl bg-brand-red text-white font-black text-xs uppercase tracking-[0.18em] hover:bg-brand-redHover transition-all"
+                className="inline-flex items-center justify-center px-6 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-[0.18em] hover:opacity-90 transition-all"
               >
                 Android uygulamada etkinlestir
               </a>

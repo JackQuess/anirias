@@ -29,17 +29,17 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div className="min-h-screen bg-app-bg font-inter flex flex-col items-center justify-center p-8 text-center">
+        <div className="min-h-screen bg-background font-inter flex flex-col items-center justify-center p-8 text-center">
           <div className="max-w-md">
             <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-4">
-              Bir şey <span className="text-brand-red">ters gitti</span>
+              Bir şey <span className="text-primary">ters gitti</span>
             </h1>
             <p className="text-gray-400 text-sm mb-6">
               Sayfa yüklenirken bir hata oluştu. Yenileyip tekrar deneyebilirsiniz.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-8 py-4 bg-brand-red hover:bg-brand-redHover text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-colors"
+              className="px-8 py-4 bg-primary hover:opacity-90 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-colors"
             >
               Sayfayı yenile
             </button>

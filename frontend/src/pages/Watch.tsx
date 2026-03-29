@@ -755,7 +755,7 @@ const Watch: React.FC = () => {
   const isInIntro = hasIntro && !introSkipped && currentTime >= introStart && currentTime < introEnd;
 
   return (
-    <div className="min-h-screen bg-app-bg font-inter">
+    <div className="min-h-screen bg-background font-inter">
       <div className="z-[130] mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-20 lg:pt-32 pb-40">
         <div className="flex flex-col xl:flex-row gap-6 lg:gap-10 min-w-0">
           
@@ -853,7 +853,7 @@ const Watch: React.FC = () => {
                           </button>
                           <button
                             onClick={handleContinueWatching}
-                            className="px-8 py-3 bg-brand-red hover:bg-brand-redHover text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-brand-red/20 transition-all"
+                            className="px-8 py-3 bg-primary hover:opacity-90 text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-primary/25 transition-all"
                           >
                             Devam Et
                           </button>
@@ -887,7 +887,7 @@ const Watch: React.FC = () => {
                           </button>
                           <button
                             onClick={handleNextEpisodeNow}
-                            className="px-8 py-3 bg-brand-red hover:bg-brand-redHover text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-brand-red/20 transition-all flex items-center gap-2"
+                            className="px-8 py-3 bg-primary hover:opacity-90 text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-primary/25 transition-all flex items-center gap-2"
                           >
                             <span>Şimdi İzle</span>
                             {autoPlayCountdown !== null && autoPlayCountdown > 0 && (
@@ -931,9 +931,9 @@ const Watch: React.FC = () => {
           </div>
 
           <aside className="hidden xl:block w-[320px] 2xl:w-[360px] flex-shrink-0 max-w-full space-y-8">
-             <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
+             <div className="bg-surface-elevated border border-white/10 rounded-[2.5rem] p-6 h-[600px] flex flex-col shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5 flex-shrink-0">
-                   <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-brand-red pl-3">BÖLÜM LİSTESİ</h3>
+                   <h3 className="text-xs font-black text-white uppercase tracking-widest border-l-4 border-primary pl-3">BÖLÜM LİSTESİ</h3>
                    <span className="text-[9px] font-black text-gray-500 uppercase">{episodes?.length} BÖLÜM</span>
                 </div>
                 
@@ -946,7 +946,7 @@ const Watch: React.FC = () => {
                           onClick={() => goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber })}
                           className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all w-full max-w-full text-left h-[56px] flex-shrink-0 ${
                             isCurrent 
-                            ? 'bg-brand-red text-white shadow-md shadow-brand-red/20' 
+                            ? 'bg-primary text-white shadow-md shadow-primary/25' 
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                           }`}
                        >
@@ -977,7 +977,7 @@ const Watch: React.FC = () => {
                 </div>
              </div>
 
-             <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-6 flex gap-4 items-center">
+             <div className="bg-surface-elevated border border-white/10 rounded-[2.5rem] p-6 flex gap-4 items-center">
                 <img 
                   src={poster} 
                   onError={(e) => { 
@@ -992,7 +992,7 @@ const Watch: React.FC = () => {
                   alt={titleString}
                 />
                 <div>
-                   <p className="text-[9px] font-black text-brand-red uppercase tracking-widest mb-1">ŞİMDİ İZLENİYOR</p>
+                   <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">ŞİMDİ İZLENİYOR</p>
                    <h4 className="text-sm font-black text-white uppercase italic leading-tight line-clamp-2">{titleString}</h4>
                 </div>
              </div>
@@ -1003,13 +1003,13 @@ const Watch: React.FC = () => {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowMobileSheet((p) => !p)}
-                className="bg-brand-red text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-brand-red/30"
+                className="bg-primary text-white font-black uppercase tracking-widest text-[10px] px-4 py-2.5 rounded-2xl shadow-lg shadow-primary/30"
               >
                 Bölüm Listesi
               </button>
             </div>
             {showMobileSheet && (
-              <div className="mt-3 bg-brand-surface border border-brand-border rounded-3xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden shadow-2xl">
+              <div className="mt-3 bg-surface-elevated border border-white/10 rounded-3xl p-3 max-h-[50vh] overflow-y-auto overflow-x-hidden shadow-2xl">
                 <div className="flex flex-col w-full">
                   <div className="flex items-center justify-between pb-2.5 border-b border-white/10 flex-shrink-0 mb-1.5">
                     <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">BÖLÜMLER</h3>
@@ -1023,7 +1023,7 @@ const Watch: React.FC = () => {
                           key={`${ep.season_id}-${ep.episode_number}`}
                           onClick={() => { goToEpisode({ episode_number: ep.episode_number, season_number: seasonNumber }); setShowMobileSheet(false); }}
                           className={`w-full max-w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left h-[56px] flex-shrink-0 ${
-                            isCurrent ? 'bg-brand-red text-white' : 'bg-white/5 text-gray-300'
+                            isCurrent ? 'bg-primary text-white' : 'bg-white/5 text-gray-300'
                           }`}
                         >
                           <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isCurrent ? 'bg-black/20' : 'bg-black/30'}`}>

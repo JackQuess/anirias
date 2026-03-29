@@ -21,18 +21,18 @@ const PageBandCinematic: React.FC<PageBandCinematicProps> = ({
 }) => (
   <section
     className={cn(
-      'relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-brand-red/[0.07] to-transparent pb-12 pt-24 md:pt-28 font-inter',
+      'relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-primary/[0.07] to-transparent pb-12 pt-24 md:pt-28 font-inter',
       className
     )}
   >
-    <div className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-brand-red/10 blur-[100px]" />
+    <div className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-primary/10 blur-[100px]" />
     <div className="relative z-10 mx-auto max-w-[1600px] px-6 md:px-14">
-      <div className="inline-block rounded-xl border border-brand-red/25 bg-brand-red/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.35em] text-brand-red mb-4">
+      <div className="inline-block rounded-xl border border-primary/25 bg-primary/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.35em] text-primary mb-4">
         {accent}
       </div>
       <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black uppercase italic tracking-tighter text-white leading-[0.95]">
         {title}
-        {titleHighlight ? <span className="text-brand-red"> {titleHighlight}</span> : null}
+        {titleHighlight ? <span className="text-primary"> {titleHighlight}</span> : null}
       </h1>
       {description ? (
         <p className="mt-5 max-w-2xl text-xs font-bold uppercase tracking-[0.3em] text-white/50 leading-relaxed">

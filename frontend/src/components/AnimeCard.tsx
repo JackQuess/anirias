@@ -94,7 +94,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
     <Link
       to={`/anime/${slug}`}
       className={cn(
-        'group relative w-full rounded-md overflow-hidden bg-app-surface transition-all duration-300 hover:scale-105 hover:z-20 hover:shadow-xl hover:shadow-black/50 block',
+        'group relative w-full rounded-md overflow-hidden bg-surface transition-all duration-300 hover:scale-105 hover:z-20 hover:shadow-xl hover:shadow-black/50 block',
         isLandscape ? 'aspect-video' : 'aspect-[2/3]'
       )}
     >

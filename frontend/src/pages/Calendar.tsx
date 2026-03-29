@@ -35,7 +35,7 @@ const CalendarCard: React.FC<{ item: PublicCalendarEntry }> = ({ item }) => {
   return (
     <Link
       to={`/anime/${item.animeId}`}
-      className="group block rounded-3xl border border-white/10 bg-app-surface/75 backdrop-blur-sm p-5 hover:border-brand-red/50 transition-all"
+      className="group block rounded-2xl border border-white/10 bg-surface-elevated/80 backdrop-blur-sm p-5 hover:border-primary/45 transition-all shadow-lg shadow-black/20"
     >
       <div className="flex items-center gap-4">
         <img
@@ -46,7 +46,7 @@ const CalendarCard: React.FC<{ item: PublicCalendarEntry }> = ({ item }) => {
         />
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{airingDay}</p>
-          <h3 className="truncate text-lg font-black uppercase italic tracking-tight text-white group-hover:text-brand-red">
+          <h3 className="truncate text-lg font-black uppercase italic tracking-tight text-white group-hover:text-primary">
             {item.title}
           </h3>
           <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Bölüm {item.episodeNumber}</p>
@@ -72,13 +72,13 @@ const CalendarSection: React.FC<{ title: string; items: PublicCalendarEntry[]; e
 }) => (
   <section className="space-y-5">
     <div className="flex items-center gap-4">
-      <div className="w-1 h-8 bg-brand-red shadow-[0_0_12px_rgba(229,9,20,0.35)] shrink-0" />
+      <div className="w-1 h-8 bg-primary shadow-[0_0_12px_rgba(229,9,20,0.35)] shrink-0 rounded-full" />
       <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white">{title}</h2>
     </div>
     {items.length > 0 ? (
       <div className="grid gap-4">{items.map((item) => <CalendarCard key={`${item.animeId}-${item.episodeNumber}`} item={item} />)}</div>
     ) : (
-      <div className="rounded-3xl border border-dashed border-white/10 bg-app-surface/30 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-600">
+      <div className="rounded-2xl border border-dashed border-white/10 bg-surface-elevated/40 py-10 text-center text-xs font-black uppercase tracking-widest text-muted">
         {empty}
       </div>
     )}

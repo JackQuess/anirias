@@ -10,14 +10,14 @@ import MascotLayer from './decorative/MascotLayer';
 
 const Layout: React.FC = () => {
   return (
-    <div className="flex flex-col min-h-screen bg-app-bg">
+    <div className="flex flex-col min-h-screen bg-background">
       <ScrollToTop />
       <Navbar />
       <main className="flex-grow pt-24 lg:pt-32 pb-16 md:pb-0 font-inter antialiased">
         <Outlet />
       </main>
       <MobileBottomNav />
-      <footer className="py-20 border-t border-white/5 bg-app-surface/85 backdrop-blur-xl mt-20 relative z-10 font-inter">
+      <footer className="py-20 border-t border-white/5 bg-surface-elevated/90 backdrop-blur-xl mt-20 relative z-10 font-inter">
         {/* Rias Mascot - Brand Signature (Footer, bottom-left, desktop only) */}
         <div className="absolute bottom-0 left-0 z-0 hidden md:block">
           <MascotLayer type="rias" />
@@ -25,7 +25,7 @@ const Layout: React.FC = () => {
         <div className="max-w-7xl mx-auto px-8 lg:px-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-center">
             <div className="text-center md:text-left">
-              <div className="text-3xl font-black text-brand-red italic tracking-tighter text-glow uppercase">ANIRIAS</div>
+              <div className="text-3xl font-black text-primary italic tracking-tighter text-glow uppercase">ANIRIAS</div>
               <p className="text-gray-600 text-[10px] font-black uppercase tracking-widest mt-2">Premium Anime Platformu</p>
             </div>
             <div className="flex justify-center gap-10 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">

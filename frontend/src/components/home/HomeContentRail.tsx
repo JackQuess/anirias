@@ -172,7 +172,7 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
           aria-label="Sola kaydır"
           onClick={() => scrollBy('left')}
           className={cn(
-            'hidden md:flex absolute left-0 top-0 bottom-0 w-16 z-40 bg-gradient-to-r from-app-bg to-transparent items-center justify-center transition-all duration-300 hover:w-20',
+            'hidden md:flex absolute left-0 top-0 bottom-0 w-16 z-40 bg-gradient-to-r from-background to-transparent items-center justify-center transition-all duration-300 hover:w-20',
             hovered ? 'opacity-100' : 'opacity-0'
           )}
         >
@@ -237,7 +237,7 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
           aria-label="Sağa kaydır"
           onClick={() => scrollBy('right')}
           className={cn(
-            'hidden md:flex absolute right-0 top-0 bottom-0 w-16 z-40 bg-gradient-to-l from-app-bg to-transparent items-center justify-center transition-all duration-300 hover:w-20',
+            'hidden md:flex absolute right-0 top-0 bottom-0 w-16 z-40 bg-gradient-to-l from-background to-transparent items-center justify-center transition-all duration-300 hover:w-20',
             hovered ? 'opacity-100' : 'opacity-0'
           )}
         >

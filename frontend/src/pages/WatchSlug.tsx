@@ -457,18 +457,18 @@ const WatchSlug: React.FC = () => {
   if (watchError && !watchLoading) {
     return (
       <div className="min-h-screen bg-background font-inter flex items-center justify-center px-6">
-        <div className="max-w-xl w-full rounded-3xl border border-white/10 bg-brand-surface/80 p-8 text-center">
-          <p className="text-brand-red text-[10px] font-black uppercase tracking-[0.25em] mb-3">Izleme Verisi Alinamadi</p>
-          <h2 className="text-white text-2xl font-black uppercase tracking-tight mb-3">Sayfa su an yuklenemiyor</h2>
+        <div className="max-w-xl w-full rounded-2xl border border-white/10 bg-surface-elevated/90 p-8 text-center shadow-xl">
+          <p className="text-primary text-[10px] font-black uppercase tracking-[0.25em] mb-3">İzleme verisi alınamadı</p>
+          <h2 className="text-white text-2xl font-black uppercase tracking-tight mb-3">Sayfa şu an yüklenemiyor</h2>
           <p className="text-gray-300 text-sm mb-6">
             {watchError.message === 'NOT_FOUND'
-              ? 'Istenen bolum veya sezon bulunamadi.'
-              : `Baglanti hatasi: ${watchError.message}`}
+              ? 'İstenen bölüm veya sezon bulunamadı.'
+              : `Bağlantı hatası: ${watchError.message}`}
           </p>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-redHover text-white font-black text-xs uppercase tracking-[0.2em]"
+            className="px-6 py-3 rounded-xl bg-primary hover:opacity-90 text-white font-black text-xs uppercase tracking-[0.2em]"
           >
             Yeniden Dene
           </button>

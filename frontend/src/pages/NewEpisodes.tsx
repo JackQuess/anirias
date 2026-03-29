@@ -69,8 +69,8 @@ const NewEpisodes: React.FC = () => {
         )}
 
         {!loading && episodes.length === 0 && !error && (
-          <div className="text-center py-20 border border-dashed border-white/10 rounded-[3rem] bg-app-surface/30">
-            <p className="text-gray-500 font-black uppercase tracking-widest">Henüz yeni bölüm eklenmedi.</p>
+          <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl bg-surface-elevated/40">
+            <p className="text-muted font-black uppercase tracking-widest">Henüz yeni bölüm eklenmedi.</p>
           </div>
         )}
       </div>

@@ -56,7 +56,7 @@ const FeedbackFloatingButton: React.FC = () => {
     <button
       data-feedback-floating
       onClick={handleClick}
-      className="fixed bottom-6 right-6 z-[9999] bg-brand-red hover:bg-brand-redHover text-white px-6 py-3 rounded-full shadow-2xl shadow-brand-red/30 font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+      className="fixed bottom-6 right-6 z-[9999] bg-primary hover:opacity-90 text-white px-6 py-3 rounded-full shadow-2xl shadow-primary/30 font-black text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
       style={{ zIndex: 9999 }}
       aria-label="Geri Bildirim Gönder"
     >

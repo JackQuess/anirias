@@ -138,7 +138,7 @@ const Navbar: React.FC = () => {
       <nav
         className={`fixed top-0 left-0 right-0 z-[200] font-inter transition-colors duration-300 px-6 md:px-12 py-4 flex items-center justify-between ${
           scrolled
-            ? 'bg-app-bg/95 backdrop-blur-sm shadow-md border-b border-white/5'
+            ? 'bg-background/95 backdrop-blur-sm shadow-md border-b border-white/5'
             : 'bg-gradient-to-b from-black/80 to-transparent'
         }`}
       >
@@ -147,13 +147,13 @@ const Navbar: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="lg:hidden p-2 text-white hover:text-brand-red transition-colors shrink-0"
+            className="lg:hidden p-2 text-white hover:text-primary transition-colors shrink-0"
             aria-label="Menü"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
           </button>
 
-          <Link to="/" className="shrink-0 text-brand-red font-black text-2xl md:text-3xl tracking-tighter">
+          <Link to="/" className="shrink-0 text-primary font-black text-2xl md:text-3xl tracking-tighter">
             ANIRIAS
           </Link>
 
@@ -185,7 +185,7 @@ const Navbar: React.FC = () => {
             {user && isProMax && (
               <Link
                 to={DESKTOP_ACCESS_PAGE}
-                className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-brand-red/90 hover:bg-brand-red text-white text-[9px] font-black uppercase tracking-[0.2em] transition-all"
+                className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-primary/90 hover:bg-primary text-white text-[9px] font-black uppercase tracking-[0.2em] transition-all"
               >
                 Desktop
               </Link>
@@ -198,19 +198,19 @@ const Navbar: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsNotifOpen(!isNotifOpen)}
-                    className={`transition-colors relative ${isNotifOpen ? 'text-brand-red' : 'text-white hover:text-white/70'}`}
+                    className={`transition-colors relative ${isNotifOpen ? 'text-primary' : 'text-white hover:text-white/70'}`}
                   >
                     <Bell className="w-5 h-5" />
                     <span
-                      className={`absolute top-0 right-0 w-2 h-2 rounded-full border border-app-bg ${unreadCount > 0 ? 'bg-brand-red' : 'bg-white/25'}`}
+                      className={`absolute top-0 right-0 w-2 h-2 rounded-full border border-background ${unreadCount > 0 ? 'bg-primary' : 'bg-white/25'}`}
                     />
                   </button>
 
                   {isNotifOpen && (
-                    <div className="absolute top-full right-0 mt-4 w-72 md:w-80 bg-app-surfaceElevated border border-white/10 rounded-xl shadow-2xl p-5 animate-fade-in overflow-hidden z-50">
+                    <div className="absolute top-full right-0 mt-4 w-72 md:w-80 bg-surface-elevated border border-white/10 rounded-xl shadow-2xl p-5 animate-fade-in overflow-hidden z-50">
                       <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
                         <h4 className="text-sm font-bold text-white">Bildirimler</h4>
-                        <span className="text-xs text-brand-red font-semibold">{unreadCount} yeni</span>
+                        <span className="text-xs text-primary font-semibold">{unreadCount} yeni</span>
                       </div>
                       <div className="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
                         {notifications.length === 0 ? (
@@ -245,7 +245,7 @@ const Navbar: React.FC = () => {
                                     }
                                   }
                                 }}
-                                className={`block p-4 rounded-2xl border transition-all ${n.is_read ? 'bg-transparent border-white/5 opacity-50' : 'bg-white/5 border-brand-red/20 hover:border-brand-red/50'}`}
+                                className={`block p-4 rounded-2xl border transition-all ${n.is_read ? 'bg-transparent border-white/5 opacity-50' : 'bg-white/5 border-primary/20 hover:border-primary/50'}`}
                               >
                                 <p className="text-[10px] font-black text-white mb-1 uppercase tracking-tight">{n.title}</p>
                                 <p className="text-[10px] text-gray-500 line-clamp-2">{n.body}</p>
@@ -264,7 +264,7 @@ const Navbar: React.FC = () => {
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center gap-3 p-1 pr-2 md:pr-4 rounded-2xl hover:bg-white/5 transition-all border border-transparent hover:border-white/5"
                   >
-                    <div className="w-8 h-8 md:w-9 md:h-9 bg-brand-red rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-brand-red/20 overflow-hidden">
+                    <div className="w-8 h-8 md:w-9 md:h-9 bg-primary rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-primary/20 overflow-hidden">
                       {profile?.avatar_url ? (
                         <img src={profile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
                       ) : profile?.avatar_id ? (
@@ -280,9 +280,9 @@ const Navbar: React.FC = () => {
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute top-full right-0 mt-4 w-64 bg-app-surfaceElevated border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in z-50">
+                    <div className="absolute top-full right-0 mt-4 w-64 bg-surface-elevated border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in z-50">
                       <div className="mb-6 pb-6 border-b border-white/5 flex items-center gap-4">
-                         <div className="w-10 h-10 bg-brand-red rounded-xl flex items-center justify-center text-white font-black overflow-hidden">
+                         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-black overflow-hidden">
                             {profile?.avatar_url ? (
                               <img src={profile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
                             ) : profile?.avatar_id ? (
@@ -293,7 +293,7 @@ const Navbar: React.FC = () => {
                          </div>
                          <div className="min-w-0">
                             <p className="text-[10px] font-black text-white uppercase truncate">{profile?.username}</p>
-                            <p className="text-[8px] text-brand-red font-black uppercase tracking-widest mt-1">PRO ÜYE</p>
+                            <p className="text-[8px] text-primary font-black uppercase tracking-widest mt-1">PRO ÜYE</p>
                          </div>
                       </div>
                       <div className="space-y-3">
@@ -309,7 +309,7 @@ const Navbar: React.FC = () => {
                           to={DESKTOP_ACCESS_PAGE}
                           className={`flex items-center gap-3 p-3 rounded-xl transition-all text-[9px] font-black uppercase tracking-[0.2em] ${
                             isProMax
-                              ? 'hover:bg-white/5 text-brand-red hover:text-white'
+                              ? 'hover:bg-white/5 text-primary hover:text-white'
                               : 'text-gray-500 hover:text-white hover:bg-white/5'
                           }`}
                           onClick={() => setIsProfileOpen(false)}
@@ -318,7 +318,7 @@ const Navbar: React.FC = () => {
                           {isProMax ? 'DESKTOP ACCESS' : 'DESKTOP (ANDROID PRO MAX)'}
                         </Link>
                         {profile?.role === 'admin' && (
-                          <Link to="/admin" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-brand-red hover:text-white uppercase tracking-[0.2em] transition-all" onClick={() => setIsProfileOpen(false)}>
+                          <Link to="/admin" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-primary hover:text-white uppercase tracking-[0.2em] transition-all" onClick={() => setIsProfileOpen(false)}>
                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                              KOMUTA MERKEZİ
                           </Link>
@@ -328,7 +328,7 @@ const Navbar: React.FC = () => {
                             setIsProfileOpen(false);
                             await signOut();
                           }} 
-                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-gray-600 hover:text-brand-red uppercase tracking-[0.2em] transition-all text-left"
+                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-[9px] font-black text-gray-600 hover:text-primary uppercase tracking-[0.2em] transition-all text-left"
                         >
                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                            ÇIKIŞ YAP
@@ -342,7 +342,7 @@ const Navbar: React.FC = () => {
               <div className="flex items-center gap-3 md:gap-4">
                 <Link
                   to="/login"
-                  className="flex items-center gap-2 px-4 py-1.5 bg-brand-red text-black font-bold rounded-lg hover:bg-brand-red/90 transition-colors text-sm"
+                  className="flex items-center gap-2 px-4 py-1.5 bg-primary text-black font-bold rounded-lg hover:bg-primary/90 transition-colors text-sm"
                 >
                   <LogIn className="w-4 h-4" />
                   Giriş Yap
@@ -360,10 +360,10 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[300] bg-app-bg/98 backdrop-blur-3xl animate-fade-in flex flex-col p-8 md:hidden font-inter">
+        <div className="fixed inset-0 z-[300] bg-background/98 backdrop-blur-3xl animate-fade-in flex flex-col p-8 md:hidden font-inter">
            <div className="flex justify-between items-center mb-12">
-             <span className="text-3xl font-black text-brand-red italic tracking-tighter">ANIRIAS</span>
-             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white hover:text-brand-red">
+             <span className="text-3xl font-black text-primary italic tracking-tighter">ANIRIAS</span>
+             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white hover:text-primary">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
            </div>
@@ -373,7 +373,7 @@ const Navbar: React.FC = () => {
                 <Link 
                   key={item.path} 
                   to={item.path} 
-                  className={`text-2xl font-black uppercase tracking-tighter ${isActive(item.path) ? 'text-brand-red' : 'text-white/50'}`}
+                  className={`text-2xl font-black uppercase tracking-tighter ${isActive(item.path) ? 'text-primary' : 'text-white/50'}`}
                 >
                   {item.label}
                 </Link>
@@ -381,7 +381,7 @@ const Navbar: React.FC = () => {
              {user && (
                <Link
                  to={DESKTOP_ACCESS_PAGE}
-                 className={`text-2xl font-black uppercase tracking-tighter ${isProMax ? 'text-brand-red' : 'text-white/50'}`}
+                 className={`text-2xl font-black uppercase tracking-tighter ${isProMax ? 'text-primary' : 'text-white/50'}`}
                >
                  DESKTOP
                </Link>

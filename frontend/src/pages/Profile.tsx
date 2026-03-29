@@ -425,8 +425,8 @@ const Profile: React.FC = () => {
       {isEditing && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={() => setIsEditing(false)} />
-           <div className="relative w-full max-w-lg bg-brand-surface border border-white/10 rounded-[3rem] p-10 shadow-2xl animate-fade-in-up">
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-8">PROFİLİ <span className="text-brand-red">DÜZENLE</span></h3>
+           <div className="relative w-full max-w-lg bg-surface-elevated border border-white/10 rounded-[3rem] p-10 shadow-2xl animate-fade-in-up">
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-8">PROFİLİ <span className="text-primary">DÜZENLE</span></h3>
               <form onSubmit={handleUpdateProfile} className="space-y-6">
                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">KULLANICI ADI</label>
@@ -449,10 +449,10 @@ const Profile: React.FC = () => {
                         setEditForm({...editForm, bio: sanitized});
                         if (sanitized.length <= 180) setErrors(prev => ({ ...prev, bio: undefined }));
                       }}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red resize-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-primary resize-none"
                     />
                     <div className="flex items-center justify-between text-[11px] text-gray-500 font-semibold px-2">
-                      <span className={errors.bio ? 'text-brand-red' : ''}>{errors.bio}</span>
+                      <span className={errors.bio ? 'text-primary' : ''}>{errors.bio}</span>
                       <span>{editForm.bio.length}/180</span>
                     </div>
                  </div>
@@ -461,26 +461,26 @@ const Profile: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(true)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-semibold outline-none hover:border-brand-red transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-semibold outline-none hover:border-primary transition-all"
                     >
                       {selectedAvatar ? `Seçilen Avatar: ${selectedAvatar.name || selectedAvatar.id}` : 'Avatar Seç'}
                     </button>
-                    {errors.avatar && <p className="text-brand-red text-[11px] font-semibold px-2">{errors.avatar}</p>}
+                    {errors.avatar && <p className="text-primary text-[11px] font-semibold px-2">{errors.avatar}</p>}
                  </div>
                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">BANNER</label>
                     <button
                       type="button"
                       onClick={() => setIsBannerModalOpen(true)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-semibold outline-none hover:border-brand-red transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-semibold outline-none hover:border-primary transition-all"
                     >
                       {selectedBanner ? 'Seçilen Banner' : 'Banner Seç'}
                     </button>
-                    {errors.banner && <p className="text-brand-red text-[11px] font-semibold px-2">{errors.banner}</p>}
+                    {errors.banner && <p className="text-primary text-[11px] font-semibold px-2">{errors.banner}</p>}
                  </div>
                 <div className="flex gap-4 pt-4">
                    <button type="button" onClick={() => setIsEditing(false)} disabled={saving} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50">İPTAL</button>
-                   <button type="submit" disabled={saving} className="flex-1 bg-brand-red hover:bg-brand-redHover text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-brand-red/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                   <button type="submit" disabled={saving} className="flex-1 bg-primary hover:bg-primaryHover text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50 flex items-center justify-center gap-2">
                      {saving ? (<> <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Kaydediliyor... </>) : 'KAYDET'}
                    </button>
                 </div>
@@ -492,7 +492,7 @@ const Profile: React.FC = () => {
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/80 backdrop-blur" onClick={() => setIsAvatarModalOpen(false)} />
-          <div className="relative w-full max-w-3xl bg-brand-surface border border-white/10 rounded-[2.5rem] p-8 shadow-2xl z-10">
+          <div className="relative w-full max-w-3xl bg-surface-elevated border border-white/10 rounded-[2.5rem] p-8 shadow-2xl z-10">
             <div className="flex items-center justify-between mb-6">
               <h4 className="text-lg font-black text-white uppercase tracking-widest">Avatar Seç</h4>
               <button onClick={() => setIsAvatarModalOpen(false)} className="text-gray-400 hover:text-white transition-colors text-sm font-bold">Kapat</button>
@@ -505,7 +505,7 @@ const Profile: React.FC = () => {
                 <button
                   key={cat.key}
                   onClick={() => setActiveAvatarCategory(cat.key as 'hsdxd' | 'jjk')}
-                  className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${activeAvatarCategory === cat.key ? 'bg-brand-red text-white border-brand-red' : 'bg-white/5 text-gray-400 border-white/10 hover:text-white'}`}
+                  className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${activeAvatarCategory === cat.key ? 'bg-primary text-white border-primary' : 'bg-white/5 text-gray-400 border-white/10 hover:text-white'}`}
                 >
                   {cat.label}
                 </button>
@@ -522,7 +522,7 @@ const Profile: React.FC = () => {
                       setErrors(prev => ({ ...prev, avatar: undefined }));
                       setIsAvatarModalOpen(false);
                     }}
-                    className={`relative overflow-hidden rounded-2xl border transition-all h-40 ${selected ? 'border-brand-red ring-2 ring-brand-red/60 shadow-[0_0_20px_rgba(229,25,62,0.3)]' : 'border-white/10 hover:border-white/30'}`}
+                    className={`relative overflow-hidden rounded-2xl border transition-all h-40 ${selected ? 'border-primary ring-2 ring-primary/60 shadow-[0_0_20px_rgba(229,25,62,0.3)]' : 'border-white/10 hover:border-white/30'}`}
                   >
                     <img
                       src={getAvatarSrc(item.id)}
@@ -548,7 +548,7 @@ const Profile: React.FC = () => {
       {isBannerModalOpen && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/80 backdrop-blur" onClick={() => setIsBannerModalOpen(false)} />
-          <div className="relative w-full max-w-4xl bg-brand-surface border border-white/10 rounded-[2.5rem] p-8 shadow-2xl z-10">
+          <div className="relative w-full max-w-4xl bg-surface-elevated border border-white/10 rounded-[2.5rem] p-8 shadow-2xl z-10">
             <div className="flex items-center justify-between mb-6">
               <h4 className="text-lg font-black text-white uppercase tracking-widest">Banner Seç</h4>
               <button onClick={() => setIsBannerModalOpen(false)} className="text-gray-400 hover:text-white transition-colors text-sm font-bold">Kapat</button>
@@ -564,7 +564,7 @@ const Profile: React.FC = () => {
                       setErrors(prev => ({ ...prev, banner: undefined }));
                       setIsBannerModalOpen(false);
                     }}
-                    className={`relative overflow-hidden rounded-2xl border transition-all h-32 ${selected ? 'border-brand-red ring-2 ring-brand-red/60 shadow-[0_0_20px_rgba(229,25,62,0.3)]' : 'border-white/10 hover:border-white/30'}`}
+                    className={`relative overflow-hidden rounded-2xl border transition-all h-32 ${selected ? 'border-primary ring-2 ring-primary/60 shadow-[0_0_20px_rgba(229,25,62,0.3)]' : 'border-white/10 hover:border-white/30'}`}
                   >
                     <img src={getBannerSrc(item.id)} className="w-full h-full object-cover" />
                   </button>

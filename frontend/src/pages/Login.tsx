@@ -222,7 +222,7 @@ const Login: React.FC = () => {
         transition={{ duration: 0.6 }}
         className="w-full max-w-md z-10"
       >
-        <div className="bg-surface-elevated/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl">
+        <div className="bg-surface-elevated/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 md:p-10 shadow-2xl">
           <div className="text-center mb-8">
             <Link to="/" className="inline-block mb-6">
               <span className="text-primary font-black text-4xl tracking-tighter">ANIRIAS</span>
@@ -381,9 +381,9 @@ const Login: React.FC = () => {
       {/* Forgot Password Modal */}
       {showForgot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-           <div className="absolute inset-0 bg-app-bg/95 backdrop-blur-xl animate-fade-in" onClick={() => setShowForgot(false)} />
-           <div className="relative w-full max-w-md glass-panel border border-white/10 p-10 rounded-[2.5rem] shadow-2xl animate-fade-in-up">
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-4">Şifremi <span className="text-brand-red">Unuttum</span></h3>
+           <div className="absolute inset-0 bg-background/95 backdrop-blur-xl animate-fade-in" onClick={() => setShowForgot(false)} />
+           <div className="relative w-full max-w-md glass-panel border border-white/10 p-10 rounded-2xl shadow-2xl animate-fade-in-up">
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-4">Şifremi <span className="text-primary">Unuttum</span></h3>
               <p className="text-gray-400 text-xs mb-8">Kayıtlı e-posta adresini gir, sana sıfırlama bağlantısı gönderelim.</p>
               
               <form onSubmit={handleResetPassword} className="space-y-6">
@@ -393,7 +393,7 @@ const Login: React.FC = () => {
                    value={resetEmail}
                    onChange={e => setResetEmail(e.target.value)}
                    placeholder="E-posta Adresin"
-                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red"
+                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-primary"
                  />
                  
                  {resetMessage && (
@@ -404,7 +404,7 @@ const Login: React.FC = () => {
 
                  <div className="flex gap-4">
                     <button type="button" onClick={() => setShowForgot(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-500 font-black py-4 rounded-2xl uppercase tracking-widest text-[10px]">İPTAL</button>
-                    <button type="submit" disabled={resetLoading} className="flex-1 bg-brand-red text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-brand-red/20 disabled:opacity-50">
+                    <button type="submit" disabled={resetLoading} className="flex-1 bg-primary text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-primary/25 disabled:opacity-50">
                        {resetLoading ? '...' : 'GÖNDER'}
                     </button>
                  </div>

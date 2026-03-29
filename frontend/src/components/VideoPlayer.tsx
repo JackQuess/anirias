@@ -1471,21 +1471,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               {/* Outer Static Ring */}
               <div className="absolute inset-0 border-[3px] border-white/5 rounded-full"></div>
               {/* Spinning Ring - Red Accent */}
-              <div className="absolute inset-0 border-[3px] border-transparent border-t-brand-red border-r-brand-red/30 rounded-full animate-player-loading-spin"></div>
+              <div className="absolute inset-0 border-[3px] border-transparent border-t-primary border-r-primary/30 rounded-full animate-player-loading-spin"></div>
               {/* Inner Glow Pulse */}
-              <div className="absolute inset-3 bg-brand-red/10 rounded-full animate-player-loading-pulse blur-sm"></div>
+              <div className="absolute inset-3 bg-primary/10 rounded-full animate-player-loading-pulse blur-sm"></div>
               {/* Center Dot */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2 h-2 bg-brand-red rounded-full animate-player-loading-pulse"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-player-loading-pulse"></div>
               </div>
             </div>
             {/* Loading Text with Animation */}
             <div className="flex items-center gap-1.5">
               <span className="text-white/80 text-sm font-bold tracking-widest uppercase">Yükleniyor</span>
               <div className="flex gap-1">
-                <span className="text-brand-red text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0s' }}>.</span>
-                <span className="text-brand-red text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0.2s' }}>.</span>
-                <span className="text-brand-red text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0.4s' }}>.</span>
+                <span className="text-primary text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0s' }}>.</span>
+                <span className="text-primary text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0.2s' }}>.</span>
+                <span className="text-primary text-sm font-bold animate-player-loading-pulse" style={{ animationDelay: '0.4s' }}>.</span>
               </div>
             </div>
           </div>
@@ -1599,7 +1599,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={handleResume}
-                className="flex-1 bg-[#e5193e] hover:bg-[#c41735] text-white px-4 py-3 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                className="flex-1 bg-[#e50914] hover:bg-[#b20710] text-white px-4 py-3 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2"
               >
                 <Play size={16} strokeWidth={2.5} />
                 <span>Devam Et</span>
@@ -1628,7 +1628,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               className="group cursor-pointer pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e5193e] transition-colors ${
+              <h2 className={`text-white font-semibold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] group-hover:text-[#e50914] transition-colors ${
                 isMobile ? 'text-sm' : 'text-base md:text-lg'
               }`}>
                 {title}
@@ -1656,7 +1656,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 onSkipIntro?.();
               }
             }}
-            className="bg-black/80 hover:bg-black/90 backdrop-blur-md text-white px-4 py-2 rounded-lg font-semibold text-sm border border-white/20 hover:border-[#e5193e] transition-all shadow-lg flex items-center gap-2 group"
+            className="bg-black/80 hover:bg-black/90 backdrop-blur-md text-white px-4 py-2 rounded-lg font-semibold text-sm border border-white/20 hover:border-[#e50914] transition-all shadow-lg flex items-center gap-2 group"
           >
             <span>Girişi Atla</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="group-hover:translate-x-0.5 transition-transform">
@@ -1702,7 +1702,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   }
                   onNextEpisode();
                 }}
-                className={`flex-1 bg-[#e5193e] hover:bg-[#c41735] text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
+                className={`flex-1 bg-[#e50914] hover:bg-[#b20710] text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
                   isMobile ? 'py-3' : ''
                 }`}
               >
@@ -1857,7 +1857,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 <div className="flex items-center gap-2 group relative">
                   <button
                     onClick={toggleMute}
-                    className={`flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors z-10 ${
+                    className={`flex items-center justify-center text-white/70 hover:text-[#e50914] transition-colors z-10 ${
                       isMobile ? 'w-9 h-9' : 'w-9 h-9'
                     }`}
                     aria-label={isMuted ? 'Sesi aç' : 'Sessize al'}
@@ -1936,7 +1936,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       }
                       onNextEpisode();
                     }}
-                    className={`flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors ${
+                    className={`flex items-center justify-center text-white/70 hover:text-[#e50914] transition-colors ${
                       isMobile ? 'w-9 h-9' : 'w-9 h-9'
                     }`}
                     aria-label="Sonraki Bölüm"
@@ -1986,8 +1986,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       subtitleOptions.length === 0
                         ? 'cursor-default text-white/35'
                         : subtitlesOn
-                          ? 'text-[#e5193e]'
-                          : 'text-white/70 hover:text-[#e5193e]'
+                          ? 'text-[#e50914]'
+                          : 'text-white/70 hover:text-[#e50914]'
                     }`}
                     aria-label={
                       subtitleOptions.length === 0
@@ -2024,7 +2024,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                             setSubtitlesMenuOpen(false);
                           }}
                           className={`flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-white/10 ${
-                            !subtitlesOn ? 'text-[#e5193e]' : 'text-white/90'
+                            !subtitlesOn ? 'text-[#e50914]' : 'text-white/90'
                           }`}
                         >
                           Altyazıları Kapat
@@ -2039,7 +2039,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                             }}
                             className={`flex w-full items-center px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/10 ${
                               subtitlesOn && activeSubtitleIndex === opt.index
-                                ? 'font-semibold text-[#e5193e]'
+                                ? 'font-semibold text-[#e50914]'
                                 : 'text-white/85'
                             }`}
                           >
@@ -2053,7 +2053,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 {/* Fullscreen */}
                 <button
                   onClick={toggleFullscreen}
-                  className={`flex items-center justify-center text-white/70 hover:text-[#e5193e] transition-colors ${
+                  className={`flex items-center justify-center text-white/70 hover:text-[#e50914] transition-colors ${
                     isMobile ? 'w-9 h-9' : 'w-9 h-9'
                   }`}
                   aria-label="Tam ekran"

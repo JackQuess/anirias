@@ -87,9 +87,9 @@ const AuthCallback: React.FC = () => {
   // Loading state
   // TODO [v2]: Update loading message when email verification is re-enabled
   return (
-    <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center">
+    <div className="min-h-screen bg-background font-inter flex items-center justify-center">
       <div className="text-center">
-        <div className="w-16 h-16 border-4 border-brand-red/20 border-t-brand-red rounded-full animate-spin mx-auto mb-4" />
+        <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
         <p className="text-white font-black text-sm uppercase tracking-widest">
           Giriş Yapılıyor...
         </p>

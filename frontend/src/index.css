@@ -5,7 +5,7 @@
 
 @layer base {
   body {
-    @apply bg-app-bg text-gray-100 antialiased;
+    @apply bg-background text-gray-100 antialiased;
   }
   
   /* Premium scrollbar */
@@ -13,13 +13,13 @@
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-app-bg;
+    @apply bg-background;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-brand-border rounded;
+    @apply bg-white/20 rounded;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-brand-red;
+    @apply bg-primary/80;
   }
 }
 
@@ -93,7 +93,7 @@
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 20px rgba(229, 9, 20, 0.6);
+    text-shadow: 0 0 20px rgba(229, 9, 20, 0.55);
   }
   
   /* Custom Range Input for Video Player */
@@ -102,11 +102,11 @@
   }
   
   .range-sm::-webkit-slider-thumb {
-    @apply h-4 w-4 appearance-none rounded-full bg-brand-red shadow-lg cursor-pointer;
+    @apply h-4 w-4 appearance-none rounded-full bg-primary shadow-lg cursor-pointer;
   }
   
   .range-sm::-moz-range-thumb {
-    @apply h-4 w-4 appearance-none rounded-full bg-brand-red shadow-lg cursor-pointer;
+    @apply h-4 w-4 appearance-none rounded-full bg-primary shadow-lg cursor-pointer;
   }
 
   /* Volume Slider Styling */

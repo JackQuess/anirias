@@ -41,9 +41,9 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
   const isRetryDisabled = retryCount >= MAX_RETRIES || isOnCooldown;
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 bg-brand-surface border border-red-900/50 rounded-lg text-center my-4">
+    <div className="flex flex-col items-center justify-center p-8 bg-surface-elevated border border-primary/25 rounded-2xl text-center my-4 shadow-lg shadow-black/20">
       <svg
-        className="w-12 h-12 text-brand-red mb-4"
+        className="w-12 h-12 text-primary mb-4"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -70,7 +70,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
             className={`px-6 py-2 rounded font-medium transition-colors ${
               isRetryDisabled
                 ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                : 'bg-brand-red hover:bg-brand-redHover text-white'
+                : 'bg-primary hover:opacity-90 text-white'
             }`}
           >
             {isOnCooldown ? 'Wait...' : retryCount >= MAX_RETRIES ? 'Max Retries Reached' : 'Try Again'}

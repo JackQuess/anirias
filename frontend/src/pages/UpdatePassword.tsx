@@ -78,9 +78,9 @@ const UpdatePassword: React.FC = () => {
 
   if (step === 'loading') {
     return (
-      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center">
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-brand-red/20 border-t-brand-red rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white font-black text-sm uppercase tracking-widest">Yükleniyor...</p>
         </div>
       </div>
@@ -89,13 +89,13 @@ const UpdatePassword: React.FC = () => {
 
   if (step === 'error') {
     return (
-      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white/[0.03] border border-white/10 rounded-2xl p-8 text-center">
-          <p className="text-brand-red font-bold mb-6">{error}</p>
+          <p className="text-primary font-bold mb-6">{error}</p>
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="bg-brand-red text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs"
+            className="bg-primary text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs"
           >
             Giriş sayfasına dön
           </button>
@@ -106,7 +106,7 @@ const UpdatePassword: React.FC = () => {
 
   if (step === 'done') {
     return (
-      <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background font-inter flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white/[0.03] border border-white/10 rounded-2xl p-8 text-center">
           <p className="text-white font-bold mb-2">Şifreniz güncellendi.</p>
           <p className="text-gray-500 text-sm">Ana sayfaya yönlendiriliyorsunuz...</p>
@@ -116,10 +116,10 @@ const UpdatePassword: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-app-bg font-inter flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background font-inter flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter text-center mb-8">
-          Yeni <span className="text-brand-red">Şifre</span>
+          Yeni <span className="text-primary">Şifre</span>
         </h1>
         <form
           onSubmit={handleSubmit}
@@ -132,7 +132,7 @@ const UpdatePassword: React.FC = () => {
               required
               minLength={6}
               placeholder="En az 6 karakter"
-              className="w-full mt-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red"
+              className="w-full mt-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-primary"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -144,20 +144,20 @@ const UpdatePassword: React.FC = () => {
               required
               minLength={6}
               placeholder="Aynı şifreyi tekrar girin"
-              className="w-full mt-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red"
+              className="w-full mt-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-primary"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
           </div>
           {error && (
-            <div className="p-4 bg-brand-red/10 border border-brand-red/20 rounded-xl text-brand-red text-xs font-bold text-center">
+            <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl text-primary text-xs font-bold text-center">
               {error}
             </div>
           )}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-brand-red hover:bg-brand-redHover text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs disabled:opacity-50"
+            className="w-full bg-primary hover:opacity-90 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs disabled:opacity-50"
           >
             {submitting ? 'Güncelleniyor...' : 'Şifreyi güncelle'}
           </button>

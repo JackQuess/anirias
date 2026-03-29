@@ -67,7 +67,7 @@ const HomeHeroCinematic: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="relative w-full h-[85vh] min-h-[600px] bg-app-surfaceElevated animate-pulse flex items-end pb-24 md:pb-32 px-4 md:px-12 font-inter">
+      <div className="relative w-full h-[85vh] min-h-[600px] bg-surface-elevated animate-pulse flex items-end pb-24 md:pb-32 px-4 md:px-12 font-inter">
         <div className="space-y-6 w-full max-w-2xl">
           <div className="h-16 md:h-24 bg-white/5 rounded-lg w-3/4" />
           <div className="h-6 bg-white/5 rounded w-1/2" />
@@ -83,7 +83,7 @@ const HomeHeroCinematic: React.FC = () => {
 
   if (heroPool.length === 0) {
     return (
-      <div className="relative w-full min-h-[40vh] flex flex-col items-center justify-center px-6 py-16 text-center text-white/70 font-inter bg-app-bg">
+      <div className="relative w-full min-h-[40vh] flex flex-col items-center justify-center px-6 py-16 text-center text-white/70 font-inter bg-background">
         <p className="text-lg font-semibold text-white mb-2">Vitrin içeriği yüklenemedi</p>
         <p className="max-w-md text-sm text-white/60">
           Öne çıkan veya listelenecek anime bulunamadı. Bağlantı ve Supabase ayarlarını kontrol edin.
@@ -108,7 +108,7 @@ const HomeHeroCinematic: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[85vh] min-h-[600px] flex items-end pb-20 md:pb-24 overflow-hidden group font-inter bg-app-bg">
+    <div className="relative w-full h-[85vh] min-h-[600px] flex items-end pb-20 md:pb-24 overflow-hidden group font-inter bg-background">
       <AnimatePresence initial={false} custom={direction} mode="wait">
         <motion.div
           key={currentIndex}
@@ -133,8 +133,8 @@ const HomeHeroCinematic: React.FC = () => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-app-bg via-app-bg/60 to-transparent w-[80%]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-app-bg via-transparent to-transparent h-full" />
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent w-[80%]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent h-full" />
           </div>
 
           <div className="relative z-30 w-full h-full px-6 md:px-12 flex flex-col md:flex-row justify-between items-end pb-20 md:pb-24 gap-10">

@@ -17,7 +17,7 @@ const SectionHeaderCinematic: React.FC<SectionHeaderCinematicProps> = ({
 }) => (
   <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between font-inter', className)}>
     <div className="flex items-start gap-4 min-w-0">
-      <div className="w-1 h-8 sm:h-10 bg-brand-red shadow-[0_0_12px_rgba(229,9,20,0.35)] shrink-0 mt-1" />
+      <div className="w-1 h-8 sm:h-10 bg-primary shadow-[0_0_12px_rgba(229,9,20,0.35)] shrink-0 mt-1 rounded-full" />
       <div className="min-w-0">
         <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter">
           {title}
