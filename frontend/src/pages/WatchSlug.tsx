@@ -586,7 +586,10 @@ const WatchSlug: React.FC = () => {
       className="w-full min-h-screen bg-[#08080c] text-white flex flex-col font-inter antialiased pt-16 md:pt-20"
       data-watch-page
     >
-      <div className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-4 md:px-8 gap-6 pb-24">
+      <div
+        className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-4 md:px-8 gap-6 pb-24"
+        data-watch-layout
+      >
         <div className="flex-1 flex flex-col gap-6 min-w-0">
           <div className="relative w-full aspect-video rounded-lg border border-white/5 bg-black shadow-2xl overflow-hidden">
             {shouldRenderPlayer ? (

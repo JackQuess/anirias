@@ -324,7 +324,7 @@ video::-webkit-media-text-track-display {
   overflow: hidden;
 }
 
-/* Player fullscreen: body is fullscreened; hide nav/footer/sidebar and show only player */
+/* Player fullscreen: chrome gizle; izle sayfasında yan bölümü ve max-width kısıtını kaldır */
 body.anirias-player-fullscreen nav,
 body.anirias-player-fullscreen footer {
   display: none !important;
@@ -337,16 +337,18 @@ body.anirias-player-fullscreen main {
   max-width: none !important;
   max-height: none !important;
 }
-body.anirias-player-fullscreen [data-watch-page] [data-watch-desktop] aside {
+/* WatchSlug: bölüm listesi data-watch-episode-column; eski aside seçicisi yoktu */
+body.anirias-player-fullscreen [data-watch-page] [data-watch-episode-column] {
   display: none !important;
 }
-body.anirias-player-fullscreen [data-watch-page] .watch-player-area {
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+body.anirias-player-fullscreen [data-watch-page] aside {
+  display: none !important;
+}
+body.anirias-player-fullscreen [data-watch-page] [data-watch-layout] {
   max-width: none !important;
-  z-index: 10;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 body.anirias-player-fullscreen [data-feedback-floating] {
   display: none !important;
@@ -355,4 +357,8 @@ body.anirias-player-fullscreen [data-feedback-floating] {
 /* Cinematic theme: fullscreen chrome matches app background */
 body.anirias-player-fullscreen {
   background-color: #08080c !important;
+}
+/* Tam ekranda üst boşluk (navbar alanı) kalksın — tüm sayfa FS yedek yolunda */
+body.anirias-player-fullscreen [data-watch-page] {
+  padding-top: 0 !important;
 }

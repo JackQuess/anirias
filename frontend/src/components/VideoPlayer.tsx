@@ -1161,12 +1161,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
 
-    const candidates: (Element | null)[] = [
-      document.documentElement,
-      document.body,
-      container,
-      video,
-    ];
+    /* Önce oynatıcı kutusu (veya video): tüm HTML’e geçmeyelim — max-width + yan panel tam ekranda bozuluyordu. */
+    const candidates: (Element | null)[] = [container, video, document.documentElement, document.body];
 
     const tryEnter = (i: number) => {
       if (i >= candidates.length) {
