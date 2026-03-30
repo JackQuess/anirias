@@ -13,7 +13,7 @@ const Layout: React.FC = () => {
     <div className="flex flex-col min-h-screen bg-background">
       <ScrollToTop />
       <Navbar />
-      <main className="flex-grow pt-24 lg:pt-32 pb-16 md:pb-0 font-inter antialiased">
+      <main className="flex-grow pt-[max(6rem,calc(5.5rem+env(safe-area-inset-top,0px)))] md:pt-24 lg:pt-32 pb-mobile-nav md:pb-0 font-inter antialiased">
         <Outlet />
       </main>
       <MobileBottomNav />

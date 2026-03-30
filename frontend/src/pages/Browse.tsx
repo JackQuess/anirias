@@ -102,7 +102,7 @@ const Browse: React.FC = () => {
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
 
   return (
-    <div className="min-h-screen bg-background pb-24 font-inter">
+    <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
       <div className="px-0 md:px-0">
         <PageHero
           title={pageInfo.title}
@@ -112,8 +112,8 @@ const Browse: React.FC = () => {
         />
       </div>
 
-      <div className="px-4 md:px-12 -mt-20 relative z-20">
-        <div className="glass-panel p-6 rounded-2xl mb-12 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative z-30">
+      <div className="px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20">
+        <div className="glass-panel p-4 sm:p-6 rounded-xl sm:rounded-2xl mb-8 sm:mb-12 border border-white/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 sm:gap-6 shadow-2xl relative z-30">
           <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto no-scrollbar pb-2 md:pb-0">
             {ZIP_GENRES.map(({ label }) => (
               <button
@@ -207,7 +207,7 @@ const Browse: React.FC = () => {
             <LoadingSkeleton type="card" count={8} />
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-8 relative z-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-8 relative z-10">
             {filteredItems.map((anime) => (
               <AnimeCard key={anime.id} anime={anime} />
             ))}

@@ -86,7 +86,7 @@ const HomeHeroCinematic: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="relative w-full h-[85vh] min-h-[600px] bg-surface-elevated animate-pulse flex items-end pb-24 md:pb-32 px-4 md:px-12 font-inter">
+      <div className="relative w-full h-[70vh] min-h-[380px] sm:h-[80vh] sm:min-h-[480px] md:h-[85vh] md:min-h-[600px] bg-surface-elevated animate-pulse flex items-end pb-20 sm:pb-24 md:pb-32 px-4 md:px-12 font-inter">
         <div className="space-y-6 w-full max-w-2xl">
           <div className="h-16 md:h-24 bg-white/5 rounded-lg w-3/4" />
           <div className="h-6 bg-white/5 rounded w-1/2" />
@@ -125,7 +125,7 @@ const HomeHeroCinematic: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[85vh] min-h-[600px] flex items-end pb-20 md:pb-24 overflow-hidden group font-inter bg-background">
+    <div className="relative w-full h-[72vh] min-h-[420px] sm:h-[82vh] sm:min-h-[520px] md:h-[85vh] md:min-h-[600px] max-h-[920px] flex items-end pb-16 sm:pb-20 md:pb-24 overflow-hidden group font-inter bg-background">
       <AnimatePresence initial={false} custom={direction} mode="wait">
         <motion.div
           key={currentIndex}
@@ -154,8 +154,8 @@ const HomeHeroCinematic: React.FC = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent h-full" />
           </div>
 
-          <div className="relative z-30 w-full h-full px-6 md:px-12 flex flex-col md:flex-row justify-between items-end pb-20 md:pb-24 gap-10">
-            <div className="max-w-2xl flex flex-col gap-5">
+          <div className="relative z-30 w-full h-full px-4 sm:px-6 md:px-12 flex flex-col md:flex-row justify-between items-end pb-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:pb-20 md:pb-24 gap-6 sm:gap-10">
+            <div className="max-w-2xl min-w-0 flex flex-col gap-3 sm:gap-5">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-primary font-black text-xl tracking-tighter">A</span>
@@ -167,7 +167,7 @@ const HomeHeroCinematic: React.FC = () => {
                 <span className="text-primary font-bold text-xs tracking-widest uppercase">VİTRİN ÖZEL</span>
               </div>
 
-              <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight text-white leading-none drop-shadow-lg uppercase">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight text-white leading-[1.05] sm:leading-none drop-shadow-lg uppercase break-words">
                 {title}
               </h1>
 
@@ -188,17 +188,17 @@ const HomeHeroCinematic: React.FC = () => {
                 {current.description?.replace(/<[^>]*>/g, '') || ''}
               </p>
 
-              <div className="flex flex-wrap items-center gap-3 mt-4">
+              <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 mt-3 sm:mt-4 w-full sm:w-auto">
                 <Link
                   to={`/watch/${slug}/1/1`}
-                  className="flex items-center justify-center gap-2 bg-white text-black px-8 py-3 rounded font-bold text-base hover:bg-white/80 transition-colors active:scale-95"
+                  className="flex min-h-[44px] flex-1 sm:flex-initial items-center justify-center gap-2 bg-white text-black px-6 sm:px-8 py-3 rounded font-bold text-sm sm:text-base hover:bg-white/80 transition-colors active:scale-95 touch-manipulation"
                 >
-                  <Play className="w-6 h-6 fill-current" />
+                  <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current shrink-0" />
                   Hemen İzle
                 </Link>
                 <Link
                   to={`/anime/${slug}`}
-                  className="flex items-center justify-center gap-2 bg-gray-500/40 backdrop-blur-sm text-white px-8 py-3 rounded font-bold text-base hover:bg-gray-500/60 transition-colors active:scale-95"
+                  className="flex min-h-[44px] flex-1 sm:flex-initial items-center justify-center gap-2 bg-gray-500/40 backdrop-blur-sm text-white px-6 sm:px-8 py-3 rounded font-bold text-sm sm:text-base hover:bg-gray-500/60 transition-colors active:scale-95 touch-manipulation"
                 >
                   <Info className="w-6 h-6" />
                   Detaylar
@@ -248,7 +248,7 @@ const HomeHeroCinematic: React.FC = () => {
       </AnimatePresence>
 
       {heroPool.length > 1 && (
-        <div className="absolute bottom-10 right-6 md:right-12 z-50 flex items-center gap-4">
+        <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom,0px)+0.5rem)] right-4 sm:right-6 md:right-12 z-50 flex items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2 mr-2">
             {heroPool.map((_, idx) => (
               <button

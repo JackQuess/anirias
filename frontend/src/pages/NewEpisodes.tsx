@@ -33,7 +33,7 @@ const NewEpisodes: React.FC = () => {
   }, [hasMore, loadingMore, loading, loadMore]);
 
   return (
-    <div className="min-h-screen bg-background pb-40 font-inter">
+    <div className="min-h-screen bg-background pb-[calc(8rem+env(safe-area-inset-bottom,0px))] md:pb-16 font-inter">
       <PageHero
         title="Yeni Bölümler"
         description="En sevdiğin anime serilerinin en yeni bölümlerini keşfet. Güncel kal, hiçbir anı kaçırma."
@@ -41,7 +41,7 @@ const NewEpisodes: React.FC = () => {
         className="rounded-none mb-0 h-[400px] md:h-[500px]"
       />
 
-      <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-20 relative z-20 pt-4 md:pt-6">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20 pt-4 md:pt-6">
         {loading && episodes.length === 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-12">
             <LoadingSkeleton type="card" count={24} />

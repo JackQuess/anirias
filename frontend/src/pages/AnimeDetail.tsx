@@ -171,8 +171,8 @@ const AnimeDetail: React.FC = () => {
   const firstSeason = seasonNumbers[0] ?? 1;
 
   return (
-    <div className="min-h-screen bg-background pb-24 font-inter">
-      <div className="relative w-full h-[60vh] md:h-[70vh] bg-black">
+    <div className="min-h-screen bg-background pb-mobile-nav md:pb-24 font-inter">
+      <div className="relative w-full h-[52vh] min-h-[320px] sm:h-[58vh] md:h-[70vh] bg-black">
         {banner ? (
           <img
             src={banner}
@@ -187,9 +187,11 @@ const AnimeDetail: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent w-[90%] md:w-[60%]" />
 
-        <div className="absolute bottom-0 left-0 w-full px-6 md:px-12 pb-12">
-          <div className="max-w-4xl flex flex-col gap-4">
-            <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-lg">{titleString}</h1>
+        <div className="absolute bottom-0 left-0 w-full px-4 sm:px-6 md:px-12 pb-[max(2rem,env(safe-area-inset-bottom,0px)+1.5rem)] sm:pb-10 md:pb-12">
+          <div className="max-w-4xl min-w-0 flex flex-col gap-3 sm:gap-4">
+            <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-lg leading-tight break-words">
+              {titleString}
+            </h1>
 
             <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-white/90">
               <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
@@ -206,18 +208,18 @@ const AnimeDetail: React.FC = () => {
 
             <p className="text-base md:text-lg text-white/80 line-clamp-3 max-w-2xl mt-2 leading-relaxed">{synopsis}</p>
 
-            <div className="flex flex-wrap items-center gap-4 mt-6">
+            <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-4 mt-4 sm:mt-6">
               <Link
                 to={`/watch/${slug}/${firstSeason}/1`}
-                className="flex items-center justify-center gap-2 bg-white text-black px-8 py-3 rounded font-bold text-base hover:bg-white/80 transition-colors active:scale-95"
+                className="flex min-h-[44px] flex-1 sm:flex-initial items-center justify-center gap-2 bg-white text-black px-6 sm:px-8 py-3 rounded font-bold text-sm sm:text-base hover:bg-white/80 transition-colors active:scale-95 touch-manipulation"
               >
-                <Play className="w-6 h-6 fill-current" />
+                <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current shrink-0" />
                 Oynat
               </Link>
               <button
                 type="button"
                 onClick={toggleList}
-                className="flex items-center justify-center gap-2 bg-transparent border border-white/40 text-white px-8 py-3 rounded font-bold text-base hover:bg-white/10 transition-colors active:scale-95"
+                className="flex min-h-[44px] flex-1 sm:flex-initial items-center justify-center gap-2 bg-transparent border border-white/40 text-white px-6 sm:px-8 py-3 rounded font-bold text-sm sm:text-base hover:bg-white/10 transition-colors active:scale-95 touch-manipulation"
               >
                 {inList ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
                 {inList ? 'Listemde' : 'Listeme Ekle'}
@@ -235,7 +237,7 @@ const AnimeDetail: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-6 md:px-12 py-12 flex flex-col lg:flex-row gap-12">
+      <div className="px-4 sm:px-6 md:px-12 py-8 sm:py-12 flex flex-col lg:flex-row gap-8 sm:gap-12">
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <h2 className="text-2xl font-bold text-white">Bölümler</h2>

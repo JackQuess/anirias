@@ -134,7 +134,7 @@ const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-[200] font-inter transition-colors duration-300 px-6 md:px-12 py-4 flex items-center justify-between ${
+        className={`fixed top-0 left-0 right-0 z-[200] font-inter transition-colors duration-300 pt-safe px-3 sm:px-6 md:px-12 py-3 sm:py-4 flex items-center justify-between ${
           scrolled
             ? 'bg-background/95 backdrop-blur-sm shadow-md border-b border-white/5'
             : 'bg-gradient-to-b from-black/80 to-transparent'
@@ -151,7 +151,10 @@ const Navbar: React.FC = () => {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
           </button>
 
-          <Link to="/" className="shrink-0 text-primary font-black text-2xl md:text-3xl tracking-tighter">
+          <Link
+            to="/"
+            className="shrink-0 text-primary font-black text-xl sm:text-2xl md:text-3xl tracking-tighter"
+          >
             ANIRIAS
           </Link>
 
@@ -205,7 +208,7 @@ const Navbar: React.FC = () => {
                   </button>
 
                   {isNotifOpen && (
-                    <div className="absolute top-full right-0 mt-4 w-72 md:w-80 bg-surface-elevated border border-white/10 rounded-xl shadow-2xl p-5 animate-fade-in overflow-hidden z-50">
+                    <div className="absolute top-full right-0 sm:right-0 left-2 sm:left-auto mt-4 w-[calc(100vw-1rem)] max-w-sm sm:w-72 md:w-80 bg-surface-elevated border border-white/10 rounded-xl shadow-2xl p-5 animate-fade-in overflow-hidden z-50">
                       <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
                         <h4 className="text-sm font-bold text-white">Bildirimler</h4>
                         <span className="text-xs text-primary font-semibold">{unreadCount} yeni</span>
@@ -278,7 +281,7 @@ const Navbar: React.FC = () => {
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute top-full right-0 mt-4 w-64 bg-surface-elevated border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-fade-in z-50">
+                    <div className="absolute top-full right-0 mt-4 w-[min(100vw-1rem,16rem)] max-w-sm sm:w-64 bg-surface-elevated border border-white/10 rounded-[2rem] shadow-2xl p-5 sm:p-6 animate-fade-in z-50">
                       <div className="mb-6 pb-6 border-b border-white/5 flex items-center gap-4">
                          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-black overflow-hidden">
                             {profile?.avatar_url ? (
@@ -358,20 +361,20 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[300] bg-background/98 backdrop-blur-3xl animate-fade-in flex flex-col p-8 md:hidden font-inter">
-           <div className="flex justify-between items-center mb-12">
+        <div className="fixed inset-0 z-[300] bg-background/98 backdrop-blur-3xl animate-fade-in flex flex-col pt-safe pb-safe px-6 sm:p-8 overflow-y-auto md:hidden font-inter">
+           <div className="flex justify-between items-center mb-8 sm:mb-12 shrink-0">
              <span className="text-3xl font-black text-primary italic tracking-tighter">ANIRIAS</span>
              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-white hover:text-primary">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
            </div>
            
-           <div className="flex flex-col gap-6 flex-1 justify-center">
+           <div className="flex flex-col gap-4 sm:gap-6 flex-1 justify-center min-h-0">
              {navLinks.map(item => (
                 <Link 
                   key={item.path} 
                   to={item.path} 
-                  className={`text-2xl font-black uppercase tracking-tighter ${isActive(item.path) ? 'text-primary' : 'text-white/50'}`}
+                  className={`text-xl sm:text-2xl font-black uppercase tracking-tighter ${isActive(item.path) ? 'text-primary' : 'text-white/50'}`}
                 >
                   {item.label}
                 </Link>

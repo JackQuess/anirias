@@ -43,7 +43,7 @@ const MyList: React.FC = () => {
   const loading = loadingCw || loadingWl;
 
   return (
-    <div className="min-h-screen bg-background pb-24 font-inter">
+    <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
       <PageHero
         title="Listem"
         description="Daha sonra izlemek için kaydettiğin tüm anime serileri burada. Kendi koleksiyonunu oluştur ve dilediğin zaman izle."

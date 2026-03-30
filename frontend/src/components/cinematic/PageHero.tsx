@@ -28,10 +28,14 @@ const PageHero: React.FC<PageHeroProps> = ({ title, description, image, classNam
         <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
       </div>
 
-      <div className="relative h-full flex flex-col justify-center px-6 md:px-12 max-w-3xl">
-        <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-4 text-white drop-shadow-2xl">{title}</h1>
+      <div className="relative h-full flex flex-col justify-center px-4 sm:px-6 md:px-12 max-w-3xl">
+        <h1 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter mb-3 sm:mb-4 text-white drop-shadow-2xl leading-tight">
+          {title}
+        </h1>
         {description ? (
-          <p className="text-base sm:text-lg font-medium max-w-xl line-clamp-3 text-muted">{description}</p>
+          <p className="text-sm sm:text-base md:text-lg font-medium max-w-xl text-muted line-clamp-4 md:line-clamp-3">
+            {description}
+          </p>
         ) : null}
       </div>
     </div>

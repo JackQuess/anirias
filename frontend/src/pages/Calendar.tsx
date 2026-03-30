@@ -114,7 +114,7 @@ const Calendar: React.FC = () => {
   }, [data]);
 
   return (
-    <div className="min-h-screen bg-background pb-24 font-inter">
+    <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
       <PageHero
         title="Yayın Takvimi"
         description="Haftalık yayın akışını takip et. Hangi gün hangi anime yayınlanıyor, anında öğren."

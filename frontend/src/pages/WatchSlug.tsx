@@ -74,10 +74,10 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
         Dizi sayfasına dön
       </Link>
 
-      <h1 className="text-2xl md:text-3xl font-bold text-white">{titleString}</h1>
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-tight">{titleString}</h1>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between border-b border-white/10 pb-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs sm:text-sm text-white/70">
           <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
           {anime.year ? <span>{anime.year}</span> : null}
           {anime.is_adult ? (
@@ -92,7 +92,7 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => {
@@ -583,11 +583,11 @@ const WatchSlug: React.FC = () => {
 
   return (
     <div
-      className="w-full min-h-screen bg-[#08080c] text-white flex flex-col font-inter antialiased pt-16 md:pt-20"
+      className="w-full min-h-screen bg-[#08080c] text-white flex flex-col font-inter antialiased pt-14 sm:pt-16 md:pt-20"
       data-watch-page
     >
       <div
-        className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-4 md:px-8 gap-6 pb-24"
+        className="flex flex-col lg:flex-row w-full max-w-[1800px] mx-auto px-3 sm:px-4 md:px-8 gap-4 sm:gap-6 pb-10 sm:pb-16 md:pb-24"
         data-watch-layout
       >
         <div className="flex-1 flex flex-col gap-6 min-w-0">

@@ -88,6 +88,25 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Çentik / home indicator — env() için index.html viewport-fit=cover gerekir */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Küçük ekranda ekstra alt boşluk: sabit alt nav + güvenli alan */
+.pb-mobile-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .pb-mobile-nav {
+    padding-bottom: 0;
+  }
+}
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }

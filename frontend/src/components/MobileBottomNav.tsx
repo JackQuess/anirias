@@ -16,7 +16,8 @@ const MobileBottomNav: React.FC = () => {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-lg border-t border-white/5 z-[190] flex items-center justify-around px-4">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[190] flex flex-col border-t border-white/5 bg-surface/90 backdrop-blur-lg pb-safe">
+      <div className="flex h-14 sm:h-16 items-center justify-around px-2 sm:px-4">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path;
         return (
@@ -24,15 +25,18 @@ const MobileBottomNav: React.FC = () => {
             key={item.label}
             to={item.path}
             className={cn(
-              'flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors',
+              'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors touch-manipulation',
               isActive ? 'text-primary' : 'text-muted hover:text-white'
             )}
           >
-            <item.icon className="w-5 h-5" />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <item.icon className="w-5 h-5 shrink-0" />
+            <span className="text-[9px] sm:text-[10px] font-medium truncate max-w-full px-0.5 text-center">
+              {item.label}
+            </span>
           </Link>
         );
       })}
+      </div>
     </div>
   );
 };

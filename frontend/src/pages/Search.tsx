@@ -36,8 +36,8 @@ const SearchPage: React.FC = () => {
   }, [query]);
 
   return (
-    <div className="min-h-screen bg-background pb-24 font-inter">
-      <div className="relative h-[300px] flex flex-col items-center justify-center px-4 overflow-hidden">
+    <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
+      <div className="relative min-h-[220px] sm:h-[280px] md:h-[300px] py-10 sm:py-0 flex flex-col items-center justify-center px-3 sm:px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent" />
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
           <div className="absolute top-10 left-10 w-64 h-64 bg-primary rounded-full blur-[120px]" />
@@ -78,7 +78,7 @@ const SearchPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-4 md:px-12">
+      <div className="px-3 sm:px-4 md:px-12">
         <div className="flex items-center gap-3 mb-8">
           {query.trim().length > 2 ? (
             <SearchIcon className="w-6 h-6 text-primary" />

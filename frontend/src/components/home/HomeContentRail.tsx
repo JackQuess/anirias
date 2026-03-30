@@ -121,7 +121,7 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
 
   if (loading) {
     return (
-      <div className="w-full px-4 md:px-16 mb-12 font-inter">
+      <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 mb-10 sm:mb-12 font-inter">
         <div className="h-8 w-48 bg-white/5 rounded animate-pulse mb-6" />
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -152,9 +152,11 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-center gap-4 px-6 md:px-16 mb-6">
-        <div className="w-1 h-8 bg-primary shadow-[0_0_10px_rgba(229,9,20,0.35)]" />
-        <h2 className="text-xl md:text-3xl font-black text-white uppercase italic tracking-tighter">{title}</h2>
+      <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 md:px-12 lg:px-16 mb-4 sm:mb-6 min-w-0">
+        <div className="w-1 h-7 sm:h-8 shrink-0 bg-primary shadow-[0_0_10px_rgba(229,9,20,0.35)]" />
+        <h2 className="text-lg sm:text-xl md:text-3xl font-black text-white uppercase italic tracking-tighter min-w-0 line-clamp-2 sm:line-clamp-none leading-tight">
+          {title}
+        </h2>
         <div className="flex-1 h-px bg-white/5" />
         {seeAllHref ? (
           <Link
@@ -183,7 +185,7 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
 
         <div
           ref={scrollRef}
-          className="flex gap-4 md:gap-6 overflow-x-auto px-6 md:px-16 pb-10 pt-2 no-scrollbar snap-x snap-mandatory"
+          className="flex gap-3 sm:gap-4 md:gap-6 overflow-x-auto overflow-y-hidden px-4 sm:px-6 md:px-12 lg:px-16 pb-8 sm:pb-10 pt-2 no-scrollbar snap-x snap-mandatory scroll-pl-4 sm:scroll-pl-6 [-webkit-overflow-scrolling:touch]"
         >
           {type === 'continue' &&
             continueItems.map((item) => {
