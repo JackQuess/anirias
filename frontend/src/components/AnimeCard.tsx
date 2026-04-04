@@ -6,6 +6,7 @@ import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
 import { cn } from '@/lib/utils';
+import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 import { useAuth } from '@/services/auth';
 import { db } from '@/services/db';
 
@@ -80,11 +81,17 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
     }
   };
 
+  const episodePlayable = episode ? episodeHasPlayableVideo(episode) : true;
+
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const season = episode?.season_number ?? 1;
     const epNum = episode?.episode_number ?? 1;
+    if (episode && !episodePlayable) {
+      navigate(`/anime/${slug}`);
+      return;
+    }
     navigate(`/watch/${slug}/${season}/${epNum}`);
   };
 
@@ -123,9 +130,16 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
           </span>
         ) : null}
         {episode ? (
-          <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold rounded-sm uppercase tracking-wider border border-white/10">
-            S{episode.season_number ?? 1} E{episode.episode_number}
-          </span>
+          <>
+            <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold rounded-sm uppercase tracking-wider border border-white/10">
+              S{episode.season_number ?? 1} E{episode.episode_number}
+            </span>
+            {!episodePlayable ? (
+              <span className="px-1.5 py-0.5 bg-amber-900/80 backdrop-blur-md text-amber-100 text-[9px] font-bold rounded-sm border border-amber-500/40 leading-tight">
+                Yakında eklenecek
+              </span>
+            ) : null}
+          </>
         ) : null}
       </div>
 
@@ -141,7 +155,9 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
           ) : null}
           <span>
             {episode
-              ? `Bölüm ${episode.episode_number}`
+              ? episodePlayable
+                ? `Bölüm ${episode.episode_number}`
+                : 'Yakında eklenecek'
               : anime.genres?.[0]
                 ? translateGenre(anime.genres[0])
                 : 'Anime'}
@@ -155,8 +171,13 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
           <button
             type="button"
             onClick={handlePlay}
-            className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:bg-white/80 transition-colors"
-            aria-label="Oynat"
+            className={cn(
+              'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
+              episode && !episodePlayable
+                ? 'bg-white/40 text-black/70 cursor-pointer hover:bg-white/55'
+                : 'bg-white text-black hover:bg-white/80'
+            )}
+            aria-label={episode && !episodePlayable ? 'Detaya git (video henüz yok)' : 'Oynat'}
           >
             <Play className="w-4 h-4 fill-current ml-0.5" />
           </button>

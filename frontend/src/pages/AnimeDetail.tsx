@@ -11,6 +11,7 @@ import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
+import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -271,35 +272,66 @@ const AnimeDetail: React.FC = () => {
                 const epTitle = ep.title || `Bölüm ${epNum}`;
                 const sn = ep.season_number || selectedSeasonNumber || 1;
                 const mins = ep.duration_seconds ? Math.floor(ep.duration_seconds / 60) : 24;
+                const playable = episodeHasPlayableVideo(ep);
                 const blurb =
                   ep.short_note?.replace(/<[^>]*>/g, '') ||
                   'Bu bölümde hikâye ilerliyor ve karakterler yeni gelişmelerle karşılaşıyor.';
-                return (
-                  <Link
-                    key={ep.id || i}
-                    to={`/watch/${slug}/${sn}/${epNum}`}
-                    className="flex items-center gap-4 p-4 rounded-lg hover:bg-surface-elevated transition-colors group cursor-pointer border border-transparent hover:border-white/5"
-                  >
-                    <div className="text-2xl font-bold text-white/20 w-8 text-center group-hover:text-white/40 transition-colors shrink-0">
+                const rowClass =
+                  'flex items-center gap-4 p-4 rounded-lg border transition-colors ' +
+                  (playable
+                    ? 'hover:bg-surface-elevated group cursor-pointer border-transparent hover:border-white/5'
+                    : 'opacity-75 cursor-default border-white/5 bg-surface-elevated/30');
+                const inner = (
+                  <>
+                    <div
+                      className={`text-2xl font-bold w-8 text-center shrink-0 ${
+                        playable ? 'text-white/20 group-hover:text-white/40 transition-colors' : 'text-white/30'
+                      }`}
+                    >
                       {epNum}
                     </div>
                     <div className="relative w-32 md:w-40 aspect-video bg-surface rounded overflow-hidden shrink-0">
                       <img
                         src={cover}
                         alt=""
-                        className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity"
+                        className={`w-full h-full object-cover ${playable ? 'opacity-70 group-hover:opacity-100 transition-opacity' : 'opacity-50'}`}
                         referrerPolicy="no-referrer"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-                        <Play className="w-8 h-8 text-white fill-current" />
-                      </div>
+                      {playable ? (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                          <Play className="w-8 h-8 text-white fill-current" />
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 px-1">
+                          <span className="text-[10px] sm:text-xs font-bold text-white/90 text-center leading-tight">
+                            Yakında eklenecek
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-white font-bold text-sm md:text-base truncate">{epTitle}</h4>
                       <p className="text-white/50 text-xs md:text-sm line-clamp-2 mt-1">{blurb}</p>
                     </div>
-                    <div className="text-white/40 text-sm hidden sm:block shrink-0">{mins} dk</div>
+                    <div className="text-white/40 text-sm hidden sm:block shrink-0 text-right">
+                      {playable ? (
+                        <span>{mins} dk</span>
+                      ) : (
+                        <span className="text-amber-200/85 text-xs font-semibold whitespace-nowrap">
+                          Yakında eklenecek
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+                return playable ? (
+                  <Link key={ep.id || i} to={`/watch/${slug}/${sn}/${epNum}`} className={rowClass}>
+                    {inner}
                   </Link>
+                ) : (
+                  <div key={ep.id || i} className={rowClass}>
+                    {inner}
+                  </div>
                 );
               })
             ) : (
