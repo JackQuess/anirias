@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './services/auth';
 import Layout from './components/Layout';
+import TrafficTracker from './components/TrafficTracker';
 import AdminLayout from './components/AdminLayout';
 import GlobalLoader from './components/GlobalLoader';
 import WelcomeModal from './components/WelcomeModal';
@@ -58,6 +59,7 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
+      <TrafficTracker />
       <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>

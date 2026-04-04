@@ -1,7 +1,8 @@
 
 import { supabase, hasSupabaseEnv } from './supabaseClient';
 import { getAdminToken } from '../utils/adminToken';
-import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry } from '../types';
+import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry, SiteTrafficSummary } from '../types';
+import { getOrCreateVisitSessionKey } from '../utils/visitSession';
 
 const checkEnv = () => {
   if (!hasSupabaseEnv || !supabase) return false;
@@ -2079,6 +2080,72 @@ export const db = {
     } catch (err: any) {
       if (import.meta.env.DEV) console.error('[db.markErrorResolved] Unexpected error:', err);
       return false;
+    }
+  },
+
+  /** Genel site trafiği (anon + girişli). Admin paneli kaydı dışarıda bırakılır (çağıran taraf). */
+  async recordPageView(path: string, referrer?: string | null): Promise<void> {
+    if (!checkEnv()) return;
+    const sessionKey = getOrCreateVisitSessionKey();
+    if (!sessionKey) return;
+
+    const trimmedPath = path.slice(0, 2048);
+    const ref =
+      referrer && typeof referrer === 'string' && referrer.length > 0 ? referrer.slice(0, 1000) : null;
+
+    let userId: string | null = null;
+    try {
+      const { data: { session } } = await supabase!.auth.getSession();
+      userId = session?.user?.id ?? null;
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const { error } = await supabase!.from('site_page_views').insert({
+        path: trimmedPath,
+        referrer: ref,
+        session_key: sessionKey,
+        user_id: userId,
+      });
+      if (error && import.meta.env.DEV) console.warn('[db.recordPageView]', error.message);
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.warn('[db.recordPageView]', err?.message || err);
+    }
+  },
+
+  /** Sadece admin; tablo veya RPC yoksa null */
+  async getSiteTrafficSummary(): Promise<SiteTrafficSummary | null> {
+    if (!checkEnv()) return null;
+    try {
+      const { data, error } = await supabase!.rpc('admin_site_traffic_summary');
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getSiteTrafficSummary]', error.message);
+        return null;
+      }
+      if (data == null || typeof data !== 'object') return null;
+
+      const d = data as Record<string, unknown>;
+      const topRaw = d.topPaths;
+      const topPaths: { path: string; count: number }[] = Array.isArray(topRaw)
+        ? topRaw
+            .map((row: any) => ({
+              path: String(row?.path ?? ''),
+              count: Number(row?.count) || 0,
+            }))
+            .filter((r) => r.path.length > 0)
+        : [];
+
+      return {
+        viewsLast24h: Number(d.viewsLast24h) || 0,
+        viewsLast7d: Number(d.viewsLast7d) || 0,
+        uniqueSessions24h: Number(d.uniqueSessions24h) || 0,
+        uniqueSessions7d: Number(d.uniqueSessions7d) || 0,
+        topPaths,
+      };
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getSiteTrafficSummary]', err);
+      return null;
     }
   }
 };

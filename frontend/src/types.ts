@@ -123,6 +123,15 @@ export interface ActivityLog {
   created_at: string;
 }
 
+/** Admin analitik: site_page_views + admin_site_traffic_summary RPC */
+export interface SiteTrafficSummary {
+  viewsLast24h: number;
+  viewsLast7d: number;
+  uniqueSessions24h: number;
+  uniqueSessions7d: number;
+  topPaths: { path: string; count: number }[];
+}
+
 export interface WatchProgress {
   user_id: string;
   anime_id: string;
