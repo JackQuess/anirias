@@ -5,6 +5,7 @@ import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import AnimeCard from '@/components/AnimeCard';
 import PageHero from '@/components/cinematic/PageHero';
+import { proxyImage } from '@/utils/proxyImage';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import ErrorState from '@/components/ErrorState';
 import type { Anime } from '@/types';
@@ -71,6 +72,25 @@ const Browse: React.FC = () => {
     [selectedLabel]
   );
 
+  /** Ana sayfa hero’su gibi vitrin görselleri: popüler animelerden dönen arka plan */
+  const heroBackdropUrls = useMemo(() => {
+    const list = rawList || [];
+    const sorted = [...list].sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
+    const seen = new Set<string>();
+    const urls: string[] = [];
+    for (const a of sorted) {
+      const raw = a.banner_image || a.cover_image;
+      if (!raw) continue;
+      const u = proxyImage(raw);
+      if (!u || u.startsWith('data:')) continue;
+      if (seen.has(u)) continue;
+      seen.add(u);
+      urls.push(u);
+      if (urls.length >= 12) break;
+    }
+    return urls;
+  }, [rawList]);
+
   const filteredItems = useMemo(() => {
     const list = rawList || [];
     const cy = new Date().getFullYear();
@@ -108,7 +128,8 @@ const Browse: React.FC = () => {
           title={pageInfo.title}
           description={pageInfo.description}
           image={pageInfo.image}
-          className="rounded-none mb-0 h-[400px] md:h-[500px]"
+          imageUrls={heroBackdropUrls.length > 0 ? heroBackdropUrls : undefined}
+          className="rounded-none mb-0"
         />
       </div>
 
