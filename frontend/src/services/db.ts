@@ -420,6 +420,42 @@ export const db = {
     }
   },
 
+  /**
+   * anilist_id olan animelerde +18 / rating alanlarını AniList ile senkronlar (tek parti).
+   * Tüm katalog için done olana kadar tekrar çağırın (offset = response.nextOffset).
+   */
+  syncAniListAdultFlagsChunk: async (
+    opts: { offset?: number; limit?: number; source?: 'anime' | 'seasons' },
+    adminToken?: string
+  ): Promise<{
+    success: boolean;
+    source?: string;
+    offset: number;
+    limit: number;
+    batchScanned: number;
+    batchUpdated: number;
+    batchErrors: number;
+    nextOffset: number | null;
+    done: boolean;
+    totalWithAnilistId: number;
+    errorSamples?: string[];
+  }> => {
+    const data = await callBackendApi(
+      '/api/admin/sync-anilist-adult-flags',
+      'POST',
+      {
+        offset: opts.offset ?? 0,
+        limit: opts.limit ?? 20,
+        source: opts.source ?? 'anime',
+      },
+      adminToken
+    );
+    if (!data.success) {
+      throw new Error(data.error || 'Senkron başarısız');
+    }
+    return data;
+  },
+
   updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string): Promise<void> => {
     // Admin operation - uses backend API for security
     try {

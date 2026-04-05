@@ -18,6 +18,8 @@ query ($search: String) {
       format
       episodes
       seasonYear
+      genres
+      isAdult
       coverImage { large }
     }
   }
@@ -1547,6 +1549,11 @@ const AdminEpisodes: React.FC = () => {
                     <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-2">
                       {item.format} · {item.episodes || 0} Bölüm · {item.seasonYear || '-'}
                     </p>
+                    {(item.isAdult ||
+                      (Array.isArray(item.genres) &&
+                        item.genres.some((g: string) => ['Ecchi', 'Hentai', 'Erotica'].includes(g)))) && (
+                      <p className="text-[9px] text-amber-400 font-black uppercase tracking-widest mt-1">AniList 18+</p>
+                    )}
                   </div>
                 </button>
               ))}

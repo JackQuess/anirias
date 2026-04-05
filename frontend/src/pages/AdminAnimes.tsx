@@ -33,6 +33,8 @@ const AdminAnimes: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [adminToken, setAdminTokenState] = useState(() => getAdminToken() ?? '');
+  const [adultSyncing, setAdultSyncing] = useState(false);
+  const [adultSyncMsg, setAdultSyncMsg] = useState<string | null>(null);
 
   // Filtered animes - always array
   const filteredAnimes = useMemo(() => {
@@ -80,6 +82,50 @@ const AdminAnimes: React.FC = () => {
     setDeleteConfirm(null);
   };
 
+  const runAniListAdultSync = async () => {
+    const token = (getAdminToken() || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '').trim();
+    if (!token) {
+      alert('Admin token gerekli.');
+      return;
+    }
+    setAdultSyncing(true);
+    setAdultSyncMsg(null);
+    try {
+      let totalUpdated = 0;
+      let totalErrors = 0;
+
+      const runPhase = async (source: 'anime' | 'seasons', label: string) => {
+        let offset = 0;
+        let totalIds = 0;
+        for (;;) {
+          const r = await db.syncAniListAdultFlagsChunk({ offset, limit: 20, source }, token);
+          totalUpdated += r.batchUpdated;
+          totalErrors += r.batchErrors;
+          totalIds = r.totalWithAnilistId;
+          const progress = r.done ? totalIds : r.nextOffset ?? offset + r.batchScanned;
+          setAdultSyncMsg(
+            `${label}: ${Math.min(progress, totalIds)} / ${totalIds} (tur +${r.batchUpdated} güncelleme, ${r.batchErrors} hata)`
+          );
+          if (r.done) break;
+          offset = r.nextOffset ?? offset + r.batchScanned;
+        }
+        return totalIds;
+      };
+
+      const n1 = await runPhase('anime', 'Faz 1 — anime AniList ID');
+      const n2 = await runPhase('seasons', 'Faz 2 — sadece sezonda AniList ID');
+
+      setAdultSyncMsg(
+        `Bitti. Faz 1: ${n1} kayıt, Faz 2: ${n2} aday; toplam ${totalUpdated} güncelleme, ${totalErrors} hata.`
+      );
+      await reload();
+    } catch (e: any) {
+      setAdultSyncMsg(`Hata: ${e?.message || 'Bilinmeyen'}`);
+    } finally {
+      setAdultSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6 lg:space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
@@ -88,16 +134,32 @@ const AdminAnimes: React.FC = () => {
             İçerik <span className="text-brand-red">Yönetimi</span>
           </h1>
           <p className="text-gray-500 text-[10px] lg:text-xs font-bold uppercase tracking-widest mt-1">
-            Platformdaki tüm animeleri düzenleyin veya yenilerini ekleyin
+            Platformdaki tüm animeleri düzenleyin veya yenilerini ekleyin. +18 senkronu önce anime AniList ID’si olanları, sonra yalnızca sezonda ID olanları işler.
           </p>
         </div>
-        <button 
-          onClick={() => navigate('/admin/animes/new')}
-          className="w-full md:w-auto bg-brand-red active:bg-brand-redHover lg:hover:bg-brand-redHover text-white px-6 lg:px-10 py-4 lg:py-5 rounded-xl lg:rounded-[1.5rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all touch-manipulation"
-        >
-          YENİ ANİME EKLE
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <button
+            type="button"
+            onClick={() => void runAniListAdultSync()}
+            disabled={adultSyncing}
+            className="w-full sm:w-auto bg-white/10 border border-white/20 active:bg-white/15 lg:hover:bg-white/15 text-white px-6 lg:px-8 py-4 lg:py-5 rounded-xl lg:rounded-[1.5rem] text-[10px] lg:text-xs font-black uppercase tracking-widest transition-all touch-manipulation disabled:opacity-50"
+          >
+            {adultSyncing ? 'ANILIST +18 SENKRON…' : "ANILIST'TEN +18 İŞARETLE"}
+          </button>
+          <button 
+            onClick={() => navigate('/admin/animes/new')}
+            className="w-full sm:w-auto bg-brand-red active:bg-brand-redHover lg:hover:bg-brand-redHover text-white px-6 lg:px-10 py-4 lg:py-5 rounded-xl lg:rounded-[1.5rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-brand-red/30 transition-all touch-manipulation"
+          >
+            YENİ ANİME EKLE
+          </button>
+        </div>
       </div>
+
+      {adultSyncMsg ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[11px] text-gray-300 font-medium">
+          {adultSyncMsg}
+        </div>
+      ) : null}
 
       {/* Search Filter */}
       <div className="relative">

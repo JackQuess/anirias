@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 import { normalizeOrigin } from '../../utils/cors.js';
+import { getAniListMedia, deriveAdultRatingFromAniListMedia } from '../../services/anilist.js';
 
 const router = Router();
 
@@ -249,6 +250,39 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
         errorCode: 'DB_UPDATE_FAILED',
         details: 'Update succeeded but no data returned',
       });
+    }
+
+    // AniList'ten yetişkin / ecchi işaretlerini anime satırına yaz (mevcut true ise korunur)
+    try {
+      const media = await getAniListMedia(anilist_media_id);
+      if (media && season.anime_id) {
+        const { data: animeBefore } = await supabaseAdmin
+          .from('animes')
+          .select('is_adult, rating, anilist_id')
+          .eq('id', season.anime_id)
+          .maybeSingle();
+
+        const ab = animeBefore as { is_adult?: boolean | null; rating?: string | null; anilist_id?: number | null } | null;
+        const derived = deriveAdultRatingFromAniListMedia(media);
+        const is_adult = Boolean(ab?.is_adult) || derived.is_adult;
+        const rating = derived.is_adult ? derived.rating ?? ab?.rating ?? null : ab?.rating ?? null;
+
+        const animePatch: Record<string, unknown> = {
+          is_adult,
+          rating,
+          updated_at: new Date().toISOString(),
+        };
+        if (ab?.anilist_id == null || ab.anilist_id === undefined) {
+          animePatch.anilist_id = anilist_media_id;
+        }
+
+        const { error: animeUpErr } = await supabaseAdmin.from('animes').update(animePatch).eq('id', season.anime_id);
+        if (animeUpErr) {
+          console.warn('[bindAniListSeason] Anime adult sync skipped:', animeUpErr.message);
+        }
+      }
+    } catch (syncErr: any) {
+      console.warn('[bindAniListSeason] AniList adult sync failed:', syncErr?.message || syncErr);
     }
 
     // Success

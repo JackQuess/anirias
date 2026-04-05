@@ -12,7 +12,16 @@
  * - All season and episode grouping must come from Supabase
  */
 
-import { searchAniList, getAniListMedia, detectSeasonRanges, cleanDescription, getAniListAiringSchedule, type AniListMedia, type AniListSeasonRange } from './anilist.js';
+import {
+  searchAniList,
+  getAniListMedia,
+  detectSeasonRanges,
+  cleanDescription,
+  getAniListAiringSchedule,
+  deriveAdultRatingFromAniListMedia,
+  type AniListMedia,
+  type AniListSeasonRange,
+} from './anilist.js';
 import { validateEpisodeCount } from './myanimelist.js';
 import {
   ensureAnimeSlug,
@@ -55,7 +64,7 @@ async function createOrUpdateAnime(
   // Check if anime exists by anilist_id
   const { data: existing } = await supabaseAdmin
     .from('animes')
-    .select('id, slug')
+    .select('id, slug, is_adult, rating')
     .eq('anilist_id', media.id)
     .maybeSingle();
 
@@ -66,6 +75,11 @@ async function createOrUpdateAnime(
     const title = titleRomaji || titleEnglish || 'Unknown';
     
     const slug = animelySlug || existing.slug || generateSlug(title);
+
+    const derived = deriveAdultRatingFromAniListMedia(media);
+    const ex = existing as { is_adult?: boolean | null; rating?: string | null };
+    const is_adult = Boolean(ex.is_adult) || derived.is_adult;
+    const rating = derived.is_adult ? derived.rating ?? ex.rating ?? null : ex.rating ?? null;
     
     const { error } = await supabaseAdmin
       .from('animes')
@@ -78,6 +92,8 @@ async function createOrUpdateAnime(
         year: media.seasonYear || null,
         genres: media.genres || [],
         format: media.format || null,
+        is_adult,
+        rating,
         // Note: mal_id column may not exist - check schema first
         // For now, we'll store it in a metadata field or skip if column doesn't exist
         slug: slug,
@@ -104,6 +120,8 @@ async function createOrUpdateAnime(
   const title = titleRomaji || titleEnglish || 'Unknown';
   const slug = animelySlug || generateSlug(title);
 
+  const { is_adult, rating } = deriveAdultRatingFromAniListMedia(media);
+
   const { data: newAnime, error } = await supabaseAdmin
     .from('animes')
     .insert({
@@ -115,6 +133,8 @@ async function createOrUpdateAnime(
       year: media.seasonYear || null,
       genres: media.genres || [],
       format: media.format || null,
+      is_adult,
+      rating,
       anilist_id: media.id,
       // Note: mal_id may not exist in schema - stored separately if needed
       slug: slug,

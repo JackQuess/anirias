@@ -32,6 +32,8 @@ export interface AniListMedia {
   format?: string | null;
   episodes?: number | null;
   status?: string | null;
+  /** AniList resmi yetişkin işareti */
+  isAdult?: boolean | null;
   // Relations for season detection
   relations?: {
     edges?: Array<{
@@ -52,6 +54,33 @@ export interface AniListMedia {
       } | null;
     }>;
   } | null;
+}
+
+/** AniList tür adları (canonical) — ecchi dahil +18 kapsamı için */
+const ADULT_GENRES_ANILIST = new Set(['Ecchi', 'Hentai', 'Erotica']);
+
+/**
+ * AniList isAdult veya yetişkin türleri → DB is_adult + kısa rating etiketi
+ */
+export function deriveAdultRatingFromAniListMedia(media: {
+  isAdult?: boolean | null;
+  genres?: string[] | null;
+}): { is_adult: boolean; rating: string | null } {
+  const genres = media.genres || [];
+  const hasAdultGenre = genres.some((g) => ADULT_GENRES_ANILIST.has(g));
+  const explicit = media.isAdult === true;
+  const is_adult = explicit || hasAdultGenre;
+
+  let rating: string | null = null;
+  if (explicit) {
+    rating = 'R18+';
+  } else if (genres.includes('Hentai')) {
+    rating = 'Hentai';
+  } else if (hasAdultGenre) {
+    rating = 'Ecchi';
+  }
+
+  return { is_adult, rating };
 }
 
 export interface AniListSeasonRange {
@@ -147,6 +176,7 @@ query ($search: String) {
       episodes
       status
       format
+      isAdult
     }
   }
 }
@@ -166,6 +196,7 @@ query ($id: Int!) {
     episodes
     status
     format
+    isAdult
     relations {
       edges {
         relationType

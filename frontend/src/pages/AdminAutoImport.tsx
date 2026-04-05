@@ -21,6 +21,7 @@ query ($search: String) {
       genres
       episodes
       status
+      isAdult
       streamingEpisodes {
         title
         thumbnail
@@ -65,6 +66,10 @@ const AdminAutoImport: React.FC = () => {
 
   // 2. Aşama: Seçilen Anime Verisini Hazırlama (AI Olmadan Doğrudan)
   const handleSelectAnime = (anilistData: any) => {
+    const adultGenres = new Set(['Ecchi', 'Hentai', 'Erotica']);
+    const adultFromAniList =
+      Boolean(anilistData.isAdult) ||
+      (Array.isArray(anilistData.genres) ? anilistData.genres.some((g: string) => adultGenres.has(g)) : false);
     setPreviewData({
       anilist_id: anilistData.id,
       title: anilistData.title.romaji,
@@ -73,7 +78,8 @@ const AdminAutoImport: React.FC = () => {
       score: anilistData.averageScore ? (anilistData.averageScore / 10).toFixed(1) : "0.0",
       genres: anilistData.genres || [],
       cover_image: anilistData.coverImage.extraLarge,
-      banner_image: anilistData.bannerImage || anilistData.coverImage.extraLarge
+      banner_image: anilistData.bannerImage || anilistData.coverImage.extraLarge,
+      adultFromAniList,
     });
     setSearchResults([]);
   };
@@ -155,6 +161,12 @@ const AdminAutoImport: React.FC = () => {
                     {item.averageScore}%
                   </div>
                 )}
+                {(item.isAdult ||
+                  (Array.isArray(item.genres) && item.genres.some((g: string) => ['Ecchi', 'Hentai', 'Erotica'].includes(g)))) && (
+                  <div className="absolute top-3 left-3 bg-amber-600/90 text-white text-[9px] font-black px-2 py-1 rounded shadow-lg">
+                    18+
+                  </div>
+                )}
               </div>
             </button>
           ))}
@@ -179,7 +191,14 @@ const AdminAutoImport: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             <div className="lg:col-span-2 space-y-8">
               <div className="bg-brand-dark border border-brand-border rounded-[3rem] p-10 space-y-8">
-                <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter leading-tight">{previewData.title}</h3>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter leading-tight">{previewData.title}</h3>
+                  {previewData.adultFromAniList ? (
+                    <span className="px-3 py-1 rounded-xl bg-amber-600/25 border border-amber-500/50 text-amber-200 text-[10px] font-black uppercase tracking-widest">
+                      AniList · 18+ / yetişkin tür
+                    </span>
+                  ) : null}
+                </div>
                 <div dangerouslySetInnerHTML={{ __html: previewData.description }} className="text-gray-400 leading-relaxed text-sm italic" />
                 
                 <div className="grid grid-cols-3 gap-6">
