@@ -1,14 +1,35 @@
-
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useInfiniteEpisodes } from '@/hooks/useInfiniteEpisodes';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import AnimeCard from '../components/AnimeCard';
 import PageHero from '@/components/cinematic/PageHero';
+import { proxyImage } from '@/utils/proxyImage';
+
+const HERO_FALLBACK =
+  'https://images.unsplash.com/photo-1578632738981-4330c7091f35?auto=format&fit=crop&q=80&w=1920';
 
 const NewEpisodes: React.FC = () => {
   const { episodes, loading, loadingMore, hasMore, error, loadMore, reload } = useInfiniteEpisodes();
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const heroBackdropUrls = useMemo(() => {
+    const seen = new Set<string>();
+    const urls: string[] = [];
+    for (const ep of episodes) {
+      const a = ep.anime;
+      if (!a) continue;
+      const raw = a.banner_image || a.cover_image;
+      if (!raw) continue;
+      const u = proxyImage(raw);
+      if (!u || u.startsWith('data:')) continue;
+      if (seen.has(u)) continue;
+      seen.add(u);
+      urls.push(u);
+      if (urls.length >= 12) break;
+    }
+    return urls;
+  }, [episodes]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -33,13 +54,16 @@ const NewEpisodes: React.FC = () => {
   }, [hasMore, loadingMore, loading, loadMore]);
 
   return (
-    <div className="min-h-screen bg-background pb-[calc(8rem+env(safe-area-inset-bottom,0px))] md:pb-16 font-inter">
-      <PageHero
-        title="Yeni Bölümler"
-        description="En sevdiğin anime serilerinin en yeni bölümlerini keşfet. Güncel kal, hiçbir anı kaçırma."
-        image="https://images.unsplash.com/photo-1578632738981-4330c7091f35?auto=format&fit=crop&q=80&w=1920"
-        className="rounded-none mb-0 h-[400px] md:h-[500px]"
-      />
+    <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
+      <div className="px-0 md:px-0">
+        <PageHero
+          title="Yeni Bölümler"
+          description="En sevdiğin anime serilerinin en yeni bölümlerini keşfet. Güncel kal, hiçbir anı kaçırma."
+          image={HERO_FALLBACK}
+          imageUrls={heroBackdropUrls.length > 0 ? heroBackdropUrls : undefined}
+          className="rounded-none mb-0"
+        />
+      </div>
 
       <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20 pt-4 md:pt-6">
         {loading && episodes.length === 0 && (

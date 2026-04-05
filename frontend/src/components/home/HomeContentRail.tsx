@@ -196,7 +196,7 @@ const HomeContentRail: React.FC<HomeContentRailProps> = ({
                 item.duration_seconds > 0 ? Math.min(100, (item.progress_seconds / item.duration_seconds) * 100) : 0;
               return (
                 <div key={item.episode_id} className={cn('snap-start shrink-0', cardWidth)}>
-                  <AnimeCard anime={a} episode={ep} layout="landscape" progressPercent={pct} />
+                  <AnimeCard anime={a} episode={ep} layout="landscape" progressPercent={pct} linkToWatch />
                 </div>
               );
             })}

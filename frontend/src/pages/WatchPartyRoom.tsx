@@ -58,6 +58,7 @@ const WatchPartyRoom: React.FC = () => {
 
   const partyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endedNavigatedRef = useRef(false);
+  const [viewerSyncHint, setViewerSyncHint] = useState<'ok' | 'catchup'>('ok');
 
   useEffect(() => {
     if (status === 'UNAUTHENTICATED') {
@@ -113,6 +114,23 @@ const WatchPartyRoom: React.FC = () => {
     };
   }, [user, code, status]);
 
+  const refreshRoomSnapshot = useCallback(async () => {
+    if (!code || !user) return;
+    try {
+      const full = await getWatchPartyRoom(code);
+      setRoom(full.room);
+      setMembers(full.members);
+      setProfiles(full.profiles);
+      setSyncSeq((s) => s + 1);
+    } catch {
+      /* yeniden bağlantı / yetki — sessiz */
+    }
+  }, [code, user]);
+
+  const onPartyViewerSyncHint = useCallback((state: 'ok' | 'catchup') => {
+    setViewerSyncHint((prev) => (prev === state ? prev : state));
+  }, []);
+
   useEffect(() => {
     if (!room?.id || !hasSupabaseEnv || !supabase) return;
 
@@ -132,12 +150,16 @@ const WatchPartyRoom: React.FC = () => {
           setSyncSeq((s) => s + 1);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          void refreshRoomSnapshot();
+        }
+      });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [room?.id]);
+  }, [room?.id, refreshRoomSnapshot]);
 
   useEffect(() => {
     if (!room || room.status !== 'ended' || endedNavigatedRef.current) return;
@@ -267,6 +289,7 @@ const WatchPartyRoom: React.FC = () => {
       isPlaying: room.is_playing,
       currentTime: room.playback_time,
       lastAction: room.last_action,
+      playbackUpdatedAt: room.playback_updated_at,
     };
   }, [room, role, syncSeq]);
 
@@ -324,7 +347,26 @@ const WatchPartyRoom: React.FC = () => {
             {role === 'host' ? (
               <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary/90">Host</span>
             ) : (
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">İzleyici</span>
+              <>
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">İzleyici</span>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest',
+                    viewerSyncHint === 'ok'
+                      ? 'border-emerald-500/25 text-emerald-400/90 bg-emerald-500/[0.08]'
+                      : 'border-amber-500/30 text-amber-200/90 bg-amber-500/10'
+                  )}
+                  title="Host ile zaman çizgisi uyumu"
+                >
+                  <span
+                    className={cn(
+                      'w-1.5 h-1.5 rounded-full',
+                      viewerSyncHint === 'ok' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-amber-400 animate-pulse'
+                    )}
+                  />
+                  {viewerSyncHint === 'ok' ? 'Senkron' : 'Hizalanıyor'}
+                </span>
+              </>
             )}
           </div>
 
@@ -344,6 +386,7 @@ const WatchPartyRoom: React.FC = () => {
               onPartyControlAttempt={() => showToast('Kontrol hostta', 'info')}
               onPartyHostPlayback={onPartyHostPlayback}
               partyRemote={partyRemote}
+              onPartyViewerSyncHint={role === 'viewer' ? onPartyViewerSyncHint : undefined}
               subtitleFiles={
                 watchPayload.episode.subtitle_tracks?.length
                   ? watchPayload.episode.subtitle_tracks.map((t) => ({

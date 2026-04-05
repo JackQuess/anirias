@@ -27,6 +27,10 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(
 CREATE INDEX IF NOT EXISTS idx_notifications_anime_id ON public.notifications(anime_id) WHERE anime_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_notifications_episode_id ON public.notifications(episode_id) WHERE episode_id IS NOT NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_episode_unique
+  ON public.notifications (user_id, episode_id, type)
+  WHERE episode_id IS NOT NULL;
+
 -- ============================================================================
 -- 2. ANIME FOLLOWS TABLE (Follow System)
 -- ============================================================================
@@ -104,7 +108,8 @@ CREATE OR REPLACE FUNCTION public.create_episode_notifications(
 )
 RETURNS INTEGER
 LANGUAGE plpgsql
-SECURITY DEFINER -- Run with elevated privileges to insert notifications
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_anime_title TEXT;
@@ -126,7 +131,7 @@ BEGIN
     v_anime_title := 'Anime';
   END IF;
 
-  -- Insert notifications for all users following this anime
+  -- Takipçiler + izleme listesinde bu anime olan kullanıcılar (UNION = tekil)
   INSERT INTO public.notifications (
     user_id,
     type,
@@ -137,20 +142,23 @@ BEGIN
     is_read,
     created_at
   )
-  SELECT 
-    af.user_id,
+  SELECT
+    s.user_id,
     'new_episode'::TEXT,
     'Yeni Bölüm Eklendi 🎉',
-    v_anime_title || ' - Bölüm ' || p_episode_number || 
+    v_anime_title || ' - Bölüm ' || p_episode_number ||
     CASE WHEN p_season_number > 1 THEN ' (Sezon ' || p_season_number || ')' ELSE '' END,
     p_anime_id,
     p_episode_id,
     false,
     timezone('utc'::text, now())
-  FROM public.anime_follows af
-  WHERE af.anime_id = p_anime_id;
+  FROM (
+    SELECT af.user_id FROM public.anime_follows af WHERE af.anime_id = p_anime_id
+    UNION
+    SELECT w.user_id FROM public.watchlist w WHERE w.anime_id = p_anime_id
+  ) AS s(user_id)
+  ON CONFLICT (user_id, episode_id, type) WHERE episode_id IS NOT NULL DO NOTHING;
 
-  -- Get count of inserted notifications
   GET DIAGNOSTICS v_follower_count = ROW_COUNT;
 
   RETURN v_follower_count;

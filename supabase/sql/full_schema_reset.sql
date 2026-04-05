@@ -265,6 +265,9 @@ CREATE TABLE public.notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_episode_unique
+  ON public.notifications (user_id, episode_id, type)
+  WHERE episode_id IS NOT NULL;
 
 CREATE TABLE public.anime_follows (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -491,22 +494,28 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_email_by_username(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_email_by_username(TEXT) TO authenticated;
 
--- Yeni bolum bildirimi (takipcilere)
+-- Yeni bolum bildirimi (takip + izleme listesi)
 CREATE OR REPLACE FUNCTION public.create_episode_notifications(
   p_anime_id UUID, p_episode_id UUID, p_episode_number INTEGER, p_season_number INTEGER
 )
-RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE v_anime_title TEXT; v_follower_count INTEGER;
+RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_anime_title TEXT; v_inserted INTEGER;
 BEGIN
   SELECT COALESCE(title->>'romaji', title->>'english', 'Anime') INTO v_anime_title FROM public.animes WHERE id = p_anime_id;
   IF v_anime_title IS NULL OR v_anime_title = '' THEN v_anime_title := 'Anime'; END IF;
   INSERT INTO public.notifications (user_id, type, title, body, anime_id, episode_id, is_read, created_at)
-  SELECT af.user_id, 'new_episode', 'Yeni Bolum Eklendi', v_anime_title || ' - Bolum ' || p_episode_number ||
+  SELECT s.user_id, 'new_episode', 'Yeni Bölüm Eklendi 🎉',
+    v_anime_title || ' - Bölüm ' || p_episode_number ||
     CASE WHEN p_season_number > 1 THEN ' (Sezon ' || p_season_number || ')' ELSE '' END,
     p_anime_id, p_episode_id, false, timezone('utc'::text, now())
-  FROM public.anime_follows af WHERE af.anime_id = p_anime_id;
-  GET DIAGNOSTICS v_follower_count = ROW_COUNT;
-  RETURN v_follower_count;
+  FROM (
+    SELECT af.user_id FROM public.anime_follows af WHERE af.anime_id = p_anime_id
+    UNION
+    SELECT w.user_id FROM public.watchlist w WHERE w.anime_id = p_anime_id
+  ) AS s(user_id)
+  ON CONFLICT (user_id, episode_id, type) WHERE episode_id IS NOT NULL DO NOTHING;
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  RETURN v_inserted;
 END;
 $$;
 

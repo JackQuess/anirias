@@ -7,15 +7,18 @@ import MobileBottomNav from './MobileBottomNav';
 import BackendNotConfiguredBanner from './BackendNotConfiguredBanner';
 import { hasSupabaseEnv } from '@/services/supabaseClient';
 import MascotLayer from './decorative/MascotLayer';
+import { MatchScoreProvider } from '@/context/MatchScoreContext';
 
 const Layout: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <ScrollToTop />
       <Navbar />
-      <main className="flex-grow pt-[max(6rem,calc(5.5rem+env(safe-area-inset-top,0px)))] md:pt-24 lg:pt-32 pb-mobile-nav md:pb-0 font-inter antialiased">
-        <Outlet />
-      </main>
+      <MatchScoreProvider>
+        <main className="flex-grow pt-[max(6rem,calc(5.5rem+env(safe-area-inset-top,0px)))] md:pt-24 lg:pt-32 pb-mobile-nav md:pb-0 font-inter antialiased">
+          <Outlet />
+        </main>
+      </MatchScoreProvider>
       <MobileBottomNav />
       <footer className="py-20 border-t border-white/5 bg-surface-elevated/90 backdrop-blur-xl mt-20 relative z-10 font-inter">
         {/* Rias Mascot - Brand Signature (Footer, bottom-left, desktop only) */}

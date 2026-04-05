@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Play, Plus, Subtitles, Check } from 'lucide-react';
 import { Anime, Episode } from '@/types';
@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 import { useAuth } from '@/services/auth';
 import { db } from '@/services/db';
+import { useMatchScoreWatchlist } from '@/context/MatchScoreContext';
+import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 
 export interface AnimeCardProps {
   anime: Anime;
@@ -18,13 +20,16 @@ export interface AnimeCardProps {
   layout?: 'poster' | 'landscape';
   /** 0–100 watch progress (continue watching) */
   progressPercent?: number;
+  /** true: kartın tamamı izleme sayfasına gider (ana sayfa İzlemeye devam); yoksa anime detay */
+  linkToWatch?: boolean;
 }
 
-const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster', progressPercent }) => {
+const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster', progressPercent, linkToWatch = false }) => {
   const [imgErrorCount, setImgErrorCount] = useState(0);
   const [inList, setInList] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { watchlist, reload: reloadMatchWatchlist } = useMatchScoreWatchlist();
 
   const displayTitle = getDisplayTitle(anime.title);
   const slug = anime.slug || anime.id;
@@ -33,7 +38,15 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
   const rawLandscape = proxyImage(anime.banner_image || anime.cover_image || '');
   const displayImage = isLandscape ? rawLandscape : rawPortrait;
 
-  const pct = Math.min(100, Math.round((Number(anime.score) || 0) * 10));
+  const scorePct = useMemo(
+    () =>
+      computeAnimeMatchPercent({
+        watchlist,
+        targetAnime: anime,
+        userId: user?.id ?? null,
+      }),
+    [watchlist, anime, user?.id]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +89,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
         await db.updateWatchlist(user.id, anime.id, 'planning');
         setInList(true);
       }
+      reloadMatchWatchlist();
     } catch (err) {
       if (import.meta.env.DEV) console.error('Watchlist toggle', err);
     }
@@ -83,23 +97,28 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
 
   const episodePlayable = episode ? episodeHasPlayableVideo(episode) : true;
 
+  const season = episode?.season_number ?? 1;
+  const epNum = episode?.episode_number ?? 1;
+  const watchHref =
+    episode && episodePlayable ? `/watch/${encodeURIComponent(slug)}/${season}/${epNum}` : `/anime/${slug}`;
+  const detailHref = `/anime/${slug}`;
+  const cardHref = linkToWatch && episode && episodePlayable ? watchHref : detailHref;
+
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const season = episode?.season_number ?? 1;
-    const epNum = episode?.episode_number ?? 1;
     if (episode && !episodePlayable) {
-      navigate(`/anime/${slug}`);
+      navigate(detailHref);
       return;
     }
-    navigate(`/watch/${slug}/${season}/${epNum}`);
+    navigate(watchHref);
   };
 
   const showProgress = typeof progressPercent === 'number' && progressPercent >= 0;
 
   return (
     <Link
-      to={`/anime/${slug}`}
+      to={cardHref}
       className={cn(
         'group relative w-full rounded-md overflow-hidden bg-surface transition-all duration-300 hover:scale-105 hover:z-20 hover:shadow-xl hover:shadow-black/50 block',
         isLandscape ? 'aspect-video' : 'aspect-[2/3]'
@@ -149,7 +168,7 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
         </h3>
 
         <div className="flex items-center gap-2 mb-3 text-[11px] font-medium text-white/80 flex-wrap">
-          <span className="text-green-400 font-bold">%{pct}</span>
+          <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
           {anime.is_adult ? (
             <span className="px-1 border border-white/30 rounded text-white/70">18+</span>
           ) : null}

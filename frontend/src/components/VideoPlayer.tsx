@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Hls from 'hls.js';
+import { extrapolatePartyTime } from '@/lib/partyPlaybackTime';
 import {
   Play,
   Pause,
@@ -58,7 +59,11 @@ interface VideoPlayerProps {
     isPlaying: boolean;
     currentTime: number;
     lastAction: 'play' | 'pause' | 'seek' | 'sync' | null;
+    /** Sunucu playback_updated_at (ISO) — oynarken süre ekstrapolasyonu */
+    playbackUpdatedAt: string | null;
   };
+  /** İzleyici: senkron kalitesi (UI rozet için, seyrek güncelle) */
+  onPartyViewerSyncHint?: (state: 'ok' | 'catchup') => void;
 }
 
 type PlayerBootState = 'IDLE' | 'LOADING' | 'READY' | 'PLAYING';
@@ -134,10 +139,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onPartyControlAttempt,
   onPartyHostPlayback,
   partyRemote,
+  onPartyViewerSyncHint,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const partyApplyRef = useRef(false);
   const lastViewerVideoClickAtRef = useRef(0);
+  const partyRemoteRef = useRef(partyRemote);
+  partyRemoteRef.current = partyRemote;
+  const lastPartySoftSnapAtRef = useRef(0);
+  const lastSyncHintRef = useRef<'ok' | 'catchup'>('ok');
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekBarRef = useRef<HTMLDivElement>(null);
@@ -1616,38 +1626,37 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [externalPause, bootState]);
 
-  // Watch Party viewer: apply host state from Realtime (seq avoids stale runs; drift threshold reduces seek storms)
+  // Watch Party viewer: Realtime ile gelen her pakette host durumunu uygula (ekstrapolasyon + seq ile tekilleştirme)
   useEffect(() => {
     if (partyRole !== 'viewer' || !partyRemote) return;
     const video = videoRef.current;
     if (!video) return;
     if (bootState !== 'READY' && bootState !== 'PLAYING') return;
 
-    const { seq, isPlaying: remotePlaying, currentTime: remoteT, lastAction } = partyRemote;
+    const { seq, isPlaying: remotePlaying, currentTime: remoteT, lastAction, playbackUpdatedAt } = partyRemote;
     if (seq <= 0) return;
 
-    const drift = Math.abs(video.currentTime - remoteT);
-    const DRIFT_SEC = 1.5;
+    const targetT = remotePlaying
+      ? extrapolatePartyTime(remoteT, true, playbackUpdatedAt)
+      : remoteT;
+    const drift = Math.abs(video.currentTime - targetT);
+    const HARD_SEEK = lastAction === 'seek' ? 0.12 : 1.15;
+    const SOFT_SEEK = 0.35;
 
     partyApplyRef.current = true;
-    if (lastAction === 'seek') {
-      video.currentTime = remoteT;
-      setCurrentTime(remoteT);
-    } else if (lastAction === 'sync' && drift > DRIFT_SEC) {
-      video.currentTime = remoteT;
-      setCurrentTime(remoteT);
-    } else if ((lastAction === 'play' || lastAction === 'pause') && drift > DRIFT_SEC) {
-      video.currentTime = remoteT;
-      setCurrentTime(remoteT);
-    } else if (!lastAction && drift > DRIFT_SEC) {
-      video.currentTime = remoteT;
-      setCurrentTime(remoteT);
+    if (lastAction === 'seek' || drift > HARD_SEEK) {
+      video.currentTime = targetT;
+      setCurrentTime(targetT);
+    } else if ((lastAction === 'sync' || lastAction === 'play' || lastAction === 'pause') && drift > SOFT_SEEK) {
+      video.currentTime = targetT;
+      setCurrentTime(targetT);
+    } else if (!lastAction && drift > SOFT_SEEK) {
+      video.currentTime = targetT;
+      setCurrentTime(targetT);
     }
 
     if (remotePlaying && video.paused) {
-      // Optimistic state — aksi halde "safety guard" oynatmayı hemen kesiyordu
       setIsPlaying(true);
-      // Tarayıcı politikası: sessiz autoplay genelde serbest; ses için M veya videoya dokunma
       video.muted = true;
       setIsMuted(true);
       const p = video.play();
@@ -1672,9 +1681,87 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       partyApplyRef.current = false;
     }, 550);
     return () => clearTimeout(clearT);
-  }, [partyRole, partyRemote?.seq, partyRemote?.isPlaying, partyRemote?.currentTime, partyRemote?.lastAction, bootState]);
+  }, [
+    partyRole,
+    partyRemote?.seq,
+    partyRemote?.isPlaying,
+    partyRemote?.currentTime,
+    partyRemote?.lastAction,
+    partyRemote?.playbackUpdatedAt,
+    bootState,
+  ]);
 
-  // Host: periodic time broadcast so viewers can correct drift without constant seeks
+  // İzleyici: Realtime gecikmeleri arasında hedef zamanı sürekli yeniden hesaplayıp ince düzeltme
+  useEffect(() => {
+    if (partyRole !== 'viewer') return;
+
+    const tick = () => {
+      const pr = partyRemoteRef.current;
+      const video = videoRef.current;
+      if (!pr || !video || !pr.isPlaying || video.paused) return;
+      if (bootStateRef.current !== 'READY' && bootStateRef.current !== 'PLAYING') return;
+
+      const targetT = extrapolatePartyTime(pr.currentTime, true, pr.playbackUpdatedAt);
+      const drift = Math.abs(video.currentTime - targetT);
+      const now = Date.now();
+
+      if (drift > 10) {
+        partyApplyRef.current = true;
+        video.currentTime = targetT;
+        setCurrentTime(targetT);
+        lastPartySoftSnapAtRef.current = now;
+        requestAnimationFrame(() => {
+          partyApplyRef.current = false;
+        });
+      } else if (drift > 0.55 && now - lastPartySoftSnapAtRef.current > 120) {
+        partyApplyRef.current = true;
+        video.currentTime = targetT;
+        setCurrentTime(targetT);
+        lastPartySoftSnapAtRef.current = now;
+        requestAnimationFrame(() => {
+          partyApplyRef.current = false;
+        });
+      }
+
+      if (onPartyViewerSyncHint) {
+        const nextHint: 'ok' | 'catchup' = drift > 1.1 ? 'catchup' : 'ok';
+        if (nextHint !== lastSyncHintRef.current) {
+          lastSyncHintRef.current = nextHint;
+          onPartyViewerSyncHint(nextHint);
+        }
+      }
+    };
+
+    const id = window.setInterval(tick, 180);
+    return () => clearInterval(id);
+  }, [partyRole, onPartyViewerSyncHint]);
+
+  // Sekme geri gelince tek seferlik hizalama (uyku / arka plan)
+  useEffect(() => {
+    if (partyRole !== 'viewer') return;
+
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      const pr = partyRemoteRef.current;
+      const video = videoRef.current;
+      if (!pr || !video) return;
+      const targetT = pr.isPlaying
+        ? extrapolatePartyTime(pr.currentTime, true, pr.playbackUpdatedAt)
+        : pr.currentTime;
+      if (Math.abs(video.currentTime - targetT) < 0.2) return;
+      partyApplyRef.current = true;
+      video.currentTime = targetT;
+      setCurrentTime(targetT);
+      window.setTimeout(() => {
+        partyApplyRef.current = false;
+      }, 400);
+    };
+
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [partyRole]);
+
+  // Host: daha sık tick — izleyici ekstrapolasyonu ile birlikte sıkı senkron
   useEffect(() => {
     if (partyRole !== 'host') return;
     if (bootState !== 'READY' && bootState !== 'PLAYING') return;
@@ -1684,7 +1771,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const v = videoRef.current;
       if (!v || v.paused) return;
       emitPartyHostPlayback('sync');
-    }, 4000);
+    }, 2000);
 
     return () => clearInterval(id);
   }, [partyRole, bootState, isPlaying, emitPartyHostPlayback]);
