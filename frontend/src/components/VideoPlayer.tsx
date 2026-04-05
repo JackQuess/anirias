@@ -137,6 +137,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const partyApplyRef = useRef(false);
+  const lastViewerVideoClickAtRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekBarRef = useRef<HTMLDivElement>(null);
@@ -596,8 +597,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, []);
 
   const handlePlay = useCallback(() => {
+    // Watch Party: host pause path uses heavy mute; remote sync play skips restore noise
+    if (partyApplyRef.current) {
+      setBootState('PLAYING');
+      setIsPlaying(true);
+      return;
+    }
+
     const video = videoRef.current;
-    
+
     // CRITICAL: Restore original muted state when play event fires
     // This ensures audio is restored if it was muted during pause
     if (video && originalMutedStateRef.current !== null) {
@@ -605,12 +613,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsMuted(originalMutedStateRef.current);
       originalMutedStateRef.current = null; // Clear after restore
     }
-    
+
     setBootState('PLAYING');
     setIsPlaying(true);
   }, []);
 
   const handlePause = useCallback(() => {
+    if (partyApplyRef.current) {
+      setIsPlaying(false);
+      return;
+    }
+
     const video = videoRef.current;
     if (video) {
       // CRITICAL: Store original muted state BEFORE muting (only if not already stored)
@@ -1266,14 +1279,48 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     (e: React.MouseEvent) => {
       e.stopPropagation();
       if (partyRole === 'viewer') {
-        onPartyControlAttempt?.();
+        const now = Date.now();
+        // Çift tık: tam ekran (host kontrolü değil)
+        if (now - lastViewerVideoClickAtRef.current < 420) {
+          lastViewerVideoClickAtRef.current = 0;
+          toggleFullscreen();
+          return;
+        }
+        lastViewerVideoClickAtRef.current = now;
+        const video = videoRef.current;
+        // Tarayıcı oynatmayı engellediyse: kullanıcı jestiyle tekrar dene (host oynatıyorken)
+        if (video && video.paused && partyRemote?.isPlaying) {
+          partyApplyRef.current = true;
+          video.muted = true;
+          setIsMuted(true);
+          setIsPlaying(true);
+          const p = video.play();
+          if (p !== undefined) {
+            p
+              .then(() => setBootState('PLAYING'))
+              .catch(() => {
+                setIsPlaying(false);
+              })
+              .finally(() => {
+                window.setTimeout(() => {
+                  partyApplyRef.current = false;
+                }, 400);
+              });
+          } else {
+            window.setTimeout(() => {
+              partyApplyRef.current = false;
+            }, 400);
+          }
+          return;
+        }
+        showControlsTemporary();
         return;
       }
       if (bootState === 'READY' || bootState === 'PLAYING') {
         togglePlay();
       }
     },
-    [bootState, togglePlay, partyRole, onPartyControlAttempt]
+    [bootState, togglePlay, partyRole, toggleFullscreen, showControlsTemporary, partyRemote?.isPlaying]
   );
 
   // CRITICAL: Mobile touch handling with double tap detection for fullscreen
@@ -1299,7 +1346,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // If video is ready, toggle play/pause
       if (bootState === 'READY' || bootState === 'PLAYING') {
         if (partyRole === 'viewer') {
-          onPartyControlAttempt?.();
+          const video = videoRef.current;
+          if (video && video.paused && partyRemote?.isPlaying) {
+            partyApplyRef.current = true;
+            video.muted = true;
+            setIsMuted(true);
+            setIsPlaying(true);
+            const p = video.play();
+            if (p !== undefined) {
+              p
+                .then(() => setBootState('PLAYING'))
+                .catch(() => setIsPlaying(false))
+                .finally(() => {
+                  window.setTimeout(() => {
+                    partyApplyRef.current = false;
+                  }, 400);
+                });
+            } else {
+              window.setTimeout(() => {
+                partyApplyRef.current = false;
+              }, 400);
+            }
+          } else {
+            showControlsTemporary();
+          }
         } else {
           togglePlay();
         }
@@ -1311,7 +1381,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }
     }
-  }, [isMobile, bootState, showControls, showControlsTemporary, togglePlay, toggleFullscreen, partyRole, onPartyControlAttempt]);
+  }, [
+    isMobile,
+    bootState,
+    showControls,
+    showControlsTemporary,
+    togglePlay,
+    toggleFullscreen,
+    partyRole,
+    partyRemote?.isPlaying,
+  ]);
 
   const handleResume = useCallback(() => {
     const video = videoRef.current;
@@ -1483,6 +1562,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    // Watch Party viewer: play/pause driven by host sync — this guard fights programmatic play()
+    if (partyRole === 'viewer') return;
 
     // If state says not playing but video is not paused, force pause and stop audio COMPLETELY
     if (!isPlaying && !video.paused) {
@@ -1510,7 +1591,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (video.paused && isPlaying) {
       setIsPlaying(false);
     }
-  }, [isPlaying, volume]);
+  }, [isPlaying, volume, partyRole]);
 
   // CRITICAL: External pause control (e.g., when bottom sheet opens)
   useEffect(() => {
@@ -1564,21 +1645,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     if (remotePlaying && video.paused) {
+      // Optimistic state — aksi halde "safety guard" oynatmayı hemen kesiyordu
+      setIsPlaying(true);
+      // Tarayıcı politikası: sessiz autoplay genelde serbest; ses için M veya videoya dokunma
+      video.muted = true;
+      setIsMuted(true);
       const p = video.play();
       if (p !== undefined) {
-        p.then(() => setIsPlaying(true)).catch(() => {});
+        p
+          .then(() => setBootState('PLAYING'))
+          .catch((err) => {
+            if (import.meta.env.DEV) {
+              console.warn('[VideoPlayer] Party viewer play blocked:', err);
+            }
+            setIsPlaying(false);
+          });
       } else {
-        setIsPlaying(true);
+        setBootState('PLAYING');
       }
     } else if (!remotePlaying && !video.paused) {
       video.pause();
       setIsPlaying(false);
     }
 
-    const id = requestAnimationFrame(() => {
+    const clearT = window.setTimeout(() => {
       partyApplyRef.current = false;
-    });
-    return () => cancelAnimationFrame(id);
+    }, 550);
+    return () => clearTimeout(clearT);
   }, [partyRole, partyRemote?.seq, partyRemote?.isPlaying, partyRemote?.currentTime, partyRemote?.lastAction, bootState]);
 
   // Host: periodic time broadcast so viewers can correct drift without constant seeks

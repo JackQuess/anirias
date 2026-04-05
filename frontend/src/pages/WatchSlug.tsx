@@ -121,7 +121,7 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
             <button
               type="button"
               onClick={() => void onWatchParty()}
-              className="flex items-center gap-2 px-3 py-1.5 rounded border border-primary/35 bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0 px-4 py-2.5 sm:px-3 sm:py-1.5 rounded border border-primary/35 bg-primary/10 text-primary hover:bg-primary/15 active:bg-primary/20 transition-colors touch-manipulation"
             >
               <span className="text-sm font-black uppercase tracking-wide">Birlikte İzle</span>
             </button>

@@ -213,12 +213,33 @@ const WatchPartyRoom: React.FC = () => {
     }
   }, [room?.id, navigate]);
 
-  const copyInvite = useCallback(() => {
+  const copyInvite = useCallback(async () => {
     const url = `${window.location.origin}/watch-party/${code}`;
-    void navigator.clipboard.writeText(url).then(
-      () => showToast('Link kopyalandı', 'success'),
-      () => showToast('Kopyalanamadı', 'error')
-    );
+    const title = 'ANIRIAS — Birlikte izle';
+    const coarsePointer =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+    const touchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+    const useNativeShare = coarsePointer || touchDevice;
+
+    if (useNativeShare && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title, text: `${title}\n${url}`, url });
+        showToast('Davet paylaşıldı', 'success');
+        return;
+      } catch (e: unknown) {
+        const err = e as { name?: string };
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link kopyalandı', 'success');
+    } catch {
+      showToast('Kopyalanamadı', 'error');
+    }
   }, [code]);
 
   const playbackUrl = useMemo(() => {
@@ -251,7 +272,7 @@ const WatchPartyRoom: React.FC = () => {
 
   if (status === 'LOADING' || (status === 'AUTHENTICATED' && user && !room && !bootError)) {
     return (
-      <div className="min-h-screen bg-[#08080c] pt-20">
+      <div className="min-h-[100dvh] bg-[#08080c] pt-[max(5rem,env(safe-area-inset-top,0px)+3.5rem)] pb-mobile-nav">
         <LoadingSkeleton type="banner" />
       </div>
     );
@@ -259,13 +280,13 @@ const WatchPartyRoom: React.FC = () => {
 
   if (bootError) {
     return (
-      <div className="min-h-screen bg-[#08080c] text-white flex items-center justify-center px-6 pt-20 font-inter">
-        <div className="max-w-md w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-8 text-center shadow-2xl">
+      <div className="min-h-[100dvh] bg-[#08080c] text-white flex items-center justify-center px-4 sm:px-6 pt-[max(5rem,env(safe-area-inset-top,0px)+3.5rem)] pb-mobile-nav font-inter">
+        <div className="max-w-md w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 sm:p-8 text-center shadow-2xl">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-3">Birlikte izle</p>
-          <p className="text-white/80 text-sm mb-6">{bootError}</p>
+          <p className="text-white/80 text-sm mb-6 leading-relaxed">{bootError}</p>
           <Link
             to="/"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white/[0.08] border border-white/10 text-xs font-black uppercase tracking-[0.2em] hover:bg-white/[0.12]"
+            className="inline-flex items-center justify-center min-h-[48px] w-full sm:w-auto px-6 py-3 rounded-xl bg-white/[0.08] border border-white/10 text-xs font-black uppercase tracking-[0.2em] hover:bg-white/[0.12] touch-manipulation active:opacity-90"
           >
             Ana sayfa
           </Link>
@@ -276,7 +297,7 @@ const WatchPartyRoom: React.FC = () => {
 
   if (!room || !watchPayload || !playbackUrl) {
     return (
-      <div className="min-h-screen bg-[#08080c] pt-20">
+      <div className="min-h-[100dvh] bg-[#08080c] pt-[max(5rem,env(safe-area-inset-top,0px)+3.5rem)] pb-mobile-nav">
         <LoadingSkeleton type="banner" />
       </div>
     );
@@ -285,19 +306,19 @@ const WatchPartyRoom: React.FC = () => {
   const active = room.status === 'active';
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-white font-inter antialiased pt-14 sm:pt-16 md:pt-20 pb-16">
-      <div className="max-w-[1800px] mx-auto px-3 sm:px-6 md:px-10 flex flex-col xl:flex-row gap-6">
-        <div className="flex-1 min-w-0 flex flex-col gap-5">
-          <div className="flex flex-wrap items-center gap-3">
+    <div className="min-h-[100dvh] bg-[#08080c] text-white font-inter antialiased pt-[max(3.5rem,calc(env(safe-area-inset-top,0px)+3.25rem))] sm:pt-16 md:pt-20 pb-6 md:pb-10">
+      <div className="max-w-[1800px] mx-auto px-2.5 sm:px-6 md:px-10 flex flex-col xl:flex-row gap-4 sm:gap-6">
+        <div className="flex-1 min-w-0 flex flex-col gap-3 sm:gap-5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-0.5">
             <span
               className={cn(
-                'inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-[0.2em]',
+                'inline-flex items-center gap-2 px-3 py-1.5 sm:py-1 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] touch-manipulation',
                 active
                   ? 'border-emerald-500/40 text-emerald-300/90 bg-emerald-500/10'
                   : 'border-white/15 text-white/40 bg-white/[0.04]'
               )}
             >
-              <Radio className="w-3.5 h-3.5" />
+              <Radio className="w-3.5 h-3.5 shrink-0" />
               {active ? 'Oda aktif' : 'Oda kapalı'}
             </span>
             {role === 'host' ? (
@@ -307,7 +328,7 @@ const WatchPartyRoom: React.FC = () => {
             )}
           </div>
 
-          <div className="relative w-full aspect-video rounded-xl border border-white/[0.07] bg-black shadow-2xl overflow-hidden">
+          <div className="relative w-full aspect-video rounded-none sm:rounded-xl border-y border-white/[0.07] sm:border border-white/[0.07] bg-black shadow-2xl overflow-hidden -mx-2.5 sm:mx-0">
             <VideoPlayer
               src={playbackUrl}
               poster={poster}
@@ -335,29 +356,47 @@ const WatchPartyRoom: React.FC = () => {
             />
           </div>
 
-          <p className="text-[10px] uppercase tracking-[0.35em] text-white/35">
-            {role === 'viewer' ? 'Senkron: canlı · küçük sapmalar tolere edilir' : 'Senkron: yayın host üzerinden'}
+          <p className="text-[10px] sm:text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.35em] text-white/35 leading-relaxed px-0.5">
+            {role === 'viewer' ? (
+              <>
+                <span className="md:hidden">
+                  Oynatma çoğu telefonda sessiz başlar. Ses için alttaki ses simgesi veya kontrol çubuğundan açın. Tam
+                  ekran: videoda{' '}
+                  <span className="text-white/55">çift dokunuş</span> veya oynatıcıdaki genişlet ikonu.
+                </span>
+                <span className="hidden md:inline">
+                  İzleyicide oynatma genelde sessiz başlar (tarayıcı kuralı). Ses için{' '}
+                  <span className="text-white/55">M</span> tuşuna basın veya kontrollerden sesi açın. Tam ekran: çift
+                  tıklama veya <span className="text-white/55">F</span>.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="md:hidden">Senkron: host yönetir · Mobilde tam ekran için çift dokunuş</span>
+                <span className="hidden md:inline">Senkron: yayın host üzerinden</span>
+              </>
+            )}
           </p>
         </div>
 
-        <aside className="w-full xl:w-[380px] shrink-0 flex flex-col gap-4">
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-5 shadow-xl">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.28em] text-white/90 flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary/90" />
-                Katılımcılar
+        <aside className="w-full xl:w-[380px] shrink-0 flex flex-col gap-3 sm:gap-4 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-4 sm:p-5 shadow-xl">
+            <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+              <h2 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] sm:tracking-[0.28em] text-white/90 flex items-center gap-2 min-w-0">
+                <Users className="w-4 h-4 text-primary/90 shrink-0" />
+                <span className="truncate">Katılımcılar</span>
               </h2>
-              <span className="text-[10px] font-bold text-white/40">
+              <span className="text-[10px] font-bold text-white/40 shrink-0 tabular-nums">
                 {members.length}/{5}
               </span>
             </div>
-            <ul className="space-y-2 mb-6">
+            <ul className="space-y-2 mb-4 sm:mb-6 max-h-[min(42vh,16rem)] sm:max-h-none overflow-y-auto overscroll-contain -mr-1 pr-1 touch-pan-y [scrollbar-width:thin]">
               {members.map((m) => (
                 <li
                   key={m.id}
-                  className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2.5"
+                  className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-black/30 px-3 min-h-[44px] py-2 sm:py-2.5"
                 >
-                  <span className="text-sm text-white/90 truncate">{profileLabel(profiles, m.user_id)}</span>
+                  <span className="text-sm text-white/90 truncate pr-2">{profileLabel(profiles, m.user_id)}</span>
                   {m.role === 'host' ? (
                     <span className="text-[9px] font-black uppercase tracking-widest text-primary shrink-0">Host</span>
                   ) : (
@@ -369,22 +408,23 @@ const WatchPartyRoom: React.FC = () => {
               ))}
             </ul>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               <button
                 type="button"
                 onClick={() => void copyInvite()}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-white/10 bg-white/[0.06] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/[0.1] transition-colors"
+                className="flex items-center justify-center gap-2 w-full min-h-[48px] py-3 rounded-xl border border-white/10 bg-white/[0.06] text-[10px] font-black uppercase tracking-[0.18em] sm:tracking-[0.2em] hover:bg-white/[0.1] active:bg-white/[0.12] transition-colors touch-manipulation"
               >
-                <Copy className="w-4 h-4" />
-                Davet linkini kopyala
+                <Copy className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden">Davet paylaş / kopyala</span>
+                <span className="hidden sm:inline">Davet linkini kopyala</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => void handleLeave()}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-white/80 hover:bg-white/[0.06]"
+                className="flex items-center justify-center gap-2 w-full min-h-[48px] py-3 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.18em] sm:tracking-[0.2em] text-white/80 hover:bg-white/[0.06] active:bg-white/[0.08] touch-manipulation"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 shrink-0" />
                 Odadan ayrıl
               </button>
 
@@ -392,16 +432,16 @@ const WatchPartyRoom: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => void handleEnd()}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-primary/35 bg-primary/15 text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:bg-primary/25"
+                  className="flex items-center justify-center gap-2 w-full min-h-[48px] py-3 rounded-xl border border-primary/35 bg-primary/15 text-[10px] font-black uppercase tracking-[0.18em] sm:tracking-[0.2em] text-primary hover:bg-primary/25 active:bg-primary/30 touch-manipulation"
                 >
-                  <Square className="w-4 h-4" />
+                  <Square className="w-4 h-4 shrink-0" />
                   Odayı bitir
                 </button>
               ) : null}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-black/20 px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-white/35">
+          <div className="rounded-2xl border border-white/[0.06] bg-black/20 px-4 py-3.5 text-[10px] uppercase tracking-[0.2em] text-white/35 break-all">
             Kod: <span className="text-white/70 font-mono tracking-widest">{code}</span>
           </div>
         </aside>
