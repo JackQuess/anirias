@@ -1,11 +1,18 @@
 import React, { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { CalendarClock } from 'lucide-react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import PageHero from '@/components/cinematic/PageHero';
 import type { PublicCalendarEntry } from '../types';
+
+/**
+ * Genel yayın takvimi henüz herkese kapalı. `true` yapınca Bugün / Bu hafta / Yakında grid’i açılır.
+ * Yönetim: /admin/calendar
+ */
+const CALENDAR_PAGE_PUBLIC_LIVE = false;
 
 function isSameLocalDay(a: Date, b: Date) {
   return (
@@ -85,7 +92,31 @@ const CalendarSection: React.FC<{ title: string; items: PublicCalendarEntry[]; e
   </section>
 );
 
-const Calendar: React.FC = () => {
+const CalendarComingSoon: React.FC = () => (
+  <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
+    <PageHero
+      title="Yayın Takvimi"
+      description="Haftalık yayın akışını takip et. Hangi gün hangi anime yayınlanıyor, anında öğren."
+      image="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=1920"
+      className="rounded-none mb-0 h-[400px] md:h-[500px]"
+    />
+
+    <div className="mx-auto -mt-20 relative z-20 max-w-[640px] px-4 md:px-10 pt-4 md:pt-6">
+      <div className="rounded-2xl border border-white/10 bg-surface-elevated/90 backdrop-blur-md px-6 py-14 md:px-10 md:py-16 text-center shadow-2xl shadow-black/30">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 border border-primary/30">
+          <CalendarClock className="h-8 w-8 text-primary" strokeWidth={2} />
+        </div>
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-primary mb-3">Yakında</p>
+        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-4">Genel takvim hazırlanıyor</h2>
+        <p className="text-sm md:text-base text-white/65 leading-relaxed max-w-md mx-auto">
+          Bu sayfayı şimdilik yönetim panelinden düzenliyoruz. Herkese açık yayın listesi kısa süre içinde burada olacak.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+const CalendarLive: React.FC = () => {
   const fetchCalendar = useCallback(() => db.getPublicCalendar(undefined, 21), []);
   const { data, loading, error, reload } = useLoad<PublicCalendarEntry[]>(fetchCalendar, []);
 
@@ -136,6 +167,13 @@ const Calendar: React.FC = () => {
       </div>
     </div>
   );
+};
+
+const Calendar: React.FC = () => {
+  if (!CALENDAR_PAGE_PUBLIC_LIVE) {
+    return <CalendarComingSoon />;
+  }
+  return <CalendarLive />;
 };
 
 export default Calendar;
