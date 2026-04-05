@@ -17,6 +17,8 @@ import WatchSidebar from '@/components/watch/WatchSidebar';
 import WatchMobileEpisodeSheet from '@/components/watch/WatchMobileEpisodeSheet';
 import ReportWatchModal from '@/components/ReportWatchModal';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
+import { createWatchParty } from '@/services/watchPartyApi';
+import { showToast } from '@/components/ToastProvider';
 
 const Comments = lazy(() => import('../components/Comments'));
 
@@ -36,6 +38,7 @@ type WatchInfoPanelProps = {
   episodeLikeCount: number;
   episodeLiked: boolean;
   onToggleEpisodeLike: () => void | Promise<void>;
+  onWatchParty?: () => void | Promise<void>;
 };
 
 const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
@@ -54,6 +57,7 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
   episodeLikeCount,
   episodeLiked,
   onToggleEpisodeLike,
+  onWatchParty,
 }) => {
   const detailPath = `/anime/${anime.slug || anime.id}`;
   const [shareLabel, setShareLabel] = React.useState('Paylaş');
@@ -113,6 +117,15 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
               {episodeLikeCount > 0 ? ` · ${episodeLikeCount}` : ''}
             </span>
           </button>
+          {user && onWatchParty ? (
+            <button
+              type="button"
+              onClick={() => void onWatchParty()}
+              className="flex items-center gap-2 px-3 py-1.5 rounded border border-primary/35 bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+            >
+              <span className="text-sm font-black uppercase tracking-wide">Birlikte İzle</span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleShare}
@@ -323,6 +336,20 @@ const WatchSlug: React.FC = () => {
       /* ignore */
     }
   }, [anime, episode, seasonNum]);
+
+  const handleWatchParty = useCallback(async () => {
+    if (!user?.id || !episode?.id || !anime?.id) {
+      showToast('Önce giriş yapın.', 'error');
+      return;
+    }
+    try {
+      const { room } = await createWatchParty(episode.id, anime.id);
+      showToast('Oda oluşturuldu', 'success');
+      navigate(`/watch-party/${room.code}`);
+    } catch (e: any) {
+      showToast(e?.message || 'Oda açılamadı', 'error');
+    }
+  }, [user?.id, episode?.id, anime?.id, navigate]);
 
   // CRITICAL: Update currentEpisodeId when episode changes (for episode switch optimization)
   useEffect(() => {
@@ -640,6 +667,7 @@ const WatchSlug: React.FC = () => {
             episodeLikeCount={episodeLikeSummary?.count ?? 0}
             episodeLiked={episodeLikeSummary?.liked ?? false}
             onToggleEpisodeLike={toggleEpisodeLikeSlug}
+            onWatchParty={handleWatchParty}
           />
 
           <div className="lg:hidden flex border-b border-white/10">

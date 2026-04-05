@@ -45,6 +45,20 @@ interface VideoPlayerProps {
   episodeLine?: string;
   /** Geri — zip stil yuvarlak buton */
   onBack?: () => void;
+  /** Watch Party: host emits playback; viewer follows partyRemote and cannot control transport */
+  partyRole?: 'host' | 'viewer';
+  onPartyControlAttempt?: () => void;
+  onPartyHostPlayback?: (payload: {
+    currentTime: number;
+    isPlaying: boolean;
+    lastAction: 'play' | 'pause' | 'seek' | 'sync';
+  }) => void;
+  partyRemote?: {
+    seq: number;
+    isPlaying: boolean;
+    currentTime: number;
+    lastAction: 'play' | 'pause' | 'seek' | 'sync' | null;
+  };
 }
 
 type PlayerBootState = 'IDLE' | 'LOADING' | 'READY' | 'PLAYING';
@@ -116,8 +130,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   subtitleFiles,
   episodeLine,
   onBack,
+  partyRole,
+  onPartyControlAttempt,
+  onPartyHostPlayback,
+  partyRemote,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const partyApplyRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekBarRef = useRef<HTMLDivElement>(null);
@@ -987,9 +1006,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => window.removeEventListener('orientationchange', handleOrientationChange);
   }, [isMobile]);
 
+  const emitPartyHostPlayback = useCallback(
+    (lastAction: 'play' | 'pause' | 'seek' | 'sync') => {
+      if (partyRole !== 'host' || !onPartyHostPlayback) return;
+      const video = videoRef.current;
+      if (!video) return;
+      onPartyHostPlayback({
+        currentTime: video.currentTime,
+        isPlaying: !video.paused,
+        lastAction,
+      });
+    },
+    [partyRole, onPartyHostPlayback]
+  );
+
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
+
+    if (partyRole === 'viewer') {
+      onPartyControlAttempt?.();
+      return;
+    }
 
     if (video.paused) {
       // HLS kullanılıyorsa yeniden yüklemeyi başlat (önceki pause'da stopLoad çağrılmış olabilir)
@@ -1019,6 +1057,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           .then(() => {
             setIsPlaying(true);
             showControlsTemporary();
+            emitPartyHostPlayback('play');
           })
           .catch((error) => {
             if (error.name !== 'AbortError' && import.meta.env.DEV) {
@@ -1067,23 +1106,41 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           v.muted = true;
         }
       }, 150);
-    }
-  }, [bootState, showControlsTemporary, volume, isMuted]);
 
-  const skipTime = useCallback((seconds: number, silent = false) => {
-    const video = videoRef.current;
-    if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
-
-    video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
-    if (!silent) {
-      showControlsTemporary();
+      emitPartyHostPlayback('pause');
     }
-  }, [bootState, showControlsTemporary]);
+  }, [bootState, showControlsTemporary, volume, isMuted, partyRole, onPartyControlAttempt, emitPartyHostPlayback]);
+
+  const skipTime = useCallback(
+    (seconds: number, silent = false) => {
+      const video = videoRef.current;
+      if (!video || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
+
+      if (partyRole === 'viewer') {
+        onPartyControlAttempt?.();
+        return;
+      }
+
+      video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
+      if (!silent) {
+        showControlsTemporary();
+      }
+      if (partyRole === 'host') {
+        emitPartyHostPlayback('seek');
+      }
+    },
+    [bootState, showControlsTemporary, partyRole, onPartyControlAttempt, emitPartyHostPlayback]
+  );
 
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     const bar = seekBarRef.current;
     if (!video || !bar || (bootState !== 'READY' && bootState !== 'PLAYING')) return;
+
+    if (partyRole === 'viewer') {
+      onPartyControlAttempt?.();
+      return;
+    }
 
     const videoDuration = video.duration || duration || 0;
     if (videoDuration === 0) return;
@@ -1100,7 +1157,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     lastTimeUpdateRef.current = newTime;
     onSeek?.(newTime);
     showControlsTemporary();
-  }, [bootState, duration, onSeek, showControlsTemporary]);
+    emitPartyHostPlayback('seek');
+  }, [bootState, duration, onSeek, showControlsTemporary, partyRole, onPartyControlAttempt, emitPartyHostPlayback]);
 
   const handleVolumeChange = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const video = videoRef.current;
@@ -1204,12 +1262,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isMobile, showControlsTemporary]);
 
-  const handleVideoClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (bootState === 'READY' || bootState === 'PLAYING') {
-      togglePlay();
-    }
-  }, [bootState, togglePlay]);
+  const handleVideoClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (partyRole === 'viewer') {
+        onPartyControlAttempt?.();
+        return;
+      }
+      if (bootState === 'READY' || bootState === 'PLAYING') {
+        togglePlay();
+      }
+    },
+    [bootState, togglePlay, partyRole, onPartyControlAttempt]
+  );
 
   // CRITICAL: Mobile touch handling with double tap detection for fullscreen
   // Double tap (within 300ms) → toggle fullscreen
@@ -1233,7 +1298,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       // If video is ready, toggle play/pause
       if (bootState === 'READY' || bootState === 'PLAYING') {
-        togglePlay();
+        if (partyRole === 'viewer') {
+          onPartyControlAttempt?.();
+        } else {
+          togglePlay();
+        }
       } else {
         // Otherwise, just show/hide controls
         setShowControls((prev) => !prev);
@@ -1242,7 +1311,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }
     }
-  }, [isMobile, bootState, showControls, showControlsTemporary, togglePlay, toggleFullscreen]);
+  }, [isMobile, bootState, showControls, showControlsTemporary, togglePlay, toggleFullscreen, partyRole, onPartyControlAttempt]);
 
   const handleResume = useCallback(() => {
     const video = videoRef.current;
@@ -1334,15 +1403,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         case ' ':
           e.preventDefault();
           e.stopPropagation();
-          togglePlay();
+          if (partyRole === 'viewer') {
+            onPartyControlAttempt?.();
+          } else {
+            togglePlay();
+          }
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          skipTime(-10, true);
+          if (partyRole === 'viewer') {
+            onPartyControlAttempt?.();
+          } else {
+            skipTime(-10, true);
+          }
           break;
         case 'ArrowRight':
           e.preventDefault();
-          skipTime(10, true);
+          if (partyRole === 'viewer') {
+            onPartyControlAttempt?.();
+          } else {
+            skipTime(10, true);
+          }
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -1379,7 +1460,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute, volume, showControlsTemporary]);
+  }, [bootState, togglePlay, skipTime, toggleFullscreen, toggleMute, volume, showControlsTemporary, partyRole, onPartyControlAttempt]);
 
   // Sync video element volume and muted state
   useEffect(() => {
@@ -1453,6 +1534,67 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }
   }, [externalPause, bootState]);
+
+  // Watch Party viewer: apply host state from Realtime (seq avoids stale runs; drift threshold reduces seek storms)
+  useEffect(() => {
+    if (partyRole !== 'viewer' || !partyRemote) return;
+    const video = videoRef.current;
+    if (!video) return;
+    if (bootState !== 'READY' && bootState !== 'PLAYING') return;
+
+    const { seq, isPlaying: remotePlaying, currentTime: remoteT, lastAction } = partyRemote;
+    if (seq <= 0) return;
+
+    const drift = Math.abs(video.currentTime - remoteT);
+    const DRIFT_SEC = 1.5;
+
+    partyApplyRef.current = true;
+    if (lastAction === 'seek') {
+      video.currentTime = remoteT;
+      setCurrentTime(remoteT);
+    } else if (lastAction === 'sync' && drift > DRIFT_SEC) {
+      video.currentTime = remoteT;
+      setCurrentTime(remoteT);
+    } else if ((lastAction === 'play' || lastAction === 'pause') && drift > DRIFT_SEC) {
+      video.currentTime = remoteT;
+      setCurrentTime(remoteT);
+    } else if (!lastAction && drift > DRIFT_SEC) {
+      video.currentTime = remoteT;
+      setCurrentTime(remoteT);
+    }
+
+    if (remotePlaying && video.paused) {
+      const p = video.play();
+      if (p !== undefined) {
+        p.then(() => setIsPlaying(true)).catch(() => {});
+      } else {
+        setIsPlaying(true);
+      }
+    } else if (!remotePlaying && !video.paused) {
+      video.pause();
+      setIsPlaying(false);
+    }
+
+    const id = requestAnimationFrame(() => {
+      partyApplyRef.current = false;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [partyRole, partyRemote?.seq, partyRemote?.isPlaying, partyRemote?.currentTime, partyRemote?.lastAction, bootState]);
+
+  // Host: periodic time broadcast so viewers can correct drift without constant seeks
+  useEffect(() => {
+    if (partyRole !== 'host') return;
+    if (bootState !== 'READY' && bootState !== 'PLAYING') return;
+    if (!isPlaying) return;
+
+    const id = window.setInterval(() => {
+      const v = videoRef.current;
+      if (!v || v.paused) return;
+      emitPartyHostPlayback('sync');
+    }, 4000);
+
+    return () => clearInterval(id);
+  }, [partyRole, bootState, isPlaying, emitPartyHostPlayback]);
 
   // Memoize computed values
   const isValidSrc = useMemo(() => src && src.trim() !== '', [src]);

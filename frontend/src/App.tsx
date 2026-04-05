@@ -36,6 +36,7 @@ import AdminAutomation from './pages/AdminAutomation';
 import AnimeDetail from './pages/AnimeDetail';
 import Watch from './pages/Watch';
 import WatchSlug from './pages/WatchSlug';
+import WatchPartyRoom from './pages/WatchPartyRoom';
 import Profile from './pages/Profile';
 import MyList from './pages/MyList';
 import DesktopAccess from './pages/DesktopAccess';
@@ -77,6 +78,7 @@ const App: React.FC = () => {
             <Route path="/anime/:id" element={<AnimeDetail />} />
             {/* Watch page - slug-based routing only */}
             <Route path="/watch/:animeSlug/:seasonNumber/:episodeNumber" element={<WatchSlug />} />
+            <Route path="/watch-party/:code" element={<WatchPartyRoom />} />
             {/* Backward compatibility: redirect old UUID-based URLs to slug format */}
             <Route path="/watch/:animeId" element={<Watch />} />
             <Route path="/watch/:animeId/:episodeId" element={<Watch />} />

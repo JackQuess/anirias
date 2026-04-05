@@ -10,6 +10,9 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const adminTimeout = searchParams.get('admin_timeout') === '1';
+  const returnUrlRaw = searchParams.get('returnUrl');
+  const returnUrl =
+    returnUrlRaw && returnUrlRaw.startsWith('/') && !returnUrlRaw.startsWith('//') ? returnUrlRaw : null;
   const { user, status } = useAuth();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,9 +35,9 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (status === 'AUTHENTICATED' && user) {
-      navigate('/');
+      navigate(returnUrl || '/');
     }
-  }, [user, status, navigate]);
+  }, [user, status, navigate, returnUrl]);
 
   useEffect(() => {
     const savedRemember = localStorage.getItem('anirias-remember-me');
