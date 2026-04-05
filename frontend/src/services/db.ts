@@ -3,6 +3,7 @@ import { supabase, hasSupabaseEnv } from './supabaseClient';
 import { getAdminToken } from '../utils/adminToken';
 import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry, SiteTrafficSummary } from '../types';
 import { getOrCreateVisitSessionKey } from '../utils/visitSession';
+import { getDisplayTitle } from '../utils/title';
 
 const checkEnv = () => {
   if (!hasSupabaseEnv || !supabase) return false;
@@ -127,6 +128,87 @@ const ensureProfileForCommentAuthor = async (userId: string | undefined) => {
     /* eşzamanlı kayıt veya RLS */
   }
 };
+
+/** DATE veya ISO; takvim sayfası için tek tip ISO */
+function normalizeEpisodeAirDateToIso(airDate: string): string {
+  const s = String(airDate).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T15:00:00.000Z`;
+  return s;
+}
+
+function resolvePublicCalendarStatusBadge(
+  airingIso: string,
+  isReleased: boolean,
+  nowTs: number
+): PublicCalendarEntry['statusBadge'] {
+  if (isReleased) return 'YAYINLANDI';
+  const airingTs = new Date(airingIso).getTime();
+  if (Number.isNaN(airingTs)) return 'YAKINDA';
+  if (airingTs - nowTs <= 24 * 60 * 60 * 1000) return 'BUGÜN';
+  return 'YAKINDA';
+}
+
+/** Backend airing_schedule boşken: episodes.air_date ile aynı aralık (getCalendarRange ile uyumlu UTC penceresi) */
+async function getPublicCalendarFromSupabaseEpisodes(
+  fromDateStr: string,
+  days: number
+): Promise<PublicCalendarEntry[]> {
+  if (!checkEnv() || !supabase) return [];
+
+  const from = new Date(`${fromDateStr}T00:00:00.000Z`);
+  if (Number.isNaN(from.getTime())) return [];
+  const to = new Date(from);
+  to.setUTCDate(to.getUTCDate() + days);
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  const nowTs = Date.now();
+
+  try {
+    const { data, error } = await supabase!
+      .from('episodes')
+      .select(
+        'id, anime_id, episode_number, air_date, status, seasons!inner(anime:animes(id, slug, title, cover_image))'
+      )
+      .gte('air_date', fromIso)
+      .lt('air_date', toIso)
+      .order('air_date', { ascending: true });
+
+    if (error) {
+      if (import.meta.env.DEV) console.warn('[getPublicCalendarFromSupabaseEpisodes]', error.message);
+      return [];
+    }
+    if (!data?.length) return [];
+
+    const out: PublicCalendarEntry[] = [];
+    for (const ep of data as any[]) {
+      const anime = ep.seasons?.anime;
+      const aid = ep.anime_id || anime?.id;
+      if (!aid || ep.air_date == null || ep.air_date === '') continue;
+
+      const airingIso = normalizeEpisodeAirDateToIso(String(ep.air_date));
+      const airingTs = new Date(airingIso).getTime();
+      const released =
+        String(ep.status || '').toLowerCase() === 'released' ||
+        (Number.isFinite(airingTs) && airingTs <= nowTs);
+
+      out.push({
+        animeId: String(aid),
+        slug: anime?.slug ?? null,
+        title: getDisplayTitle(anime?.title),
+        episodeNumber: Number(ep.episode_number) || 0,
+        airingAt: airingIso,
+        isReleased: released,
+        releasedAt: released ? airingIso : null,
+        coverImage: anime?.cover_image ?? null,
+        statusBadge: resolvePublicCalendarStatusBadge(airingIso, released, nowTs),
+      });
+    }
+    return out;
+  } catch (e: any) {
+    if (import.meta.env.DEV) console.warn('[getPublicCalendarFromSupabaseEpisodes]', e?.message || e);
+    return [];
+  }
+}
 
 export const db = {
   getActivePlan: async (userId: string): Promise<'free' | 'pro' | 'pro_max'> => {
@@ -1726,21 +1808,37 @@ export const db = {
   },
 
   getPublicCalendar: async (from?: string, days: number = 14): Promise<PublicCalendarEntry[]> => {
-    const apiBase = getOptionalApiBase();
-    if (!apiBase) return [];
     const dateFrom = from || new Date().toISOString().slice(0, 10);
-    const query = new URLSearchParams({ from: dateFrom, days: String(days) });
-    try {
-      const res = await fetch(`${apiBase}/api/calendar?${query.toString()}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
-      return Array.isArray(data) ? (data as PublicCalendarEntry[]) : [];
-    } catch {
-      return [];
+    const apiBase = getOptionalApiBase()?.replace(/\/+$/, '') || null;
+
+    let apiRows: PublicCalendarEntry[] | null = null;
+    if (apiBase) {
+      try {
+        const query = new URLSearchParams({ from: dateFrom, days: String(days) });
+        const res = await fetch(`${apiBase}/api/calendar?${query.toString()}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          apiRows = Array.isArray(data) ? (data as PublicCalendarEntry[]) : [];
+        }
+      } catch {
+        apiRows = null;
+      }
     }
+
+    if (apiRows !== null && apiRows.length > 0) {
+      return apiRows;
+    }
+
+    /** airing_schedule boş / senkron geciktiğinde: doğrudan bölüm air_date (Supabase, anon RLS) */
+    const fromSupabase = await getPublicCalendarFromSupabaseEpisodes(dateFrom, days);
+    if (fromSupabase.length > 0) {
+      return fromSupabase;
+    }
+
+    return apiRows ?? [];
   },
 
   getCalendarEpisodes: async (): Promise<(Episode & { anime: Anime | null })[]> => {

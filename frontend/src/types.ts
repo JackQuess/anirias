@@ -29,6 +29,8 @@ export interface Anime {
   score: number;
   year: number;
   genres: string[];
+  /** AniList format: TV, MOVIE, OVA, ONA, SPECIAL, TV_SHORT, MUSIC */
+  format?: string | null;
   tags?: string[];
   view_count: number;
   is_featured?: boolean; // New field for Hero Slider
