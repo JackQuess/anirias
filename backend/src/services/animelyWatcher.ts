@@ -16,6 +16,7 @@
 
 import { supabaseAdmin } from './supabaseAdmin.js';
 import { getAniListAiringSchedule } from './anilist.js';
+import { syncAiringScheduleForAnime } from './airingSchedule.js';
 import { notifyNewEpisodeAdded, notifySystemError } from './adminNotifications.js';
 
 interface AnimeToWatch {
@@ -127,6 +128,15 @@ async function checkAnimeForNewEpisodes(anime: AnimeToWatch): Promise<number> {
             if (created) {
               newEpisodesCreated++;
             }
+          }
+        }
+
+        if (newEpisodesCreated > 0) {
+          try {
+            await syncAiringScheduleForAnime(anime.id);
+          } catch (syncErr: unknown) {
+            const msg = syncErr instanceof Error ? syncErr.message : String(syncErr);
+            console.warn(`[AnimelyWatcher] syncAiringScheduleForAnime:`, msg);
           }
         }
 

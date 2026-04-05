@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, SortAsc, ChevronDown, Search, X } from 'lucide-react';
+import { Filter, SortAsc, ChevronDown } from 'lucide-react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import AnimeCard from '@/components/AnimeCard';
@@ -192,15 +192,6 @@ function animeMatchesYear(anime: Anime, preset: YearPreset): boolean {
   }
 }
 
-function animeMatchesQuery(anime: Anime, q: string): boolean {
-  const s = q.trim().toLowerCase();
-  if (!s) return true;
-  const romaji = anime.title?.romaji?.toLowerCase() ?? '';
-  const english = anime.title?.english?.toLowerCase() ?? '';
-  const slug = (anime.slug || '').toLowerCase();
-  return romaji.includes(s) || english.includes(s) || slug.includes(s);
-}
-
 const Browse: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -211,7 +202,6 @@ const Browse: React.FC = () => {
   const yearPreset = useMemo(() => parseYearPreset(searchParams.get('year')), [searchParams]);
   const minScore = useMemo(() => parseMinScore(searchParams.get('minScore')), [searchParams]);
 
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
@@ -222,28 +212,6 @@ const Browse: React.FC = () => {
   const yearRef = useRef<HTMLDivElement>(null);
   const scoreRef = useRef<HTMLDivElement>(null);
   const formatRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSearchQuery(searchParams.get('q') || '');
-  }, [searchParams]);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      const trimmed = searchQuery.trim();
-      const current = searchParams.get('q') || '';
-      if (trimmed === current) return;
-      setSearchParams(
-        (prev) => {
-          const n = new URLSearchParams(prev);
-          if (trimmed) n.set('q', trimmed);
-          else n.delete('q');
-          return n;
-        },
-        { replace: true }
-      );
-    }, 450);
-    return () => window.clearTimeout(t);
-  }, [searchQuery, searchParams, setSearchParams]);
 
   const patchParams = useCallback(
     (patch: Record<string, string | null | undefined>) => {
@@ -299,11 +267,8 @@ const Browse: React.FC = () => {
   const filteredItems = useMemo(() => {
     const list = rawList || [];
     const cy = new Date().getFullYear();
-    const qParam = (searchParams.get('q') || '').trim();
 
     return list.filter((anime: Anime) => {
-      if (!animeMatchesQuery(anime, qParam)) return false;
-
       if (selectedGenresEn.length > 0) {
         const any = selectedGenresEn.some((en) => animeMatchesEnglishGenre(anime.genres, en));
         if (!any) return false;
@@ -329,18 +294,16 @@ const Browse: React.FC = () => {
 
       return true;
     });
-  }, [rawList, selectedGenresEn, formatFilter, filterStatus, yearPreset, minScore, searchParams]);
+  }, [rawList, selectedGenresEn, formatFilter, filterStatus, yearPreset, minScore]);
 
   const hasActiveFilters =
     selectedGenresEn.length > 0 ||
     formatFilter !== 'ALL' ||
     filterStatus !== 'ALL' ||
     yearPreset !== 'all' ||
-    minScore > 0 ||
-    Boolean((searchParams.get('q') || '').trim());
+    minScore > 0;
 
   const clearFilters = () => {
-    setSearchQuery('');
     setSearchParams(new URLSearchParams(), { replace: true });
   };
 
@@ -382,29 +345,6 @@ const Browse: React.FC = () => {
 
       <div className="px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20">
         <div className="glass-panel p-4 sm:p-6 rounded-xl sm:rounded-2xl mb-4 sm:mb-6 border border-white/10 flex flex-col gap-4 sm:gap-5 shadow-2xl relative z-30">
-          <div className="relative w-full max-w-xl">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Anime ara (isim, İngilizce başlık, slug)…"
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/30 border border-white/10 text-sm text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              autoComplete="off"
-              enterKeyHint="search"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                aria-label="Aramayı temizle"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            ) : null}
-          </div>
-
           <div>
             <div className="flex items-center gap-2 w-full overflow-x-auto no-scrollbar pb-1 md:pb-0">
               {ZIP_GENRES.map(({ label, en }) => {
@@ -641,8 +581,7 @@ const Browse: React.FC = () => {
             </div>
             <h3 className="text-2xl font-bold mb-2">Sonuç bulunamadı</h3>
             <p className="text-muted max-w-md mb-6">
-              Arama veya filtreleri değiştirerek tekrar deneyin. Bağlantıyı paylaşmak için tarayıcı adres çubuğundaki URL’yi
-              kullanabilirsiniz.
+              Filtreleri değiştirerek tekrar deneyin. Paylaşılabilir link için adres çubuğundaki URL’yi kullanabilirsiniz.
             </p>
             {hasActiveFilters ? (
               <button

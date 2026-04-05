@@ -31,6 +31,7 @@ import {
   type SeasonRow,
 } from './supabaseAdmin.js';
 import { updateAnimeAdultMetadata } from '../utils/animeAdultDb.js';
+import { syncAiringScheduleForAnime } from './airingSchedule.js';
 import { notifyNewAnimeDetected, notifyImportSuccess, notifyImportWarning } from './adminNotifications.js';
 
 export interface HybridImportParams {
@@ -408,6 +409,16 @@ export async function hybridImportAnime(params: HybridImportParams): Promise<Hyb
 
     // STEP 5: Generate episodes for each season
     const episodesCreated = await generateEpisodes(animeId, seasons, anilistRanges, anilistId);
+
+    try {
+      const cal = await syncAiringScheduleForAnime(animeId);
+      if (cal.syncedRows > 0) {
+        console.log(`[hybridImport] Takvim senkronu: ${cal.syncedRows} satır (anime ${animeId})`);
+      }
+    } catch (calErr: unknown) {
+      const msg = calErr instanceof Error ? calErr.message : String(calErr);
+      console.warn('[hybridImport] syncAiringScheduleForAnime atlandı:', msg);
+    }
 
     // STEP 6: MAL validation (soft check)
     let malValidation;

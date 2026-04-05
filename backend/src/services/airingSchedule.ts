@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabaseAdmin.js';
 import { shouldCorrectAiringAt } from './airingCorrection.js';
+import { getAniListAiringSchedule } from './anilist.js';
 
 const ANILIST_API = 'https://graphql.anilist.co';
 const ANILIST_RELEASING_STATES = new Set(['RELEASING', 'NOT_YET_RELEASED']);
@@ -299,6 +300,136 @@ export async function syncAiringSchedule(): Promise<SyncResult> {
 
   await invalidateWeeklyCache();
   return { scannedAnime: animeList.length, syncedRows: upsertResult.syncedRows };
+}
+
+/**
+ * Tek anime: AniList `nextAiringEpisode` + `airingSchedule(notYetAired)` birleşimi → `airing_schedule` upsert,
+ * `episodes.air_date` yalnızca boşsa doldurulur. Hybrid import / yeni bölüm sonrası otomatik takvim.
+ */
+export async function syncAiringScheduleForAnime(
+  animeId: string
+): Promise<{ syncedRows: number; skipped?: string }> {
+  const { data: row, error } = await supabaseAdmin
+    .from('animes')
+    .select('id, anilist_id')
+    .eq('id', animeId)
+    .maybeSingle();
+
+  if (error || !row) {
+    return { syncedRows: 0, skipped: 'anime_not_found' };
+  }
+
+  const anilistId = Number((row as { anilist_id?: number | null }).anilist_id);
+  if (!Number.isInteger(anilistId) || anilistId <= 0) {
+    return { syncedRows: 0, skipped: 'no_anilist_id' };
+  }
+
+  let fetched: AniListMediaSchedule[] = [];
+  try {
+    fetched = await fetchAniListChunk([anilistId]);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn('[syncAiringScheduleForAnime] AniList chunk failed:', msg);
+    return { syncedRows: 0, skipped: 'anilist_fetch_failed' };
+  }
+
+  const media = fetched[0];
+  const episodeToUnix = new Map<number, number>();
+
+  if (media && ANILIST_RELEASING_STATES.has(String(media.status || '').toUpperCase())) {
+    const ne = media.nextAiringEpisode;
+    const ep = Number(ne?.episode || 0);
+    const at = Number(ne?.airingAt || 0);
+    if (ep > 0 && at > 0) {
+      episodeToUnix.set(ep, at);
+    }
+  }
+
+  const nodes = await getAniListAiringSchedule(anilistId);
+  for (const n of nodes) {
+    if (n.episode > 0 && n.airingAt > 0) {
+      episodeToUnix.set(n.episode, n.airingAt);
+    }
+  }
+
+  if (episodeToUnix.size === 0) {
+    await invalidateWeeklyCache();
+    return { syncedRows: 0, skipped: 'no_upcoming_episodes' };
+  }
+
+  const syncRows = Array.from(episodeToUnix.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([episode, airingAtUnix]) => ({
+      anime_id: animeId,
+      anilist_id: anilistId,
+      episode_number: episode,
+      airing_at: new Date(airingAtUnix * 1000).toISOString(),
+      airing_source: 'anilist',
+      last_synced_at: new Date().toISOString(),
+    }));
+
+  const epNums = syncRows.map((r) => r.episode_number);
+  const { data: existingRows, error: existingError } = await supabaseAdmin
+    .from('airing_schedule')
+    .select('anime_id, episode_number, is_released, released_at, imported_episode_id')
+    .eq('anime_id', animeId)
+    .in('episode_number', epNums);
+
+  if (existingError) {
+    throw new Error(`Failed to fetch existing schedule rows: ${existingError.message}`);
+  }
+
+  const keyByAnimeEpisode = new Map<
+    string,
+    { is_released: boolean; released_at: string | null; imported_episode_id: string | null }
+  >();
+  for (const er of existingRows || []) {
+    const e = er as {
+      anime_id: string;
+      episode_number: number;
+      is_released?: boolean;
+      released_at?: string | null;
+      imported_episode_id?: string | null;
+    };
+    keyByAnimeEpisode.set(`${e.anime_id}#${e.episode_number}`, {
+      is_released: Boolean(e.is_released),
+      released_at: e.released_at || null,
+      imported_episode_id: e.imported_episode_id || null,
+    });
+  }
+
+  const payload = syncRows.map((r) => {
+    const existing = keyByAnimeEpisode.get(`${r.anime_id}#${r.episode_number}`);
+    return {
+      ...r,
+      is_released: existing?.is_released ?? false,
+      released_at: existing?.released_at ?? null,
+      imported_episode_id: existing?.imported_episode_id ?? null,
+    };
+  });
+
+  const safePayload = await filterExistingAnimeRows(payload);
+  if (safePayload.length === 0) {
+    await invalidateWeeklyCache();
+    return { syncedRows: 0, skipped: 'payload_filtered' };
+  }
+
+  const upsertResult = await upsertScheduleRowsSafely(safePayload);
+  if (upsertResult.error) {
+    throw new Error(`Failed to upsert schedule rows: ${upsertResult.error.message}`);
+  }
+
+  for (const r of safePayload) {
+    await supabaseAdmin
+      .from('episodes')
+      .update({ air_date: r.airing_at, updated_at: new Date().toISOString() })
+      .eq('anime_id', animeId)
+      .eq('episode_number', r.episode_number)
+      .is('air_date', null);
+  }
+
+  await invalidateWeeklyCache();
+  return { syncedRows: upsertResult.syncedRows };
 }
 
 export async function markEpisodeReleased(params: {
