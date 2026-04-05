@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Play, Plus, Check, Share2, Subtitles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Play, Plus, Check, Share2, Subtitles, AlertTriangle } from 'lucide-react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { useAuth } from '@/services/auth';
@@ -13,12 +14,16 @@ import { translateGenre } from '@/utils/genreTranslations';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 
+const ADULT_GLOBAL_LS_KEY = 'anirias_adult_global_ack';
+
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, profile, setProfile } = useAuth();
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
+  const [adultGateDismissed, setAdultGateDismissed] = useState(false);
 
   const fetchAnime = useCallback(async () => {
     if (!id) return null;
@@ -106,6 +111,67 @@ const AnimeDetail: React.FC = () => {
     const entry = watchlist.find((w) => w.anime_id === animeId);
     setWatchlistStatus(entry ? entry.status : 'none');
   }, [watchlist, animeId]);
+
+  useEffect(() => {
+    if (animeLoading || !anime) return;
+    if (!anime.is_adult) {
+      setAdultGateDismissed(true);
+      return;
+    }
+    const profileOk = profile?.is_adult_confirmed === true;
+    let lsOk = false;
+    try {
+      lsOk = localStorage.getItem(ADULT_GLOBAL_LS_KEY) === '1';
+    } catch {
+      lsOk = false;
+    }
+    setAdultGateDismissed(profileOk || lsOk);
+  }, [animeLoading, anime?.id, anime?.is_adult, profile?.is_adult_confirmed]);
+
+  const showAdultGate = Boolean(!animeLoading && anime?.is_adult && !adultGateDismissed);
+
+  useEffect(() => {
+    if (!showAdultGate) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showAdultGate]);
+
+  useEffect(() => {
+    if (!showAdultGate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (typeof window !== 'undefined' && window.history.length > 1) navigate(-1);
+        else navigate('/');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showAdultGate, navigate]);
+
+  const handleAdultGateContinue = async () => {
+    try {
+      localStorage.setItem(ADULT_GLOBAL_LS_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    if (user?.id) {
+      try {
+        const updated = await db.updateProfile(user.id, { is_adult_confirmed: true });
+        setProfile(updated);
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[AnimeDetail] is_adult_confirmed kaydedilemedi (sütun/izin):', e);
+      }
+    }
+    setAdultGateDismissed(true);
+  };
+
+  const handleAdultGateLeave = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) navigate(-1);
+    else navigate('/');
+  };
 
   const titleString = anime ? getDisplayTitle(anime.title) : '';
   const slug = anime?.slug || anime?.id || '';
@@ -394,6 +460,57 @@ const AnimeDetail: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      {showAdultGate
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[10050] flex items-center justify-center p-4 sm:p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="adult-gate-title"
+            >
+              <div className="absolute inset-0 bg-black/88 backdrop-blur-md" aria-hidden />
+              <div className="relative w-full max-w-md rounded-2xl border border-white/12 bg-[#0f0f12] shadow-2xl p-6 sm:p-8">
+                <div className="flex items-start gap-3 mb-5">
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/35 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-6 h-6 text-amber-400" aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 id="adult-gate-title" className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      18+ içerik uyarısı
+                    </h2>
+                    <p className="text-white/45 text-[10px] font-bold uppercase tracking-widest mt-1">Yaş doğrulaması</p>
+                  </div>
+                </div>
+                <p className="text-white/75 text-sm leading-relaxed mb-3">
+                  Bu yapım yetişkinlere yönelik içerik barındırabilir. &quot;Devam et&quot; ile{' '}
+                  <span className="text-white font-semibold">18 yaşından büyük olduğunuzu</span> ve bu içeriği kendi seçiminizle
+                  görüntülediğinizi onaylamış olursunuz.
+                </p>
+                <p className="text-white/45 text-xs leading-relaxed mb-6">
+                  Onayınız bu tarayıcıda saklanır. Giriş yaptıysanız hesabınıza da kaydedilir; tüm +18 içeriklerde tekrar sormayız.
+                </p>
+                <div className="flex flex-col-reverse sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAdultGateLeave}
+                    className="flex-1 min-h-[44px] rounded-lg border border-white/20 text-white font-bold text-sm hover:bg-white/5 transition-colors"
+                  >
+                    Geri dön
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAdultGateContinue}
+                    className="flex-1 min-h-[44px] rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 transition-colors"
+                  >
+                    Devam et
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 };

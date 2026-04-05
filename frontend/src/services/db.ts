@@ -1400,6 +1400,7 @@ export const db = {
       if (updates.username !== undefined) safeUpdates.username = updates.username;
       if (updates.avatar_url !== undefined) safeUpdates.avatar_url = updates.avatar_url;
       if (updates.banner_url !== undefined) safeUpdates.banner_url = updates.banner_url;
+      if (updates.is_adult_confirmed !== undefined) safeUpdates.is_adult_confirmed = updates.is_adult_confirmed;
 
       safeUpdates.updated_at = new Date().toISOString();
 

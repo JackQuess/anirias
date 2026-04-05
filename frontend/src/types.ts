@@ -9,6 +9,8 @@ export interface Profile {
   banner_id?: string | null;
   avatar_url?: string;
   banner_url?: string;
+  /** 18+ içerik uyarısı bir kez onaylandı (Supabase profiles; cihazlar arası). */
+  is_adult_confirmed?: boolean | null;
 }
 
 export type ActivePlan = 'free' | 'pro' | 'pro_max';
