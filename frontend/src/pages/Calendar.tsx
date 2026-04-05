@@ -7,12 +7,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorState from '../components/ErrorState';
 import PageHero from '@/components/cinematic/PageHero';
 import type { PublicCalendarEntry } from '../types';
-
-/**
- * Genel yayın takvimi henüz herkese kapalı. `true` yapınca Bugün / Bu hafta / Yakında grid’i açılır.
- * Yönetim: /admin/calendar
- */
-const CALENDAR_PAGE_PUBLIC_LIVE = false;
+import { CALENDAR_PAGE_PUBLIC_LIVE } from '@/config/calendarPublic';
 
 function isSameLocalDay(a: Date, b: Date) {
   return (

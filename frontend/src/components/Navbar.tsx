@@ -8,6 +8,9 @@ import { Notification } from '../types';
 import { getAvatarSrc } from '@/utils/avatar';
 import { supabase } from '@/services/supabaseClient';
 import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
+import { CALENDAR_PAGE_PUBLIC_LIVE } from '@/config/calendarPublic';
+
+type NavItem = { label: string; path: string; comingSoon?: boolean };
 
 const Navbar: React.FC = () => {
   const { user, profile, activePlan, signOut } = useAuth();
@@ -123,11 +126,11 @@ const Navbar: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
   const isProMax = activePlan === 'pro_max';
 
-  const navLinks = [
+  const navLinks: NavItem[] = [
     { label: 'Ana Sayfa', path: '/' },
     { label: 'Katalog', path: '/browse' },
     { label: 'Yeni Bölümler', path: '/new-episodes' },
-    { label: 'Takvim', path: '/calendar' },
+    { label: 'Takvim', path: '/calendar', comingSoon: !CALENDAR_PAGE_PUBLIC_LIVE },
     { label: 'Listem', path: '/list' },
   ];
 
@@ -159,15 +162,31 @@ const Navbar: React.FC = () => {
           </Link>
 
           <div className="hidden lg:flex items-center gap-6 text-sm font-medium text-white/70">
-            {navLinks.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`transition-colors hover:text-white ${isActive(item.path) ? 'text-white font-bold' : ''}`}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {navLinks.map((item) =>
+              item.comingSoon ? (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`inline-flex items-center gap-2 transition-colors hover:text-white/95 ${
+                    isActive(item.path) ? 'text-white font-bold' : 'text-white/50'
+                  }`}
+                  title="Yakında — genel takvim hazırlanıyor"
+                >
+                  <span>{item.label}</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-white/60 border border-white/10">
+                    Yakında
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`transition-colors hover:text-white ${isActive(item.path) ? 'text-white font-bold' : ''}`}
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
           </div>
         </div>
 
@@ -370,15 +389,30 @@ const Navbar: React.FC = () => {
            </div>
            
            <div className="flex flex-col gap-4 sm:gap-6 flex-1 justify-center min-h-0">
-             {navLinks.map(item => (
-                <Link 
-                  key={item.path} 
-                  to={item.path} 
-                  className={`text-xl sm:text-2xl font-black uppercase tracking-tighter ${isActive(item.path) ? 'text-primary' : 'text-white/50'}`}
-                >
-                  {item.label}
-                </Link>
-             ))}
+             {navLinks.map((item) =>
+                item.comingSoon ? (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex flex-wrap items-center gap-2 text-xl sm:text-2xl font-black uppercase tracking-tighter ${
+                      isActive(item.path) ? 'text-primary' : 'text-white/45'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-white/10 text-white/55 border border-white/10">
+                      Yakında
+                    </span>
+                  </Link>
+                ) : (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`text-xl sm:text-2xl font-black uppercase tracking-tighter ${isActive(item.path) ? 'text-primary' : 'text-white/50'}`}
+                  >
+                    {item.label}
+                  </Link>
+                )
+             )}
              {user && (
                <Link
                  to={DESKTOP_ACCESS_PAGE}
