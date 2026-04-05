@@ -175,7 +175,7 @@ const Admin: React.FC = () => {
         
         {/* Main Graph Area (Server Load Simulation) */}
         <div className="xl:col-span-2 bg-app-surfaceElevated border border-white/5 p-4 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl relative overflow-hidden">
-           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+           <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 pointer-events-none" />
            <div className="flex items-center justify-between mb-6 lg:mb-10 relative z-10">
               <div>
                  <h3 className="text-base lg:text-xl font-black text-white uppercase tracking-tighter italic">SUNUCU <span className="text-brand-red">YÜKÜ</span></h3>

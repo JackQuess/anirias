@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 import { normalizeOrigin } from '../../utils/cors.js';
 import { getAniListMedia, deriveAdultRatingFromAniListMedia } from '../../services/anilist.js';
+import { updateAnimeAdultMetadata } from '../../utils/animeAdultDb.js';
 
 const router = Router();
 
@@ -256,29 +257,41 @@ router.post('/anilist/bind-season', async (req: Request, res: Response) => {
     try {
       const media = await getAniListMedia(anilist_media_id);
       if (media && season.anime_id) {
-        const { data: animeBefore } = await supabaseAdmin
+        type AdultRow = {
+          is_adult?: boolean | null;
+          rating?: string | null;
+          anilist_content_rating?: string | null;
+          anilist_id?: number | null;
+        };
+        let ab: AdultRow | null = null;
+        const rWide = await supabaseAdmin
           .from('animes')
-          .select('is_adult, rating, anilist_id')
+          .select('is_adult, rating, anilist_id, anilist_content_rating')
           .eq('id', season.anime_id)
           .maybeSingle();
-
-        const ab = animeBefore as { is_adult?: boolean | null; rating?: string | null; anilist_id?: number | null } | null;
-        const derived = deriveAdultRatingFromAniListMedia(media);
-        const is_adult = Boolean(ab?.is_adult) || derived.is_adult;
-        const rating = derived.is_adult ? derived.rating ?? ab?.rating ?? null : ab?.rating ?? null;
-
-        const animePatch: Record<string, unknown> = {
-          is_adult,
-          rating,
-          updated_at: new Date().toISOString(),
-        };
-        if (ab?.anilist_id == null || ab.anilist_id === undefined) {
-          animePatch.anilist_id = anilist_media_id;
+        if (!rWide.error) ab = rWide.data as AdultRow;
+        else if (/column|42703|does not exist/i.test(rWide.error.message || '')) {
+          const rNarrow = await supabaseAdmin
+            .from('animes')
+            .select('is_adult, rating, anilist_id')
+            .eq('id', season.anime_id)
+            .maybeSingle();
+          if (!rNarrow.error) ab = rNarrow.data as AdultRow;
         }
 
-        const { error: animeUpErr } = await supabaseAdmin.from('animes').update(animePatch).eq('id', season.anime_id);
-        if (animeUpErr) {
-          console.warn('[bindAniListSeason] Anime adult sync skipped:', animeUpErr.message);
+        const derived = deriveAdultRatingFromAniListMedia(media);
+        const is_adult = Boolean(ab?.is_adult) || derived.is_adult;
+        const prevLabel = ab?.anilist_content_rating ?? ab?.rating ?? null;
+        const contentLabel = derived.is_adult ? derived.rating ?? prevLabel : null;
+
+        const meta = await updateAnimeAdultMetadata(supabaseAdmin, season.anime_id, {
+          is_adult,
+          contentLabel: contentLabel ?? undefined,
+          anilistIdBackfill:
+            ab?.anilist_id == null || ab.anilist_id === undefined ? anilist_media_id : undefined,
+        });
+        if (!meta.ok) {
+          console.warn('[bindAniListSeason] Anime adult sync skipped:', meta.message);
         }
       }
     } catch (syncErr: any) {

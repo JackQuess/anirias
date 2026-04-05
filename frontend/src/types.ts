@@ -33,6 +33,8 @@ export interface Anime {
   view_count: number;
   is_featured?: boolean; // New field for Hero Slider
   is_adult?: boolean; // +18 age restriction flag
+  /** AniList content label when stored in dedicated column (migration). */
+  anilist_content_rating?: string | null;
   rating?: string | null; // AniList rating (e.g. "R18", "Rx", "PG-13")
   updated_at: string;
   created_at: string;

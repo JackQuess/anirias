@@ -6,7 +6,7 @@ const NotFound: React.FC = () => {
   return (
     <div className="min-h-screen bg-background font-inter flex flex-col items-center justify-center relative overflow-hidden">
       {/* Background Noise/Static Effect */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('/noise.svg')]" />
       
       {/* Glitch Circle */}
       <div className="absolute w-[500px] h-[500px] bg-primary/10 rounded-full blur-[150px] animate-pulse" />

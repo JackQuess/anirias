@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 import { normalizeOrigin } from '../../utils/cors.js';
 import { getAniListMedia, deriveAdultRatingFromAniListMedia } from '../../services/anilist.js';
+import { updateAnimeAdultMetadata } from '../../utils/animeAdultDb.js';
 
 const router = Router();
 
@@ -14,10 +15,16 @@ router.use((req, res, next) => {
   next();
 });
 
-type AnimePatchRow = { id: string; anilist_id?: number | null; is_adult?: boolean | null; rating?: string | null };
+type AnimeRowPatch = {
+  id: string;
+  anilist_id?: number | null;
+  is_adult?: boolean | null;
+  rating?: string | null;
+  anilist_content_rating?: string | null;
+};
 
 async function applyAniListAdultForAnime(
-  row: AnimePatchRow,
+  row: AnimeRowPatch,
   anilistMediaId: number,
   options: { backfillAnimeAnilistId?: boolean }
 ): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -34,23 +41,34 @@ async function applyAniListAdultForAnime(
   const derived = deriveAdultRatingFromAniListMedia(media);
   const prevAdult = Boolean(row.is_adult);
   const is_adult = prevAdult || derived.is_adult;
-  const rating = derived.is_adult ? derived.rating ?? row.rating ?? null : row.rating ?? null;
+  const prevLabel = row.anilist_content_rating ?? row.rating ?? null;
+  const contentLabel = derived.is_adult ? derived.rating ?? prevLabel : null;
 
-  const patch: Record<string, unknown> = {
+  return updateAnimeAdultMetadata(supabaseAdmin, row.id, {
     is_adult,
-    rating,
-    updated_at: new Date().toISOString(),
-  };
+    contentLabel: contentLabel ?? undefined,
+    anilistIdBackfill: options.backfillAnimeAnilistId ? aid : undefined,
+  });
+}
 
-  if (options.backfillAnimeAnilistId && (row.anilist_id == null || row.anilist_id === undefined)) {
-    patch.anilist_id = aid;
-  }
+async function fetchAnimeRowForPatch(animeId: string): Promise<{ data: AnimeRowPatch | null; error: string | null }> {
+  const q1 = await supabaseAdmin
+    .from('animes')
+    .select('id, anilist_id, is_adult, rating, anilist_content_rating')
+    .eq('id', animeId)
+    .maybeSingle();
+  if (!q1.error) return { data: (q1.data as AnimeRowPatch) ?? null, error: null };
+  let lastErr = q1.error.message;
+  if (!/column|42703|does not exist/i.test(lastErr || '')) return { data: null, error: lastErr };
 
-  const { error: upErr } = await supabaseAdmin.from('animes').update(patch).eq('id', row.id);
-  if (upErr) {
-    return { ok: false, message: upErr.message };
-  }
-  return { ok: true };
+  const q2 = await supabaseAdmin.from('animes').select('id, anilist_id, is_adult').eq('id', animeId).maybeSingle();
+  if (!q2.error) return { data: (q2.data as AnimeRowPatch) ?? null, error: null };
+  lastErr = q2.error.message;
+  if (!/column|42703|does not exist/i.test(lastErr || '')) return { data: null, error: lastErr };
+
+  const q3 = await supabaseAdmin.from('animes').select('id, anilist_id').eq('id', animeId).maybeSingle();
+  if (!q3.error) return { data: (q3.data as AnimeRowPatch) ?? null, error: null };
+  return { data: null, error: q3.error.message };
 }
 
 /**
@@ -117,15 +135,28 @@ async function buildSeasonFallbackCandidates(): Promise<{ anime_id: string; anil
   return out;
 }
 
+async function selectAnimesWithAnilistPage(offset: number, limit: number) {
+  const full = await supabaseAdmin
+    .from('animes')
+    .select('id, anilist_id, is_adult, rating, anilist_content_rating', { count: 'exact' })
+    .not('anilist_id', 'is', null)
+    .order('id', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  if (!full.error) return full;
+  if (/column|42703|does not exist/i.test(full.error.message || '')) {
+    return supabaseAdmin
+      .from('animes')
+      .select('id, anilist_id', { count: 'exact' })
+      .not('anilist_id', 'is', null)
+      .order('id', { ascending: true })
+      .range(offset, offset + limit - 1);
+  }
+  return full;
+}
+
 /**
  * POST /api/admin/sync-anilist-adult-flags
- *
- * Body:
- * - source: "anime" | "seasons" (default "anime")
- * - offset, limit (limit max 40)
- *
- * anime: animes.anilist_id dolu kayıtlar
- * seasons: anilist_id sadece sezonda olan animeler (en düşük sezon numarasındaki ID kullanılır; anime.anilist_id boşsa doldurulur)
  */
 router.post('/sync-anilist-adult-flags', async (req: Request, res: Response) => {
   const adminToken = req.header('x-admin-token');
@@ -151,11 +182,7 @@ router.post('/sync-anilist-adult-flags', async (req: Request, res: Response) => 
 
       for (const { anime_id, anilist_id } of batchPairs) {
         try {
-          const { data: row, error: fetchErr } = await supabaseAdmin
-            .from('animes')
-            .select('id, anilist_id, is_adult, rating')
-            .eq('id', anime_id)
-            .maybeSingle();
+          const { data: row, error: fetchErr } = await fetchAnimeRowForPatch(anime_id);
 
           if (fetchErr || !row) {
             batchErrors++;
@@ -163,11 +190,11 @@ router.post('/sync-anilist-adult-flags', async (req: Request, res: Response) => 
             continue;
           }
 
-          if ((row as any).anilist_id != null) {
+          if (row.anilist_id != null && row.anilist_id !== undefined) {
             continue;
           }
 
-          const result = await applyAniListAdultForAnime(row as AnimePatchRow, anilist_id, {
+          const result = await applyAniListAdultForAnime(row, anilist_id, {
             backfillAnimeAnilistId: true,
           });
 
@@ -201,18 +228,14 @@ router.post('/sync-anilist-adult-flags', async (req: Request, res: Response) => 
       });
     }
 
-    const { data: rows, error, count } = await supabaseAdmin
-      .from('animes')
-      .select('id, anilist_id, is_adult, rating', { count: 'exact' })
-      .not('anilist_id', 'is', null)
-      .order('created_at', { ascending: true })
-      .range(offset, offset + limit - 1);
+    const { data: rows, error, count } = await selectAnimesWithAnilistPage(offset, limit);
 
     if (error) {
       return res.status(500).json({
         success: false,
         error: 'Supabase query failed',
         details: error.message,
+        hint: 'Supabase SQL: supabase/sql/ensure_animes_is_adult.sql dosyasını çalıştırın.',
       });
     }
 
@@ -231,7 +254,7 @@ router.post('/sync-anilist-adult-flags', async (req: Request, res: Response) => 
       }
 
       try {
-        const result = await applyAniListAdultForAnime(row as AnimePatchRow, aid, {
+        const result = await applyAniListAdultForAnime(row as AnimeRowPatch, aid, {
           backfillAnimeAnilistId: false,
         });
         if (!result.ok) {
@@ -269,6 +292,7 @@ router.post('/sync-anilist-adult-flags', async (req: Request, res: Response) => 
     return res.status(500).json({
       success: false,
       error: err?.message || 'Sync failed',
+      hint: 'Logları kontrol edin; eksik sütun için supabase/sql/ensure_animes_is_adult.sql çalıştırın.',
     });
   }
 });

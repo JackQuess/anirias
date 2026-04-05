@@ -211,7 +211,7 @@ const AdminLayout: React.FC = () => {
             {sidebarOpen ? 'Gizle' : 'Aç'}
           </span>
         </button>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+        <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 pointer-events-none" />
         <div className="relative z-10 max-w-[1600px] mx-auto p-4 lg:p-8 xl:p-12">
           <Outlet />
         </div>

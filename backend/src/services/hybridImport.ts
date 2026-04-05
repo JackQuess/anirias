@@ -30,6 +30,7 @@ import {
   type AnimeRow,
   type SeasonRow,
 } from './supabaseAdmin.js';
+import { updateAnimeAdultMetadata } from '../utils/animeAdultDb.js';
 import { notifyNewAnimeDetected, notifyImportSuccess, notifyImportWarning } from './adminNotifications.js';
 
 export interface HybridImportParams {
@@ -53,6 +54,23 @@ export interface HybridImportResult {
   };
 }
 
+async function fetchAnimeRowByAnilistId(anilistId: number) {
+  const r1 = await supabaseAdmin
+    .from('animes')
+    .select('id, slug, is_adult, rating, anilist_content_rating')
+    .eq('anilist_id', anilistId)
+    .maybeSingle();
+  if (!r1.error) return r1.data;
+
+  const r2 = await supabaseAdmin
+    .from('animes')
+    .select('id, slug, is_adult, rating')
+    .eq('anilist_id', anilistId)
+    .maybeSingle();
+  if (!r2.error) return r2.data;
+  return null;
+}
+
 /**
  * STEP 1: Create or update anime in Supabase
  */
@@ -61,12 +79,7 @@ async function createOrUpdateAnime(
   malId?: number | null,
   animelySlug?: string | null
 ): Promise<string> {
-  // Check if anime exists by anilist_id
-  const { data: existing } = await supabaseAdmin
-    .from('animes')
-    .select('id, slug, is_adult, rating')
-    .eq('anilist_id', media.id)
-    .maybeSingle();
+  const existing = await fetchAnimeRowByAnilistId(media.id);
 
   if (existing?.id) {
     // Update existing anime
@@ -77,9 +90,12 @@ async function createOrUpdateAnime(
     const slug = animelySlug || existing.slug || generateSlug(title);
 
     const derived = deriveAdultRatingFromAniListMedia(media);
-    const ex = existing as { is_adult?: boolean | null; rating?: string | null };
-    const is_adult = Boolean(ex.is_adult) || derived.is_adult;
-    const rating = derived.is_adult ? derived.rating ?? ex.rating ?? null : ex.rating ?? null;
+    const ex = existing as {
+      is_adult?: boolean | null;
+      rating?: string | null;
+      anilist_content_rating?: string | null;
+    };
+    const prevLabel = ex.anilist_content_rating ?? ex.rating ?? null;
     
     const { error } = await supabaseAdmin
       .from('animes')
@@ -92,8 +108,6 @@ async function createOrUpdateAnime(
         year: media.seasonYear || null,
         genres: media.genres || [],
         format: media.format || null,
-        is_adult,
-        rating,
         // Note: mal_id column may not exist - check schema first
         // For now, we'll store it in a metadata field or skip if column doesn't exist
         slug: slug,
@@ -102,6 +116,14 @@ async function createOrUpdateAnime(
       .eq('id', existing.id);
 
     if (error) throw new Error(`Anime update failed: ${error.message}`);
+
+    const meta = await updateAnimeAdultMetadata(supabaseAdmin, existing.id, {
+      is_adult: Boolean(ex.is_adult) || derived.is_adult,
+      contentLabel: derived.is_adult ? derived.rating ?? prevLabel : null,
+    });
+    if (!meta.ok) {
+      console.warn(`[hybridImport] Adult metadata update: ${meta.message}`);
+    }
     
     // Ensure slug is set
     if (!existing.slug && slug) {
@@ -120,7 +142,7 @@ async function createOrUpdateAnime(
   const title = titleRomaji || titleEnglish || 'Unknown';
   const slug = animelySlug || generateSlug(title);
 
-  const { is_adult, rating } = deriveAdultRatingFromAniListMedia(media);
+  const derivedNew = deriveAdultRatingFromAniListMedia(media);
 
   const { data: newAnime, error } = await supabaseAdmin
     .from('animes')
@@ -133,8 +155,7 @@ async function createOrUpdateAnime(
       year: media.seasonYear || null,
       genres: media.genres || [],
       format: media.format || null,
-      is_adult,
-      rating,
+      is_adult: derivedNew.is_adult,
       anilist_id: media.id,
       // Note: mal_id may not exist in schema - stored separately if needed
       slug: slug,
@@ -147,6 +168,14 @@ async function createOrUpdateAnime(
 
   if (error || !newAnime) {
     throw new Error(`Anime creation failed: ${error?.message || 'Unknown error'}`);
+  }
+
+  const meta = await updateAnimeAdultMetadata(supabaseAdmin, newAnime.id, {
+    is_adult: derivedNew.is_adult,
+    contentLabel: derivedNew.rating,
+  });
+  if (!meta.ok) {
+    console.warn(`[hybridImport] New anime adult metadata: ${meta.message}`);
   }
 
   return newAnime.id;

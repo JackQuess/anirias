@@ -1588,11 +1588,29 @@ export const db = {
     try {
       const logs: ActivityLog[] = [];
 
-      const fetchComments = supabase!.from('comments').select('id, text, created_at, user_id, profiles(username)').order('created_at', { ascending: false }).limit(5);
+      const fetchComments = supabase!
+        .from('comments')
+        .select('id, text, created_at, user_id')
+        .order('created_at', { ascending: false })
+        .limit(5);
       const fetchEpisodes = supabase!.from('episodes').select('id, title, episode_number, updated_at, anime_id').order('updated_at', { ascending: false }).limit(5);
       const fetchAnimes = supabase!.from('animes').select('id, title, updated_at').order('updated_at', { ascending: false }).limit(3);
 
       const [cRes, eRes, aRes] = await Promise.all([fetchComments, fetchEpisodes, fetchAnimes]);
+
+      const commentUserIds = [...new Set((cRes.data || []).map((c: { user_id?: string }) => c.user_id).filter(Boolean))] as string[];
+      let usernameByUserId: Record<string, string> = {};
+      if (commentUserIds.length > 0) {
+        const { data: profRows, error: profErr } = await supabase!
+          .from('profiles')
+          .select('id, username')
+          .in('id', commentUserIds);
+        if (!profErr && profRows) {
+          usernameByUserId = Object.fromEntries(
+            profRows.map((p: { id: string; username: string | null }) => [p.id, p.username || 'Kullanıcı'])
+          );
+        }
+      }
 
       if (!cRes.error && cRes.data) {
         cRes.data.forEach((c: any) => {
@@ -1600,7 +1618,7 @@ export const db = {
             id: `c-${c.id}`,
             action: 'Yeni Yorum',
             target: (c.text || '').slice(0, 80) || 'Yorum',
-            user: c.profiles?.username || 'Kullanıcı',
+            user: (c.user_id && usernameByUserId[c.user_id]) || 'Kullanıcı',
             created_at: c.created_at
           });
         });
