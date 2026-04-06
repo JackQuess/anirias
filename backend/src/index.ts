@@ -24,6 +24,7 @@ import watchPageRouter from './routes/watchPage.js';
 import watchPartyRouter from './routes/watchParty.js';
 import calendarRouter from './routes/calendar.js';
 import calendarSyncRouter from './routes/admin/calendarSync.js';
+import episodeSynopsisRouter from './routes/episodeSynopsis.js';
 import syncAnilistAdultFlagsRouter from './routes/admin/syncAnilistAdultFlags.js';
 import devicesRouter from './routes/devices.js';
 import revenuecatWebhookRouter from './routes/revenuecatWebhook.js';
@@ -135,6 +136,7 @@ app.use('/api/anime', animeRouter);
 app.use('/api/watch', watchPageRouter);
 app.use('/api/watch-party', watchPartyRouter);
 app.use('/api', calendarRouter);
+app.use('/api', episodeSynopsisRouter);
 app.use('/api', devicesRouter);
 app.use('/api/revenuecat', revenuecatWebhookRouter);
 

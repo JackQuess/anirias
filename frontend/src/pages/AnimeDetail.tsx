@@ -16,6 +16,12 @@ import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 
 const ADULT_GLOBAL_LS_KEY = 'anirias_adult_global_ack';
 
+const getApiBase = (): string | null => {
+  const apiBase = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL;
+  if (!apiBase || typeof apiBase !== 'string' || !apiBase.trim()) return null;
+  return apiBase.replace(/\/+$/, '');
+};
+
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -24,6 +30,8 @@ const AnimeDetail: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
   const [adultGateDismissed, setAdultGateDismissed] = useState(false);
+  /** AniList/MAL (Jikan) bölüm özetleri — anilist_id varsa backend doldurur */
+  const [episodeSynopses, setEpisodeSynopses] = useState<Record<number, string>>({});
 
   const fetchAnime = useCallback(async () => {
     if (!id) return null;
@@ -68,6 +76,39 @@ const AnimeDetail: React.FC = () => {
   const { data: allEpisodes, loading: episodesLoading } = useLoad(fetchEpisodesWithId, [animeId]);
   const { data: similarAnimes } = useLoad(fetchSimilarWithId, [animeId]);
   const { data: watchlist } = useLoad(fetchWatchlist, [user?.id]);
+
+  useEffect(() => {
+    const aid = anime?.anilist_id;
+    if (aid == null || !Number.isFinite(Number(aid))) {
+      setEpisodeSynopses({});
+      return;
+    }
+    const base = getApiBase();
+    if (!base) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${base}/api/meta/episode-synopses?anilistId=${Number(aid)}`);
+        if (!res.ok) return;
+        const json = (await res.json()) as { synopses?: Record<string, string> };
+        const raw = json.synopses;
+        if (!raw || typeof raw !== 'object' || cancelled) return;
+        const mapped: Record<number, string> = {};
+        Object.entries(raw).forEach(([k, v]) => {
+          const n = parseInt(k, 10);
+          if (Number.isFinite(n) && typeof v === 'string' && v.trim()) mapped[n] = v.trim();
+        });
+        setEpisodeSynopses(mapped);
+      } catch {
+        /* ağ / CORS: sessiz */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [anime?.anilist_id]);
 
   const episodesBySeason = React.useMemo(() => {
     if (!allEpisodes?.length) return {};
@@ -341,6 +382,7 @@ const AnimeDetail: React.FC = () => {
                 const playable = episodeHasPlayableVideo(ep);
                 const blurb =
                   ep.short_note?.replace(/<[^>]*>/g, '') ||
+                  episodeSynopses[epNum]?.replace(/<[^>]*>/g, '') ||
                   'Bu bölümde hikâye ilerliyor ve karakterler yeni gelişmelerle karşılaşıyor.';
                 const rowClass =
                   'flex items-center gap-4 p-4 rounded-lg border transition-colors ' +

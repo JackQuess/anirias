@@ -385,6 +385,37 @@ export function detectSeasonRanges(media: AniListMedia, allRelated: AniListMedia
 /**
  * Get airing schedule for an anime from AniList
  */
+/** AniList: MAL eşlemesi + yayın sitelerinden kısa bölüm başlıkları (özet yok) */
+const EPISODE_STREAMING_QUERY = `
+query ($id: Int!) {
+  Media(id: $id, type: ANIME) {
+    idMal
+    streamingEpisodes {
+      title
+    }
+  }
+}
+`;
+
+export async function getAniListStreamingEpisodeMeta(anilistId: number): Promise<{
+  idMal: number | null;
+  streamingEpisodeTitles: string[];
+}> {
+  try {
+    const json = await postAniList(EPISODE_STREAMING_QUERY, { id: anilistId });
+    const m = json.data?.Media;
+    if (!m) return { idMal: null, streamingEpisodeTitles: [] };
+    const titles = (m.streamingEpisodes || [])
+      .map((x: { title?: string | null }) => String(x?.title || '').trim())
+      .filter(Boolean);
+    const idMal = m.idMal != null && Number.isFinite(Number(m.idMal)) ? Number(m.idMal) : null;
+    return { idMal, streamingEpisodeTitles: titles };
+  } catch (error: any) {
+    console.error('[AniList] Streaming episode meta error:', error);
+    return { idMal: null, streamingEpisodeTitles: [] };
+  }
+}
+
 export async function getAniListAiringSchedule(anilistId: number): Promise<AniListAiringSchedule[]> {
   try {
     const json = await postAniList(AIRING_SCHEDULE_QUERY, { id: anilistId });
