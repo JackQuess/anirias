@@ -587,7 +587,8 @@ const WatchSlug: React.FC = () => {
   const fallbackPoster = '/banners/hsdxd_rias_banner.webp';
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
-  const initialTime = savedProgress && savedProgress.progress_seconds > 0 ? savedProgress.progress_seconds : 0;
+  const rawProg = savedProgress ? Number(savedProgress.progress_seconds) : 0;
+  const initialTime = rawProg > 0 && Number.isFinite(rawProg) ? rawProg : 0;
 
   const subtitleFiles = episode.subtitle_tracks?.length
     ? episode.subtitle_tracks.map((t) => ({

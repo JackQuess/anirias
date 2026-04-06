@@ -45,6 +45,7 @@ import Legal from './pages/Legal';
 import AuthCallback from './pages/AuthCallback';
 import UpdatePassword from './pages/UpdatePassword';
 import SearchPage from './pages/Search';
+import Apps from './pages/Apps';
 import { DESKTOP_ACCESS_PAGE } from './config/desktop';
 
 const App: React.FC = () => {
@@ -84,6 +85,7 @@ const App: React.FC = () => {
             <Route path="/watch/:animeId/:episodeId" element={<Watch />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/list" element={<MyList />} />
+            <Route path="/uygulamalar" element={<Apps />} />
             <Route path={DESKTOP_ACCESS_PAGE} element={<DesktopAccess />} />
             
             {/* Legal Pages */}

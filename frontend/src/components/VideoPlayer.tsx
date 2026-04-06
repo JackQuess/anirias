@@ -171,7 +171,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showNextEpisodeOverlay, setShowNextEpisodeOverlay] = useState(false);
   const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(10);
   const nextEpisodeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [showResumeCard, setShowResumeCard] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [videoReadyState, setVideoReadyState] = useState<number>(0); // Track video.readyState for loading optimization
@@ -181,8 +180,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Persistent flags (useRef to prevent re-triggering)
   const durationSetRef = useRef(false);
   const lastTimeUpdateRef = useRef(0);
-  const resumeCardShownRef = useRef(false);
-  const resumeCardTriggeredRef = useRef(false);
+  /** Aynı kaynak + initialTime için tek seferlik seek (geç gelen ilerleme / READY sırası) */
+  const resumeSeekAppliedKeyRef = useRef<string | null>(null);
   const previousSrcRef = useRef<string>(''); // Track src changes for smooth episode switching
   const isEpisodeSwitchingRef = useRef(false); // Prevent state reset during episode switch
   const listenersAddedRef = useRef(false); // Track if event listeners are already added
@@ -336,7 +335,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const onNextEpisodeRef = useRef(onNextEpisode);
   const onPlayerReadyRef = useRef(onPlayerReady);
   const hasNextEpisodeRef = useRef(hasNextEpisode);
-  const initialTimeRef = useRef(initialTime);
   const durationRef = useRef(duration);
 
   useEffect(() => {
@@ -346,9 +344,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onNextEpisodeRef.current = onNextEpisode;
     onPlayerReadyRef.current = onPlayerReady;
     hasNextEpisodeRef.current = hasNextEpisode;
-    initialTimeRef.current = initialTime;
     durationRef.current = duration;
-  }, [onTimeUpdate, onEnded, onError, onNextEpisode, onPlayerReady, hasNextEpisode, initialTime, duration]);
+  }, [onTimeUpdate, onEnded, onError, onNextEpisode, onPlayerReady, hasNextEpisode, duration]);
 
   // Auto-hide controls after 2 seconds
   const showControlsTemporary = useCallback(() => {
@@ -402,16 +399,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     const videoDuration = currentVideo.duration || durationRef.current || 0;
     onTimeUpdateRef.current?.(time, videoDuration);
-    
-    // Show resume card 90 seconds before end (only once)
-    if (initialTimeRef.current > 0 && !resumeCardShownRef.current && videoDuration > 0) {
-      const remaining = videoDuration - time;
-      if (remaining <= 90 && remaining > 0) {
-        resumeCardShownRef.current = true;
-        setShowResumeCard(true);
-      }
-    }
-    
+
     // Show next episode overlay 10 seconds before end
     if (hasNextEpisodeRef.current && onNextEpisodeRef.current && videoDuration > 0) {
       const remaining = videoDuration - time;
@@ -786,8 +774,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setErrorMessage(null); // Clear any previous error
       durationSetRef.current = false;
       lastTimeUpdateRef.current = 0;
-      resumeCardShownRef.current = false;
-      resumeCardTriggeredRef.current = false;
+      resumeSeekAppliedKeyRef.current = null;
       setShowNextEpisodeOverlay(false);
       setIntroSkipped(false);
       setSubtitlesMenuOpen(false);
@@ -939,6 +926,53 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // HLS instance is reused for episode switching
     };
   }, [src]); // Only depend on src - callbacks are stored in refs
+
+  // Kayıtlı konumdan devam: İzlemeye devam / geç yüklenen watch_progress için otomatik seek
+  useEffect(() => {
+    if (partyRole === 'viewer') return;
+    if (!src?.trim() || initialTime <= 0) return;
+    if (bootState !== 'READY') return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const key = `${src}|${initialTime}`;
+    if (resumeSeekAppliedKeyRef.current === key) return;
+
+    const applyResumeSeek = (): boolean => {
+      const dur = video.duration;
+      if (!dur || !isFinite(dur) || dur <= 0) return false;
+
+      let t = initialTime;
+      if (t >= dur * 0.98) {
+        t = 0;
+      } else {
+        t = Math.min(Math.max(0, t), dur - 0.25);
+      }
+
+      try {
+        video.currentTime = t;
+      } catch {
+        return false;
+      }
+      setCurrentTime(t);
+      lastTimeUpdateRef.current = t;
+      onSeek?.(t);
+      resumeSeekAppliedKeyRef.current = key;
+      return true;
+    };
+
+    if (applyResumeSeek()) return;
+
+    const onMeta = () => {
+      if (resumeSeekAppliedKeyRef.current === key) return;
+      if (applyResumeSeek()) {
+        video.removeEventListener('loadedmetadata', onMeta);
+      }
+    };
+    video.addEventListener('loadedmetadata', onMeta);
+    return () => video.removeEventListener('loadedmetadata', onMeta);
+  }, [src, initialTime, bootState, partyRole, onSeek]);
 
   // CRITICAL: Cleanup on component unmount - MUST stop audio completely
   useEffect(() => {
@@ -1401,72 +1435,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     partyRole,
     partyRemote?.isPlaying,
   ]);
-
-  const handleResume = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || initialTime <= 0 || bootState !== 'READY' || resumeCardTriggeredRef.current) return;
-    
-    resumeCardTriggeredRef.current = true;
-    setShowResumeCard(false);
-    
-    const seekAndPlay = () => {
-      if (!video) return;
-      
-      if (video.readyState < 2) {
-        const checkReady = () => {
-          if (video && video.readyState >= 2) {
-            video.currentTime = initialTime;
-            setCurrentTime(initialTime);
-            lastTimeUpdateRef.current = initialTime;
-            onSeek?.(initialTime);
-            
-            const playPromise = video.play();
-            if (playPromise !== undefined) {
-              playPromise
-                .then(() => {
-                  setIsPlaying(true);
-                  showControlsTemporary();
-                })
-                .catch((error) => {
-                  if (error.name !== 'AbortError' && import.meta.env.DEV) {
-                    console.warn('[VideoPlayer] Resume play error:', error);
-                  }
-                });
-            }
-          } else if (video) {
-            setTimeout(checkReady, 100);
-          }
-        };
-        checkReady();
-      } else {
-        video.currentTime = initialTime;
-        setCurrentTime(initialTime);
-        lastTimeUpdateRef.current = initialTime;
-        onSeek?.(initialTime);
-        
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              setIsPlaying(true);
-              showControlsTemporary();
-            })
-            .catch((error) => {
-              if (error.name !== 'AbortError' && import.meta.env.DEV) {
-                console.warn('[VideoPlayer] Resume play error:', error);
-              }
-            });
-        }
-      }
-    };
-    
-    seekAndPlay();
-  }, [bootState, initialTime, onSeek, showControlsTemporary]);
-
-  const handleResumeCancel = useCallback(() => {
-    resumeCardTriggeredRef.current = true;
-    setShowResumeCard(false);
-  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1945,45 +1913,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             />
           ))}
         </video>
-      )}
-
-      {/* Resume Watching Card */}
-      {showResumeCard && initialTime > 0 && bootState === 'READY' && (
-        <div
-          className={`absolute inset-0 z-50 flex items-center justify-center ${
-            isMobile ? 'bg-black/95' : 'bg-black/80'
-          } backdrop-blur-sm transition-opacity duration-300`}
-        >
-          <div
-            className={`bg-black/90 backdrop-blur-md rounded-lg border border-white/20 shadow-2xl ${
-              isMobile 
-                ? 'w-full mx-4 p-6' 
-                : 'min-w-[320px] p-6'
-            }`}
-          >
-            <div className="text-white mb-4">
-              <p className="text-lg font-semibold mb-2">İzlemeye Devam Et</p>
-              <p className="text-sm text-white/70">
-                {formatTime(initialTime)} konumundan devam et
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleResume}
-                className="flex-1 bg-[#e50914] hover:bg-[#b20710] text-white px-4 py-3 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <Play size={16} strokeWidth={2.5} />
-                <span>Devam Et</span>
-              </button>
-              <button
-                onClick={handleResumeCancel}
-                className="px-4 py-3 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors text-sm font-semibold"
-              >
-                Baştan Başla
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Üst bar — zip (2) / prod: gradient, geri, başlık, alt satır */}
