@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
+import { useLoad } from '@/services/useLoad';
+import { db } from '@/services/db';
 
 /**
  * Welcome Modal - Sadece ilk girişte gösterilir
@@ -8,9 +10,19 @@ import { useLocation } from 'react-router-dom';
  */
 const WelcomeModal: React.FC = () => {
   const location = useLocation();
+  const { data: maintenance } = useLoad(() => db.getSiteSetting('maintenance'));
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
+    const maintenanceOn =
+      maintenance &&
+      typeof maintenance === 'object' &&
+      (maintenance as { enabled?: boolean }).enabled === true;
+    if (maintenanceOn) {
+      setIsOpen(false);
+      return;
+    }
+
     // Admin panel'de açılmasın
     if (location.pathname.startsWith('/admin')) {
       return;
@@ -45,7 +57,7 @@ const WelcomeModal: React.FC = () => {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [location.pathname]);
+  }, [location.pathname, maintenance]);
 
   const handleClose = () => {
     setIsOpen(false);

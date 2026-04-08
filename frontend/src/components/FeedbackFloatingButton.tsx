@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useLoad } from '@/services/useLoad';
+import { db } from '@/services/db';
 
 /**
  * Feedback Floating Button - Sağ alt köşe
@@ -7,9 +9,19 @@ import { useLocation } from 'react-router-dom';
  */
 const FeedbackFloatingButton: React.FC = () => {
   const location = useLocation();
+  const { data: maintenance } = useLoad(() => db.getSiteSetting('maintenance'));
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
+    const maintenanceOn =
+      maintenance &&
+      typeof maintenance === 'object' &&
+      (maintenance as { enabled?: boolean }).enabled === true;
+    if (maintenanceOn && !location.pathname.startsWith('/admin')) {
+      setIsVisible(false);
+      return;
+    }
+
     // Admin panel'de gösterilmesin
     if (location.pathname.startsWith('/admin')) {
       setIsVisible(false);
@@ -43,7 +55,7 @@ const FeedbackFloatingButton: React.FC = () => {
 
     // Diğer tüm durumlarda göster
     setIsVisible(true);
-  }, [location.pathname]);
+  }, [location.pathname, maintenance]);
 
   const handleClick = () => {
     // Feedback card'ı aç

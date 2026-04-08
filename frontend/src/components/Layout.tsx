@@ -8,8 +8,24 @@ import BackendNotConfiguredBanner from './BackendNotConfiguredBanner';
 import { hasSupabaseEnv } from '@/services/supabaseClient';
 import MascotLayer from './decorative/MascotLayer';
 import { MatchScoreProvider } from '@/context/MatchScoreContext';
+import { useLoad } from '@/services/useLoad';
+import { db } from '@/services/db';
+import MaintenancePage from './MaintenancePage';
 
 const Layout: React.FC = () => {
+  const { data: maintenance, loading } = useLoad(() => db.getSiteSetting('maintenance'));
+  const maintenanceOn =
+    hasSupabaseEnv &&
+    !loading &&
+    maintenance &&
+    typeof maintenance === 'object' &&
+    (maintenance as { enabled?: boolean }).enabled === true;
+
+  if (maintenanceOn) {
+    const msg = (maintenance as { message?: string }).message;
+    return <MaintenancePage message={typeof msg === 'string' ? msg : undefined} />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <ScrollToTop />

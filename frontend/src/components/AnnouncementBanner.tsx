@@ -4,6 +4,7 @@ import { db } from '@/services/db';
 import { Announcement } from '@/types';
 
 const AnnouncementBanner: React.FC = () => {
+  const { data: maintenance } = useLoad(() => db.getSiteSetting('maintenance'));
   const { data: announcement } = useLoad(() => db.getActiveAnnouncement());
   const [isDismissed, setIsDismissed] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -30,7 +31,12 @@ const AnnouncementBanner: React.FC = () => {
     }
   };
 
-  if (!announcement || isDismissed) return null;
+  const maintenanceOn =
+    maintenance &&
+    typeof maintenance === 'object' &&
+    (maintenance as { enabled?: boolean }).enabled === true;
+
+  if (maintenanceOn || !announcement || isDismissed) return null;
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[300] bg-gradient-to-r from-brand-red/90 to-brand-red/80 backdrop-blur-md border-b border-brand-red/50 shadow-lg">

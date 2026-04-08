@@ -526,6 +526,10 @@ INSERT INTO public.site_settings (key, value)
 VALUES ('mascots', '{"enabled":true,"rias":true,"lightning":true,"light":true,"angel":true}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+INSERT INTO public.site_settings (key, value)
+VALUES ('maintenance', '{"enabled":false,"message":""}'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
 -- Auth'da kayitli ama profiles'da olmayan kullanicilar icin profil olustur
 INSERT INTO public.profiles (id, username, role, avatar_url, created_at)
 SELECT
