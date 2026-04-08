@@ -7,6 +7,7 @@ import { db } from '@/services/db';
 import { Notification } from '../types';
 import { getAvatarSrc } from '@/utils/avatar';
 import { supabase } from '@/services/supabaseClient';
+import { scheduleRemoveChannel } from '@/utils/supabaseRealtime';
 import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 import { CALENDAR_PAGE_PUBLIC_LIVE } from '@/config/calendarPublic';
 
@@ -78,7 +79,7 @@ const Navbar: React.FC = () => {
     if (!supabase) return;
 
     const channel = supabase
-      .channel('notifications')
+      .channel(`notifications:${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -100,9 +101,7 @@ const Navbar: React.FC = () => {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return scheduleRemoveChannel(supabase, channel);
   }, [user?.id]);
 
   useEffect(() => {

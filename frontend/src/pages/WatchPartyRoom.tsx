@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import VideoPlayer from '@/components/VideoPlayer';
 import { useAuth } from '@/services/auth';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
+import { scheduleRemoveChannel } from '@/utils/supabaseRealtime';
 import {
   endWatchParty,
   getWatchPartyRoom,
@@ -156,9 +157,7 @@ const WatchPartyRoom: React.FC = () => {
         }
       });
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    return scheduleRemoveChannel(supabase, channel);
   }, [room?.id, refreshRoomSnapshot]);
 
   useEffect(() => {

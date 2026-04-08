@@ -61,6 +61,11 @@ export const supabase: SupabaseClient | null = hasSupabaseEnv
           storage: window.localStorage,
         }),
       },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
     })
   : null;
 
