@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, AlertCircle, Star, LayoutDashboard } from 'lucide-react';
 import { supabase, hasSupabaseEnv } from '@/services/supabaseClient';
 import { useAuth } from '@/services/auth';
+import { db } from '@/services/db';
+import { fetchProfile } from '@/services/authHelpers';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -150,7 +152,25 @@ const Login: React.FC = () => {
           localStorage.setItem('anirias-remember-me', '0');
           localStorage.removeItem('anirias-remember-identifier');
         }
-        navigate('/');
+        let nextPath = returnUrl || '/';
+        if (!returnUrl) {
+          try {
+            const maint = await db.getSiteSetting('maintenance');
+            const maintOn =
+              maint &&
+              typeof maint === 'object' &&
+              (maint as { enabled?: boolean }).enabled === true;
+            if (maintOn) {
+              const prof = await fetchProfile(data.user.id);
+              if (prof?.role === 'admin') {
+                nextPath = '/admin';
+              }
+            }
+          } catch {
+            /* sessiz — ana sayfaya düş */
+          }
+        }
+        navigate(nextPath);
       }
     } catch (err: any) {
       if (err.message?.includes('Invalid login credentials') ||

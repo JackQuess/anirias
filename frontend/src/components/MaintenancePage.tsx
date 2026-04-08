@@ -33,7 +33,7 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ message }) => {
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            to="/login"
+            to="/login?returnUrl=/admin"
             className="inline-flex items-center justify-center px-8 py-3 rounded-xl bg-brand-red text-white text-xs font-black uppercase tracking-widest hover:bg-brand-red/90 transition-colors"
           >
             Giriş Yap
