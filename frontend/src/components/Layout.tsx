@@ -11,8 +11,10 @@ import { MatchScoreProvider } from '@/context/MatchScoreContext';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import MaintenancePage from './MaintenancePage';
+import { useAuth } from '@/services/auth';
 
 const Layout: React.FC = () => {
+  const { user, profile, status } = useAuth();
   const { data: maintenance, loading } = useLoad(() => db.getSiteSetting('maintenance'));
   const maintenanceOn =
     hasSupabaseEnv &&
@@ -21,7 +23,20 @@ const Layout: React.FC = () => {
     typeof maintenance === 'object' &&
     (maintenance as { enabled?: boolean }).enabled === true;
 
-  if (maintenanceOn) {
+  const isAdmin = profile?.role === 'admin';
+  /** Bakım yalnızca admin olmayanlara; admin siteyi normal kullanır */
+  const showMaintenanceForUser = maintenanceOn && !isAdmin;
+
+  if (showMaintenanceForUser && user && status === 'AUTHENTICATED' && profile === null) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center font-inter text-white px-4">
+        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-xs font-black uppercase tracking-widest text-gray-500">Yükleniyor…</p>
+      </div>
+    );
+  }
+
+  if (showMaintenanceForUser) {
     const msg = (maintenance as { message?: string }).message;
     return <MaintenancePage message={typeof msg === 'string' ? msg : undefined} />;
   }
