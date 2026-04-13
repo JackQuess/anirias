@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
+import { PRIVACY_POLICY_LAST_UPDATED_TR } from '@/config/site';
 
 const Legal: React.FC = () => {
   const location = useLocation();
@@ -24,12 +24,79 @@ const Legal: React.FC = () => {
       subtitle: 'VERİ POLİTİKASI',
       body: (
         <>
-          <p className="mb-6">Gizliliğiniz bizim için önemlidir. Bu Gizlilik Politikası, Anirias platformunu kullanırken verilerinizin nasıl toplandığını, kullanıldığını ve korunduğunu açıklar.</p>
-          <ul className="list-disc list-inside space-y-4 text-gray-400 ml-4">
-            <li><strong className="text-white">Veri Toplama:</strong> Hesap oluştururken sağladığınız e-posta ve kullanıcı adı gibi temel bilgileri saklarız.</li>
-            <li><strong className="text-white">Çerezler:</strong> İzleme deneyiminizi kişiselleştirmek ve oturumunuzu açık tutmak için çerezler kullanırız.</li>
-            <li><strong className="text-white">Güvenlik:</strong> Verileriniz endüstri standardı şifreleme yöntemleriyle korunmaktadır. Asla üçüncü taraflarla izniniz olmadan paylaşılmaz.</li>
+          <p className="mb-6 text-gray-300">
+            Bu metin, ANIRIAS web ve uygulama deneyiminde hangi verilerin işlendiğini, hangi amaçlarla kullanıldığını ve haklarınızı özetler.
+            Hizmeti kullanmaya devam ederek, aşağıdaki ilkeler çerçevesinde veri işlemeyi kabul etmiş sayılırsınız. Ayrıntılı talepler için{' '}
+            <Link to="/iletisim" className="text-primary underline-offset-4 hover:underline">
+              iletişim
+            </Link>{' '}
+            kanalını kullanabilirsiniz.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">KAPSAM</h3>
+          <p className="mb-6">
+            Politika; anirias.com üzerinden erişilen site, oturum açma ve profil özellikleri ile bağlantılı istemci uygulamaları (mobil, TV, masaüstü)
+            kapsamındaki kişisel veri işlemlerini hedefler. Üçüncü taraf sitelere veya mağaza politikalarına (ör. Google Play, Apple App Store) tabi
+            süreçler, ilgili platformların koşullarına göre ayrıca yürür.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">TOPLANAN VERİLER</h3>
+          <ul className="list-disc list-inside space-y-3 text-gray-400 ml-2 md:ml-4 mb-6">
+            <li>
+              <strong className="text-white">Hesap bilgileri:</strong> kayıt veya giriş sırasında verdiğiniz e-posta adresi, kullanıcı adı ve profil
+              tercihleri (ör. görünen ad, avatar).
+            </li>
+            <li>
+              <strong className="text-white">Kullanım ve içerik etkileşimi:</strong> izleme geçmişi, listeler, favoriler ve uygulama içi tercihler; hizmeti
+              kişiselleştirmek ve güvenliği denetlemek için işlenebilir.
+            </li>
+            <li>
+              <strong className="text-white">Teknik ve oturum verileri:</strong> oturum çerezleri veya eşdeğer yerel depolama, cihaz/tarayıcı türü, yaklaşık
+              bağlantı günlükleri (hata ayıklama ve kötüye kullanım önleme amaçlı, mümkün olduğunca minimize edilmiş).
+            </li>
           </ul>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">AMAÇ VE HUKUKİ SEBEP</h3>
+          <p className="mb-4">
+            Verileriniz; hesabınızı oluşturmak ve sürdürmek, içerik ve özellikleri sunmak, güvenliği sağlamak, yasal yükümlülükleri yerine getirmek ve
+            — açık rızanız veya ayarlarınız uyarınca — deneyimi iyileştirmek için işlenir. İşleme; sözleşmenin ifası, meşru menfaat veya yasal zorunluluk
+            gibi sebeplere dayanabilir; pazarlama iletişimi için ayrı onay istenir.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">ALTYAPI VE ÜÇÜNCÜ TARAFLAR</h3>
+          <p className="mb-4">
+            Kimlik doğrulama, veri tabanı ve barındırma gibi çekirdek hizmetler güvenilir bulut sağlayıcıları (ör. Supabase ve seçilen CDN/hosting)
+            üzerinden yürütülebilir. Bu sağlayıcılar yalnızca hizmetin teknik gereği ölçüsünde veriye erişir; sözleşmelerimiz gizlilik ve güvenlik
+            standartlarına uygun olacak şekilde yapılandırılır.
+          </p>
+          <p className="mb-6">
+            Ödeme veya analitik gibi ek araçlar kullanıldığında, ilgili işlem sırasında ayrı bilgilendirme veya sözleşme metinleri geçerli olur.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">ÇEREZLER VE YEREL DEPOLAMA</h3>
+          <p className="mb-6">
+            Oturumunuzu güvenli şekilde açık tutmak, tercihlerinizi hatırlamak ve performansı ölçmek için çerezler veya tarayıcı/uygulama depolaması
+            kullanılabilir. Tarayıcı ayarlarınızdan çerezleri kısıtlayabilirsiniz; bazı özelliklerin kısmen çalışmaması mümkündür.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">SÜRE VE GÜVENLİK</h3>
+          <p className="mb-6">
+            Veriler, hesabınız aktif olduğu sürece veya yasal saklama zorunlulukları gerektirdiği ölçüde tutulur; artık gerekli olmayan kayıtlar silinir
+            veya anonimleştirilir. Aktarım ve depolamada şifreleme, erişim kontrolleri ve düzenli güncellemeler gibi makul teknik ve idari tedbirler
+            uygulanır; hiçbir sistem %100 risksiz değildir.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">HAKLARINIZ</h3>
+          <p className="mb-4">
+            KVKK ve ilgili mevzuat kapsamında, verilerinize erişim, düzeltme, silme veya işlemenin kısıtlanmasını talep etme, işlemeye itiraz etme ve
+            şikâyet başvurusu yapma haklarına sahipsiniz. Taleplerinizi kimliğinizi doğrulayarak iletişim kanallarımız üzerinden iletebilirsiniz.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">GÜNCELLEMELER</h3>
+          <p className="mb-2">
+            Bu politika hizmetteki değişikliklere göre güncellenebilir. Önemli değişikliklerde site veya uygulama üzerinden makul şekilde duyuru yapılır.
+          </p>
+          <p className="text-sm text-gray-500">Son güncelleme: {PRIVACY_POLICY_LAST_UPDATED_TR}</p>
         </>
       )
     },

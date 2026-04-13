@@ -368,13 +368,13 @@ const Login: React.FC = () => {
             <p className="text-white/40 text-xs leading-relaxed max-w-[280px] mx-auto">
               Giriş yaparak{' '}
               <Link to="/hakkimizda" className="text-white/60 hover:text-primary underline underline-offset-4">
-                bilgilendirme
+                Hakkımızda
               </Link>{' '}
               ve{' '}
               <Link to="/gizlilik" className="text-white/60 hover:text-primary underline underline-offset-4">
-                gizlilik
-              </Link>{' '}
-              metinlerini kabul etmiş olursun.
+                Gizlilik Politikası
+              </Link>
+              ’nı okuduğunu ve geçerli koşulları kabul ettiğini beyan etmiş olursun.
             </p>
           </div>
         </div>
