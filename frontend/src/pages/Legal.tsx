@@ -196,7 +196,7 @@ const Legal: React.FC = () => {
             </a>
 
             <a
-              href="https://instagram.com/aniriascom"
+              href="https://instagram.com/aniriasresmi"
               target="_blank"
               rel="noopener noreferrer"
               className="group relative overflow-hidden rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent p-6 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_24px_60px_-28px_rgba(229,9,20,0.2)]"
@@ -211,7 +211,7 @@ const Legal: React.FC = () => {
               <h4 className="relative mt-5 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
                 Sosyal
               </h4>
-              <p className="relative mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">@aniriascom</p>
+              <p className="relative mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">@aniriasresmi</p>
               <p className="relative mt-3 text-sm leading-relaxed text-zinc-500">
                 Duyurular, öne çıkan içerikler ve toplulukla güncel iletişim.
               </p>
