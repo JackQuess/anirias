@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 
 const ACCENT = '#e5193e';
@@ -12,30 +12,42 @@ const DEFAULT_MESSAGES = [
   'Performans İyileştirmeleri',
 ];
 
+/** Chip + gap için güvenli tahmin (px); kısa metinlerde bile yeterli tekrar */
+const EST_CHIP_WITH_GAP = 88;
+
+/**
+ * Mesaj listesini döngüyle çoğaltır; şerit en az `minTargetWidth` genişliğinde olur.
+ * Böylece tek kısa cümlede bile marquee tüm alanı doldurur.
+ */
+function buildSegmentMessages(messages: string[], minTargetWidth: number): string[] {
+  if (!messages.length) return [];
+  const minChips = Math.max(14, Math.ceil(minTargetWidth / EST_CHIP_WITH_GAP) + 6);
+  const out: string[] = [];
+  for (let i = 0; i < minChips; i++) {
+    out.push(messages[i % messages.length]);
+  }
+  return out;
+}
+
 export interface TopAnnouncementBarProps {
   label?: string;
   messages?: string[];
-  /** Piksel/saniye — yüksek = daha hızlı kayar */
   speed?: number;
   className?: string;
 }
 
-function chipKey(prefix: string, text: string, i: number) {
-  return `${prefix}-${i}-${text.slice(0, 24)}`;
-}
-
 function AnnouncementChips({
-  messages,
+  items,
   idPrefix,
 }: {
-  messages: string[];
+  items: string[];
   idPrefix: 'a' | 'b';
 }) {
   return (
     <>
-      {messages.map((text, i) => (
+      {items.map((text, i) => (
         <motion.span
-          key={chipKey(idPrefix, text, i)}
+          key={`${idPrefix}-${i}`}
           className="inline-flex shrink-0 items-center rounded-full border border-white/[0.1] bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/85 shadow-sm sm:px-3 sm:text-[11px] md:tracking-wider"
           whileHover={{
             borderColor: 'rgba(229, 25, 62, 0.45)',
@@ -52,8 +64,7 @@ function AnnouncementChips({
 }
 
 /**
- * Sürekli otomatik yatay kaydırma (marquee / slider) — motion translateX, sonsuz döngü.
- * Hover’da animasyon durur (mevcut konumda).
+ * Sürekli marquee: kısa / az duyuruda da içerik viewport’u dolduracak kadar tekrarlanır.
  */
 export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
   label = 'DUYURU',
@@ -62,11 +73,37 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
   className = '',
 }) => {
   const messages = messagesProp?.length ? messagesProp : DEFAULT_MESSAGES;
+  const containerRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = useState(0);
   const [stripW, setStripW] = useState(0);
   const [paused, setPaused] = useState(false);
 
   const messagesKey = messages.join('\0');
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setContainerW(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  /** En az ~2.3× viewport genişliği chip alanı (döngü + boşluk kalmaması için) */
+  const minTargetWidth = Math.max(containerW * 2.35, 1280, containerW + 800);
+
+  const segmentItems = useMemo(
+    () => buildSegmentMessages(messages, minTargetWidth),
+    [messagesKey, minTargetWidth],
+  );
+
+  const segmentKey = `${messagesKey}|${segmentItems.length}`;
 
   useLayoutEffect(() => {
     const el = stripRef.current;
@@ -82,7 +119,7 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [messagesKey]);
+  }, [segmentKey]);
 
   const durationSec = stripW > 0 && speed > 0 ? stripW / speed : 1;
   const shouldRun = stripW > 0 && !paused;
@@ -105,6 +142,7 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
         </div>
 
         <div
+          ref={containerRef}
           className="relative min-w-0 flex-1 overflow-hidden"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
@@ -120,12 +158,10 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
 
           <div className="flex h-full items-center pl-3 sm:pl-4" role="marquee" aria-label="Duyurular">
             <motion.div
-              key={messagesKey}
+              key={segmentKey}
               className="flex w-max items-center gap-2 sm:gap-2.5 md:gap-3 will-change-transform"
               initial={{ x: 0 }}
-              animate={
-                shouldRun ? { x: [0, -stripW] } : false
-              }
+              animate={shouldRun ? { x: [0, -stripW] } : false}
               transition={{
                 x: {
                   duration: durationSec,
@@ -139,13 +175,13 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
                 ref={stripRef}
                 className="flex shrink-0 items-center gap-2 sm:gap-2.5 md:gap-3"
               >
-                <AnnouncementChips messages={messages} idPrefix="a" />
+                <AnnouncementChips items={segmentItems} idPrefix="a" />
               </div>
               <div
                 className="flex shrink-0 items-center gap-2 sm:gap-2.5 md:gap-3"
                 aria-hidden
               >
-                <AnnouncementChips messages={messages} idPrefix="b" />
+                <AnnouncementChips items={segmentItems} idPrefix="b" />
               </div>
             </motion.div>
           </div>
