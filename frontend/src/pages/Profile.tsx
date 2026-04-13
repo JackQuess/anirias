@@ -11,8 +11,15 @@ import { proxyImage } from '@/utils/proxyImage';
 import { BANNERS, getBannerSrc } from '@/utils/banner';
 import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 import { translateGenre } from '@/utils/genreTranslations';
+import { showToast } from '@/components/ToastProvider';
 
 const loggedAvatarErrors = new Set<string>();
+
+function sanitizeBio(value: string) {
+  const noHtml = value.replace(/<[^>]*>/g, '');
+  const noLinks = noHtml.replace(/https?:\/\/\S+|www\.\S+/gi, '');
+  return noLinks.slice(0, 180);
+}
 
 const Profile: React.FC = () => {
   const { user, profile, status, activePlan, signOut, refreshProfile } = useAuth();
@@ -102,12 +109,6 @@ const Profile: React.FC = () => {
     }
   }, [profile?.id, findAvatarIdBySrc]); // Only depend on profile.id, not entire profile object
 
-  const sanitizeBio = (value: string) => {
-    const noHtml = value.replace(/<[^>]*>/g, '');
-    const noLinks = noHtml.replace(/https?:\/\/\S+|www\.\S+/gi, '');
-    return noLinks.slice(0, 180);
-  };
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !profile) return;
@@ -142,17 +143,28 @@ const Profile: React.FC = () => {
         banner_id: bannerIdToSave
       }));
       setIsEditing(false);
-      alert('Profil güncellendi!');
+      showToast('Profil güncellendi.', 'success');
     } catch (err: any) {
       const msg = err?.message || 'Bilinmeyen hata';
       const isTimeout = msg.includes('zaman aşımı') || msg.includes('timeout');
-      alert(isTimeout ? 'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.' : `Güncelleme başarısız: ${msg}`);
+      showToast(
+        isTimeout ? 'Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.' : `Güncelleme başarısız: ${msg}`,
+        'error',
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const displayProfile = profile || { username: 'Anirias Guest', role: 'user', bio: 'Henüz bir biyografi eklenmemiş.', avatar_url: '', banner_id: 'jjk_gojo' } as any;
+  const displayProfile =
+    profile ||
+    ({
+      username: 'ANIRIAS üyesi',
+      role: 'user',
+      bio: 'Henüz bir biyografi eklenmemiş.',
+      avatar_url: '',
+      banner_id: 'jjk_gojo',
+    } as any);
   
   // Use profile data as source of truth (from DB), fallback to editForm when editing
   const currentAvatarId = isEditing 
@@ -171,8 +183,10 @@ const Profile: React.FC = () => {
     const totalEps = historyStable?.length || 0;
     const hours = Math.round((totalEps * 24) / 60);
     const level = Math.floor(totalEps / 10) + 1;
-    const xp = (totalEps % 10) * 10;
-    return { totalEps, hours, level, xp };
+    const epsInLevel = totalEps % 10;
+    const levelProgressPct = epsInLevel * 10;
+    const epsToNextLevel = 10 - epsInLevel;
+    return { totalEps, hours, level, levelProgressPct, epsToNextLevel };
   }, [historyLength]); // Only depend on length
 
   const completedSeries = useMemo(
@@ -210,126 +224,226 @@ const Profile: React.FC = () => {
     : 'Yeni üye';
 
   return (
-    <div className="min-h-screen bg-background pt-24 px-4 md:px-12 pb-24 max-w-6xl mx-auto font-inter">
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-12 bg-surface-elevated p-8 rounded-2xl relative overflow-hidden border border-white/5 shadow-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-
-        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30 shrink-0 relative z-10 bg-primary/20">
-          {avatarSrc ? (
-            <img src={avatarSrc} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-3xl font-black text-white">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="flex-1 z-10 min-w-0">
-          <div className="flex flex-wrap items-center gap-3 mb-2">
-            <h1 className="text-4xl font-black tracking-tight text-white">{displayName}</h1>
-            {profile?.role === 'admin' ? (
-              <span className="px-2 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded text-[10px] font-bold uppercase tracking-wider">
-                Admin
-              </span>
-            ) : null}
-          </div>
-          <p className="text-white/60 mb-4 max-w-md line-clamp-2">{displayProfile.bio || 'Henüz bir biyografi eklenmemiş.'}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            {activePlan === 'pro_max' ? (
-              <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-wide uppercase flex items-center gap-1.5">
-                Pro Max
-              </span>
-            ) : activePlan === 'pro' ? (
-              <span className="px-3 py-1 bg-primary/15 text-primary border border-primary/25 rounded-full text-xs font-bold uppercase">
-                Pro
-              </span>
-            ) : null}
-            <span className="text-white/50 text-sm font-medium">{memberSince}</span>
-            <span className="text-muted text-sm">Lv. {stats.level}</span>
+    <div className="min-h-screen bg-background pb-28 font-inter md:pb-24">
+      <div className="mx-auto max-w-6xl px-4 pt-24 md:px-8">
+        {/* Banner + profil özeti */}
+        <div className="relative mb-4 overflow-hidden rounded-2xl border border-white/[0.08] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]">
+          <div className="relative h-40 sm:h-48 md:h-56">
+            <img
+              src={bannerSrc}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/75 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-transparent to-primary/[0.12]" />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsEditing(true)}
-          className="px-6 py-3 bg-surface border border-white/10 rounded-lg font-bold hover:bg-white/10 transition-colors flex items-center gap-2 z-10 w-full md:w-auto justify-center text-white"
-        >
-          <span>Profili düzenle</span>
-        </button>
-      </div>
 
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
-        <span className="text-primary">▍</span> İstatistikler
-      </h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/50">Yaklaşık izleme</span>
-          <span className="text-3xl font-black text-white">
-            {stats.hours}
-            <span className="text-lg text-white/50 ml-1 font-medium">saat</span>
-          </span>
-        </div>
-        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/50">İzlenen kayıt</span>
-          <span className="text-3xl font-black text-white">{stats.totalEps}</span>
-        </div>
-        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/50">Sık tür</span>
-          <span className="text-2xl font-black text-primary truncate">{favoriteGenre}</span>
-        </div>
-        <div className="bg-surface-elevated p-6 rounded-xl border border-white/5 flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/50">Tamamlanan (liste)</span>
-          <span className="text-3xl font-black text-white">{completedSeries}</span>
-        </div>
-      </div>
-
-      <div className="mb-12">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
-            <span className="text-primary">▍</span> Son aktiviteler
-          </h2>
-          <div className="flex gap-4">
-            <Link to="/list" className="text-sm text-muted hover:text-white transition-colors">
-              Listem
-            </Link>
-            <Link to="/profile#gecmis" className="text-sm text-muted hover:text-white transition-colors">
-              Tüm geçmiş
-            </Link>
-          </div>
-        </div>
-        <div className="bg-surface-elevated rounded-xl border border-white/5 overflow-hidden">
-          {historyStable.length === 0 ? (
-            <p className="p-8 text-center text-muted text-sm">Henüz izleme geçmişi yok.</p>
-          ) : (
-            historyStable.slice(0, 6).map((h, i) => (
-              <div
-                key={`${h.anime_id}-${h.episode_id}-${i}`}
-                className="flex items-center gap-4 p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
-              >
-                <img
-                  src={proxyImage(h.anime?.cover_image || '')}
-                  alt=""
-                  className="w-16 h-16 rounded object-cover shrink-0 bg-black/40"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-white line-clamp-1">
-                    {h.anime ? getDisplayTitle(h.anime.title) : 'Anime'}
-                  </h3>
-                  <p className="text-sm text-white/50">
-                    Bölüm {h.episode?.episode_number ?? '—'} izlendi
-                  </p>
-                </div>
-                <div className="text-sm text-white/40 hidden sm:block shrink-0">
-                  {new Date(h.completed_at).toLocaleDateString('tr-TR')}
+        <div className="relative z-10 -mt-16 mb-12 sm:-mt-[4.5rem] md:-mt-20">
+          <div className="rounded-2xl border border-white/[0.08] bg-surface-elevated/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+            <div className="flex flex-col gap-8 md:flex-row md:items-end md:gap-10">
+              <div className="flex shrink-0 justify-center md:justify-start">
+                <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white/10 bg-primary/20 shadow-[0_0_40px_-8px_rgba(229,9,20,0.35)] ring-2 ring-primary/25 sm:h-32 sm:w-32">
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-3xl font-black text-white">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))
-          )}
+
+              <div className="min-w-0 flex-1 text-center md:pb-1 md:text-left">
+                <div className="mb-2 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+                  <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">{displayName}</h1>
+                  {profile?.role === 'admin' ? (
+                    <span className="rounded border border-primary/35 bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                      Admin
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mx-auto mb-4 max-w-xl text-sm leading-relaxed text-white/55 line-clamp-3 md:mx-0 md:max-w-lg">
+                  {displayProfile.bio || 'Henüz bir biyografi eklenmemiş. Profili düzenleyerek kendini tanıt.'}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                  {activePlan === 'pro_max' ? (
+                    <span className="rounded-full border border-primary/35 bg-primary/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+                      Pro Max
+                    </span>
+                  ) : activePlan === 'pro' ? (
+                    <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+                      Pro
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                      Ücretsiz
+                    </span>
+                  )}
+                  <span className="text-xs font-medium text-zinc-500">{memberSince}</span>
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black text-zinc-400">
+                    Lv. {stats.level}
+                  </span>
+                </div>
+                <div className="mx-auto mt-4 max-w-md md:mx-0">
+                  <div className="mb-1 flex justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    <span>Sonraki seviye</span>
+                    <span>
+                      {stats.totalEps === 0
+                        ? 'İzlemeye başla'
+                        : `${stats.epsToNextLevel} bölüm kaldı`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-[width] duration-500"
+                      style={{ width: `${stats.levelProgressPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex w-full shrink-0 md:w-auto md:pb-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-6 py-3.5 text-sm font-black uppercase tracking-wider text-white transition-all hover:border-primary/40 hover:bg-primary/10 md:w-auto"
+                >
+                  Profili düzenle
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <nav
+          className="mb-8 flex flex-wrap justify-center gap-2 border-b border-white/[0.06] pb-6 md:justify-start"
+          aria-label="Profil bölümleri"
+        >
+          {(
+            [
+              ['#istatistikler', 'İstatistikler'],
+              ['#son-izlenenler', 'Son izlenenler'],
+              ['#gecmis', 'Geçmiş'],
+              ['#hesap', 'Hesap'],
+            ] as const
+          ).map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              className="rounded-full border border-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 transition-colors hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+
+        <h2
+          id="istatistikler"
+          className="mb-6 scroll-mt-28 text-xl font-bold text-white sm:text-2xl flex items-center gap-2"
+        >
+          <span className="text-primary">▍</span> İstatistikler
+        </h2>
+        <div className="mb-12 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+          {(
+            [
+              {
+                label: 'Yaklaşık izleme',
+                value: `${stats.hours}`,
+                sub: 'saat',
+                accent: false,
+              },
+              { label: 'İzlenen kayıt', value: `${stats.totalEps}`, sub: 'bölüm', accent: false },
+              { label: 'Sık tür', value: favoriteGenre, sub: '', accent: true },
+              {
+                label: 'Tamamlanan',
+                value: `${completedSeries}`,
+                sub: 'listeden',
+                accent: false,
+              },
+            ] as const
+          ).map((card) => (
+            <div
+              key={card.label}
+              className="flex flex-col gap-1 rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.06] to-transparent p-4 backdrop-blur-sm transition-colors hover:border-primary/20 sm:p-5"
+            >
+              <span className="text-[11px] font-medium text-zinc-500">{card.label}</span>
+              <span
+                className={`text-2xl font-black tracking-tight sm:text-3xl ${card.accent ? 'truncate text-primary' : 'text-white'}`}
+              >
+                {card.value}
+                {card.sub ? (
+                  <span className="ml-1 text-base font-medium text-zinc-500 sm:text-lg">{card.sub}</span>
+                ) : null}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <section id="son-izlenenler" className="mb-12 scroll-mt-28">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-xl font-bold text-white sm:text-2xl flex items-center gap-2">
+              <span className="text-primary">▍</span> Son izlenenler
+            </h2>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <Link to="/list" className="font-semibold text-zinc-500 transition-colors hover:text-white">
+                Listem
+              </Link>
+              <Link to="/profile#gecmis" className="font-semibold text-zinc-500 transition-colors hover:text-primary">
+                Tüm geçmiş →
+              </Link>
+            </div>
+          </div>
+          {historyStable.length === 0 ? (
+            <div className="rounded-xl border border-white/[0.06] bg-surface-elevated/80 px-6 py-12 text-center">
+              <p className="text-sm text-zinc-500">Henüz izleme geçmişin yok. Bir anime açıp izlemeye başla.</p>
+              <Link
+                to="/"
+                className="mt-4 inline-block text-sm font-bold text-primary hover:underline"
+              >
+                Keşfet
+              </Link>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {historyStable.slice(0, 12).map((h, i) => (
+                <Link
+                  key={`${h.anime_id}-${h.episode_id}-strip-${i}`}
+                  to={`/watch/${h.anime?.slug || h.anime_id}/${h.episode?.season_number || 1}/${h.episode?.episode_number || 1}`}
+                  className="group w-[108px] shrink-0 sm:w-[120px]"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-black/40 shadow-lg transition-all group-hover:border-primary/40 group-hover:shadow-[0_12px_40px_-12px_rgba(229,9,20,0.25)]">
+                    <img
+                      src={proxyImage(h.anime?.cover_image || '')}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    <span className="absolute bottom-2 left-2 right-2 text-[10px] font-black uppercase tracking-wide text-white/90 line-clamp-2">
+                      {h.anime ? getDisplayTitle(h.anime.title) : 'Anime'}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-center text-[10px] font-bold text-zinc-500">
+                    Böl. {h.episode?.episode_number ?? '—'}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
 
       <section id="gecmis" className="mb-12 scroll-mt-28">
-        <h2 className="text-2xl font-bold text-white mb-4">İzleme geçmişi</h2>
-        <div className="bg-surface-elevated rounded-xl border border-white/5 divide-y divide-white/5 overflow-hidden">
+        <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl flex items-center gap-2">
+          <span className="text-primary">▍</span> İzleme geçmişi
+        </h2>
+        <div className="divide-y divide-white/[0.06] overflow-hidden rounded-xl border border-white/[0.08] bg-surface-elevated/90">
           {historyStable.length === 0 ? (
             <p className="p-8 text-center text-muted text-sm">Kayıt yok.</p>
           ) : (
@@ -367,7 +481,10 @@ const Profile: React.FC = () => {
         </div>
       </section>
 
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
+      <h2
+        id="hesap"
+        className="mb-6 scroll-mt-28 text-xl font-bold text-white sm:text-2xl flex items-center gap-2"
+      >
         <span className="text-primary">▍</span> Hesap
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -409,8 +526,10 @@ const Profile: React.FC = () => {
       </div>
 
       {recommendations && recommendations.length > 0 ? (
-        <section className="mt-12">
-          <h2 className="text-xl font-bold text-white mb-4">Sana özel</h2>
+        <section className="mt-12 scroll-mt-28">
+          <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl flex items-center gap-2">
+            <span className="text-primary">▍</span> Sana özel
+          </h2>
           <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
             {recommendations.slice(0, 8).map((rec) => (
               <div key={rec.id} className="w-[140px] shrink-0">
@@ -420,6 +539,7 @@ const Profile: React.FC = () => {
           </div>
         </section>
       ) : null}
+      </div>
 
       {/* Edit Profile Modal */}
       {isEditing && (
@@ -480,7 +600,7 @@ const Profile: React.FC = () => {
                  </div>
                 <div className="flex gap-4 pt-4">
                    <button type="button" onClick={() => setIsEditing(false)} disabled={saving} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50">İPTAL</button>
-                   <button type="submit" disabled={saving} className="flex-1 bg-primary hover:bg-primaryHover text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50 flex items-center justify-center gap-2">
+                   <button type="submit" disabled={saving} className="flex-1 bg-primary text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/25 transition-[filter] hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2">
                      {saving ? (<> <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Kaydediliyor... </>) : 'KAYDET'}
                    </button>
                 </div>
