@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
+import { Mail, Instagram, Clock, ArrowUpRight } from 'lucide-react';
 import { PRIVACY_POLICY_LAST_UPDATED_TR, ABOUT_PAGE_LAST_UPDATED_TR } from '@/config/site';
 
 const Legal: React.FC = () => {
@@ -155,22 +156,83 @@ const Legal: React.FC = () => {
       subtitle: 'BİZE ULAŞIN',
       body: (
         <>
-          <p className="mb-8">Bir sorunuz, öneriniz veya iş birliği teklifiniz mi var? Aşağıdaki kanallar üzerinden ekibimizle doğrudan iletişime geçebilirsiniz.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="bg-white/5 border border-white/10 p-6 rounded-2xl">
-                <h4 className="text-primary font-black uppercase text-xs tracking-widest mb-2">GENEL DESTEK & İŞ BİRLİĞİ</h4>
-                <a href="mailto:support@anirias.com" className="text-white font-mono text-lg hover:text-primary transition-colors">support@anirias.com</a>
-             </div>
-             <div className="bg-white/5 border border-white/10 p-6 rounded-2xl">
-                <h4 className="text-primary font-black uppercase text-xs tracking-widest mb-2">SOSYAL MEDYA</h4>
-                <a href="https://instagram.com/aniriascom" target="_blank" rel="noopener noreferrer" className="text-white font-mono text-lg hover:text-primary transition-colors flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                  </svg>
-                  @aniriascom
-                </a>
-             </div>
+          <p className="mb-4 text-gray-300">
+            Teknik destek, içerik önerisi, iş birliği veya basın sorularınız için doğrudan yazabilirsiniz. Mümkün olduğunca net bir konu başlığı ve
+            gerekirse ekran görüntüsü eklemeniz yanıt süremizi kısaltır.
+          </p>
+          <p className="mb-10 text-gray-400">
+            Veri ve hesap talepleri için önce{' '}
+            <Link to="/gizlilik" className="text-primary underline-offset-4 hover:underline">
+              Gizlilik Politikası
+            </Link>
+            ’nı inceleyebilir; KVKK kapsamındaki başvurularınızı aynı e-posta hattından iletebilirsiniz.
+          </p>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 not-prose">
+            <a
+              href="mailto:support@anirias.com"
+              className="group relative overflow-hidden rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent p-6 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_24px_60px_-28px_rgba(229,9,20,0.2)]"
+            >
+              <div
+                className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/15 opacity-60 blur-3xl transition-opacity group-hover:opacity-90"
+                aria-hidden
+              />
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                <Mail className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <h4 className="relative mt-5 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
+                E-posta
+              </h4>
+              <p className="relative mt-2 font-mono text-lg font-semibold tracking-tight text-white transition-colors group-hover:text-primary sm:text-xl">
+                support@anirias.com
+              </p>
+              <p className="relative mt-3 text-sm leading-relaxed text-zinc-500">
+                Genel destek, iş birliği ve yasal / veri talepleri için tek adres.
+              </p>
+              <span className="relative mt-5 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-zinc-500 transition-colors group-hover:text-white">
+                Mesaj gönder
+                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </span>
+            </a>
+
+            <a
+              href="https://instagram.com/aniriascom"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative overflow-hidden rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent p-6 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_24px_60px_-28px_rgba(229,9,20,0.2)]"
+            >
+              <div
+                className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-violet-500/10 opacity-70 blur-3xl transition-opacity group-hover:opacity-100"
+                aria-hidden
+              />
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-white">
+                <Instagram className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <h4 className="relative mt-5 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
+                Sosyal
+              </h4>
+              <p className="relative mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">@aniriascom</p>
+              <p className="relative mt-3 text-sm leading-relaxed text-zinc-500">
+                Duyurular, öne çıkan içerikler ve toplulukla güncel iletişim.
+              </p>
+              <span className="relative mt-5 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-zinc-500 transition-colors group-hover:text-white">
+                Instagram’da aç
+                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </span>
+            </a>
+          </div>
+
+          <div className="not-prose mt-8 flex gap-4 rounded-2xl border border-white/[0.08] bg-black/20 p-5 backdrop-blur-sm md:items-start">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400">
+              <Clock className="h-5 w-5" strokeWidth={2} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Yanıt süresi</p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                Talepler genellikle birkaç iş günü içinde yanıtlanır; yoğun dönemlerde gecikme olabilir. Acil güvenlik veya hesap ihlali şüphesinde
+                konu satırında <span className="text-white/90">“ACİL”</span> belirtmenizi rica ederiz.
+              </p>
+            </div>
           </div>
         </>
       )
@@ -180,21 +242,36 @@ const Legal: React.FC = () => {
   const pageData = content[type as keyof typeof content] || content['hakkimizda'];
 
   return (
-    <div className="min-h-screen bg-background font-inter pt-32 pb-20">
-       <div className="max-w-4xl mx-auto px-6">
-          <header className="mb-16 border-b border-white/10 pb-10">
-             <p className="text-primary text-xs font-black uppercase tracking-[0.4em] mb-2">{pageData.subtitle}</p>
-             <h1 className="text-5xl md:text-7xl font-black text-white uppercase italic tracking-tighter">{pageData.title}</h1>
-          </header>
+    <div className="relative min-h-screen bg-background font-inter pt-32 pb-24">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_45%_at_50%_-15%,rgba(229,9,20,0.07),transparent_55%)]"
+        aria-hidden
+      />
+      <div className="relative mx-auto max-w-4xl px-6">
+        <header className="mb-14 border-b border-white/[0.1] pb-10 md:mb-16">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.4em] text-primary">{pageData.subtitle}</p>
+          <h1 className="text-5xl font-black uppercase italic tracking-tighter text-white md:text-7xl">{pageData.title}</h1>
+        </header>
 
-          <div className="prose prose-invert prose-lg max-w-none text-gray-400 leading-relaxed">
-             {pageData.body}
-          </div>
+        <div className="prose prose-invert prose-lg max-w-none leading-relaxed text-gray-400">{pageData.body}</div>
 
-          <div className="mt-20 pt-10 border-t border-white/10 flex gap-6">
-             <Link to="/" className="text-xs font-black text-white hover:text-primary uppercase tracking-widest transition-colors">Ana Sayfaya Dön</Link>
-          </div>
-       </div>
+        <div className="mt-16 flex flex-wrap gap-6 border-t border-white/[0.08] pt-10 md:mt-20">
+          <Link
+            to="/"
+            className="text-xs font-black uppercase tracking-widest text-white transition-colors hover:text-primary"
+          >
+            Ana sayfaya dön
+          </Link>
+          {type === 'iletisim' ? (
+            <Link
+              to="/uygulamalar"
+              className="text-xs font-black uppercase tracking-widest text-zinc-500 transition-colors hover:text-primary"
+            >
+              Uygulamalar
+            </Link>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 };

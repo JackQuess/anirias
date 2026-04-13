@@ -50,26 +50,66 @@ const Layout: React.FC = () => {
         </main>
       </MatchScoreProvider>
       <MobileBottomNav />
-      <footer className="py-20 border-t border-white/5 bg-surface-elevated/90 backdrop-blur-xl mt-20 relative z-10 font-inter">
+      <footer className="relative z-10 mt-20 border-t border-white/[0.07] bg-gradient-to-b from-[#0a0a10] via-[#08080c] to-[#050508] font-inter">
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          aria-hidden
+        >
+          <div className="absolute -left-1/4 bottom-0 h-72 w-1/2 rounded-full bg-primary/[0.07] blur-[100px]" />
+          <div className="absolute -right-1/4 bottom-0 h-64 w-1/2 rounded-full bg-violet-600/[0.05] blur-[90px]" />
+          <div className="absolute bottom-0 left-1/2 h-px w-[min(90%,48rem)] -translate-x-1/2 bg-gradient-to-r from-transparent via-primary/25 to-transparent" />
+        </div>
         {/* Rias Mascot - Brand Signature (Footer, bottom-left, desktop only) */}
-        <div className="absolute bottom-0 left-0 z-0 hidden md:block">
+        <div className="absolute bottom-0 left-0 z-0 hidden md:block opacity-90">
           <MascotLayer type="rias" />
         </div>
-        <div className="max-w-7xl mx-auto px-8 lg:px-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-center">
-            <div className="text-center md:text-left">
-              <div className="text-3xl font-black text-primary italic tracking-tighter text-glow uppercase">ANIRIAS</div>
-              <p className="text-gray-600 text-[10px] font-black uppercase tracking-widest mt-2">Premium Anime Platformu</p>
-            </div>
-            <div className="flex justify-center gap-10 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-              <Link to="/hakkimizda" className="hover:text-white transition-colors">HAKKIMIZDA</Link>
-              <Link to="/gizlilik" className="hover:text-white transition-colors">GİZLİLİK</Link>
-              <Link to="/iletisim" className="hover:text-white transition-colors">İLETİŞİM</Link>
-            </div>
-            <div className="text-center md:text-right">
-              <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest">
-                &copy; {new Date().getFullYear()} ANIRIAS. TÜM HAKLARI SAKLIDIR.
-              </p>
+        <div className="relative z-10 mx-auto max-w-7xl px-6 pb-16 pt-14 sm:px-8 lg:px-12 lg:pb-20 lg:pt-16">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-10 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:px-8 md:py-12">
+            <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-[1fr_auto_1fr] md:gap-8 lg:gap-12">
+              <div className="text-center md:text-left">
+                <div className="inline-flex flex-col items-center md:items-start">
+                  <span className="mb-3 h-px w-10 bg-gradient-to-r from-primary to-transparent md:w-12" />
+                  <div className="text-3xl font-black uppercase italic tracking-tighter text-glow text-primary lg:text-4xl">
+                    ANIRIAS
+                  </div>
+                  <p className="mt-2 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">
+                    Premium anime platformu
+                  </p>
+                </div>
+              </div>
+
+              <nav
+                aria-label="Alt bilgi"
+                className="flex flex-wrap items-center justify-center gap-2 sm:gap-1 md:rounded-full md:border md:border-white/[0.08] md:bg-black/25 md:px-2 md:py-2 md:backdrop-blur-sm"
+              >
+                {(
+                  [
+                    ['/hakkimizda', 'Hakkımızda'],
+                    ['/gizlilik', 'Gizlilik'],
+                    ['/iletisim', 'İletişim'],
+                  ] as const
+                ).map(([to, label]) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    className="rounded-full px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-white md:py-2"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+
+              <div className="text-center md:text-right">
+                <p className="text-[10px] font-black uppercase leading-relaxed tracking-[0.18em] text-zinc-600">
+                  Sinematik yayın deneyimi
+                </p>
+                <p className="mt-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                  © {new Date().getFullYear()} ANIRIAS
+                </p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+                  Tüm hakları saklıdır
+                </p>
+              </div>
             </div>
           </div>
         </div>
