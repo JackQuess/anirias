@@ -32,6 +32,7 @@ import AdminFeedback from './pages/AdminFeedback';
 import AdminMascotSettings from './pages/AdminMascotSettings';
 import AdminAnnouncement from './pages/AdminAnnouncement';
 import AdminMaintenance from './pages/AdminMaintenance';
+import AdminTopAnnouncement from './pages/AdminTopAnnouncement';
 import AdminErrors from './pages/AdminErrors';
 import AdminAutomation from './pages/AdminAutomation';
 import AnimeDetail from './pages/AnimeDetail';
@@ -114,6 +115,7 @@ const App: React.FC = () => {
             <Route path="feedback" element={<AdminFeedback />} />
             <Route path="site-settings/mascots" element={<AdminMascotSettings />} />
             <Route path="announcement" element={<AdminAnnouncement />} />
+            <Route path="top-announcement" element={<AdminTopAnnouncement />} />
             <Route path="maintenance" element={<AdminMaintenance />} />
             <Route path="errors" element={<AdminErrors />} />
             <Route path="automation" element={<AdminAutomation />} />
