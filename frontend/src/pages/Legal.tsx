@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { PRIVACY_POLICY_LAST_UPDATED_TR } from '@/config/site';
+import { PRIVACY_POLICY_LAST_UPDATED_TR, ABOUT_PAGE_LAST_UPDATED_TR } from '@/config/site';
 
 const Legal: React.FC = () => {
   const location = useLocation();
@@ -12,10 +12,60 @@ const Legal: React.FC = () => {
       subtitle: 'ANIRIAS MANİFESTOSU',
       body: (
         <>
-          <p className="mb-6">Anirias, anime tutkunları için tasarlanmış, sıradanlığın ötesine geçen yeni nesil bir yayın platformudur. İlhamını anime dünyasının ikonik, karizmatik ve güçlü karakterlerinden alır; izleyiciyi yalnızca ekrana değil, hikâyenin merkezine taşır. Burada izlemek bir alışkanlık değil, bir bağ kurma biçimidir.</p>
-          <p className="mb-6">Karanlık estetik, güçlü bir duruş ve zarif bir sadelik… Anirias, animeyi yalnızca anlatılan bir hikâye olarak değil, hissedilen bir evren olarak sunar. Her detay, izleyicide iz bırakmak için tasarlanır.</p>
-          <h3 className="text-white text-xl font-black italic mt-8 mb-4">MİSYONUMUZ</h3>
-          <p>Global anime kültürünü; yüksek kalite, özgün atmosfer ve sadakat hissi odağında sunarak, anime tutkunları için güvenilir, karakterli ve kalıcı bir dijital merkez oluşturmak.</p>
+          <p className="mb-6 text-gray-300">
+            ANIRIAS; animeyi yalnızca “bir şeyler açıp izlemek”ten öteye taşıyan, sinematik bir yayın deneyimi sunan dijital bir platformdur. Amacımız,
+            katalogu büyütmek kadar; her açılışta hissettirdiği atmosfer, ritim ve sadakati de aynı çizgide tutmaktır.
+          </p>
+          <p className="mb-6">
+            İlhamımız; hikâyenin gücü, karakterlerin duruşu ve izleyicide kalan o “bir sahne” hissidir. Seni yalnızca ekranın önüne değil, anlatının
+            tam ortasına davet ederiz: burada izlemek bir alışkanlıktan çok, bir bağ kurma biçimidir.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">KİMLİĞİMİZ</h3>
+          <p className="mb-6">
+            Karanlık, kontrollü ve sinematik bir görsel dil; güçlü tipografi ve sade ama iddialı bir arayüz… ANIRIAS, animeyi sadece izlenen içerik
+            olarak değil, hissedilen bir evren olarak konumlandırır. Her ekran — telefon, masaüstü veya TV — aynı marka sözünün devamı olacak şekilde
+            düşünülür.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">VİZYONUMUZ</h3>
+          <p className="mb-6">
+            Türkiye ve ötesindeki anime izleyicisi için; kalite, erişilebilirlik ve özgün deneyimi aynı potada eriten, güvenilir ve hatırlanır bir
+            referans platform olmak. Teknoloji ve tasarımı, hikâyeye hizmet eden araçlar olarak kullanırız — gürültüyü değil, netliği büyütürüz.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">MİSYONUMUZ</h3>
+          <p className="mb-6">
+            Global anime kültürünü; yüksek görüntüleme kalitesi, düzenli katalog yapısı ve kişiselleştirilebilir izleme akışı ile sunmak. Üyelerimize
+            güvenli hesap, şeffaf iletişim ve sürekli gelişen bir ürün vadederiz — anime tutkunları için karakterli, kalıcı ve ciddiyetle büyüyen bir
+            dijital merkez inşa etmek temel işimizdir.
+          </p>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">DEĞERLERİMİZ</h3>
+          <ul className="list-disc list-inside space-y-3 text-gray-400 ml-2 md:ml-4 mb-6">
+            <li>
+              <strong className="text-white">Kalite:</strong> içerik sunumu, oynatıcı ve arayüzde aynı özen; “yeterince iyi” ile yetinmeyiz.
+            </li>
+            <li>
+              <strong className="text-white">Güven ve şeffaflık:</strong> veri ve hesap konularında açık metinler; destek kanalları üzerinden ulaşılabilir olmak.
+            </li>
+            <li>
+              <strong className="text-white">Özgünlük:</strong> kopya estetiklerden uzak, ANIRIAS’a özgü bir sinema salonu hissi.
+            </li>
+            <li>
+              <strong className="text-white">İzleyici odağı:</strong> listeler, devam izleme ve hatırlatmalar gibi detaylarla günlük kullanımı kolaylaştırmak.
+            </li>
+          </ul>
+
+          <h3 className="text-white text-xl font-black italic mt-10 mb-4">BİZE ULAŞIN</h3>
+          <p className="mb-2">
+            Öneri, iş birliği veya destek için{' '}
+            <Link to="/iletisim" className="text-primary underline-offset-4 hover:underline">
+              iletişim
+            </Link>{' '}
+            sayfamızdan yazabilirsiniz; geri bildiriminiz ürün yol haritamızın parçasıdır.
+          </p>
+          <p className="text-sm text-gray-500">Son güncelleme: {ABOUT_PAGE_LAST_UPDATED_TR}</p>
         </>
       )
     },
