@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 
 const ACCENT = '#e5193e';
@@ -13,64 +13,79 @@ const DEFAULT_MESSAGES = [
 ];
 
 export interface TopAnnouncementBarProps {
-  /** Sol etiket */
   label?: string;
-  /** Kaydırmalı duyuru metinleri */
   messages?: string[];
-  /** Otomatik kaydırma hızı (px/s) */
+  /** Piksel/saniye — yüksek = daha hızlı kayar */
   speed?: number;
   className?: string;
 }
 
+function chipKey(prefix: string, text: string, i: number) {
+  return `${prefix}-${i}-${text.slice(0, 24)}`;
+}
+
+function AnnouncementChips({
+  messages,
+  idPrefix,
+}: {
+  messages: string[];
+  idPrefix: 'a' | 'b';
+}) {
+  return (
+    <>
+      {messages.map((text, i) => (
+        <motion.span
+          key={chipKey(idPrefix, text, i)}
+          className="inline-flex shrink-0 items-center rounded-full border border-white/[0.1] bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/85 shadow-sm sm:px-3 sm:text-[11px] md:tracking-wider"
+          whileHover={{
+            borderColor: 'rgba(229, 25, 62, 0.45)',
+            boxShadow:
+              '0 0 0 1px rgba(229, 25, 62, 0.15), 0 4px 20px rgba(229, 25, 62, 0.08)',
+            transition: { duration: 0.2 },
+          }}
+        >
+          {text}
+        </motion.span>
+      ))}
+    </>
+  );
+}
+
 /**
- * İnce yatay duyuru şeridi — navbar ile hero arası.
- * Animasyon: motion/react (Framer Motion API uyumlu).
+ * Sürekli otomatik yatay kaydırma (marquee / slider) — motion translateX, sonsuz döngü.
+ * Hover’da animasyon durur (mevcut konumda).
  */
 export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
   label = 'DUYURU',
   messages: messagesProp,
-  speed = 22,
+  speed = 48,
   className = '',
 }) => {
   const messages = messagesProp?.length ? messagesProp : DEFAULT_MESSAGES;
-  const loop = [...messages, ...messages];
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [stripW, setStripW] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  const onWheelCapture = useCallback((e: React.WheelEvent) => {
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      e.currentTarget.scrollLeft += e.deltaY;
-      e.preventDefault();
-    }
-  }, []);
+  const messagesKey = messages.join('\0');
 
-  useEffect(() => {
-    const el = scrollRef.current;
+  useLayoutEffect(() => {
+    const el = stripRef.current;
     if (!el) return;
 
-    let raf = 0;
-    let last = performance.now();
+    const measure = () => setStripW(el.offsetWidth);
 
-    const tick = (now: number) => {
-      const delta = (now - last) / 1000;
-      last = now;
-
-      if (!paused && el.scrollWidth > el.clientWidth) {
-        const half = el.scrollWidth / 2;
-        if (half > 0) {
-          el.scrollLeft += speed * delta;
-          if (el.scrollLeft >= half - 0.5) {
-            el.scrollLeft -= half;
-          }
-        }
-      }
-
-      raf = requestAnimationFrame(tick);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
     };
+  }, [messagesKey]);
 
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [paused, speed, messages.length]);
+  const durationSec = stripW > 0 && speed > 0 ? stripW / speed : 1;
+  const shouldRun = stripW > 0 && !paused;
 
   return (
     <div
@@ -78,24 +93,19 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
       style={{ minHeight: 48, maxHeight: 56 }}
     >
       <div className="mx-auto flex h-12 max-h-14 min-h-12 sm:h-[52px] md:h-14 max-w-[1920px] items-stretch px-3 sm:px-5 lg:px-8">
-        {/* Sol etiket */}
         <div className="flex shrink-0 items-center gap-2 border-r border-white/[0.06] pr-3 sm:pr-4">
           <span
             className="hidden h-5 w-0.5 rounded-full sm:block"
             style={{ backgroundColor: ACCENT }}
             aria-hidden
           />
-          <span
-            className="font-inter text-[9px] font-black uppercase tracking-[0.28em] text-white/50 sm:text-[10px]"
-            style={{ letterSpacing: '0.22em' }}
-          >
+          <span className="font-inter text-[9px] font-black uppercase tracking-[0.28em] text-white/50 sm:text-[10px]">
             {label}
           </span>
         </div>
 
-        {/* Kaydırmalı şerit */}
         <div
-          className="relative min-w-0 flex-1"
+          className="relative min-w-0 flex-1 overflow-hidden"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -108,37 +118,39 @@ export const TopAnnouncementBar: React.FC<TopAnnouncementBarProps> = ({
             aria-hidden
           />
 
-          <div
-            ref={scrollRef}
-            onWheel={onWheelCapture}
-            className="announcement-bar-scroll flex h-full touch-pan-x items-center gap-2 overflow-x-auto overflow-y-hidden pl-3 sm:gap-2.5 sm:pl-4 md:gap-3"
-            style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-            }}
-            role="marquee"
-            aria-label="Duyurular"
-          >
-            {loop.map((text, i) => (
-              <motion.span
-                key={`${text}-${i}`}
-                className="inline-flex shrink-0 items-center rounded-full border border-white/[0.1] bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/85 shadow-sm sm:px-3 sm:text-[11px] md:tracking-wider"
-                whileHover={{
-                  borderColor: 'rgba(229, 25, 62, 0.45)',
-                  boxShadow: `0 0 0 1px rgba(229, 25, 62, 0.15), 0 4px 20px rgba(229, 25, 62, 0.08)`,
-                  transition: { duration: 0.2 },
-                }}
+          <div className="flex h-full items-center pl-3 sm:pl-4" role="marquee" aria-label="Duyurular">
+            <motion.div
+              key={messagesKey}
+              className="flex w-max items-center gap-2 sm:gap-2.5 md:gap-3 will-change-transform"
+              initial={{ x: 0 }}
+              animate={
+                shouldRun ? { x: [0, -stripW] } : false
+              }
+              transition={{
+                x: {
+                  duration: durationSec,
+                  repeat: shouldRun ? Infinity : 0,
+                  ease: 'linear',
+                  repeatType: 'loop',
+                },
+              }}
+            >
+              <div
+                ref={stripRef}
+                className="flex shrink-0 items-center gap-2 sm:gap-2.5 md:gap-3"
               >
-                {text}
-              </motion.span>
-            ))}
+                <AnnouncementChips messages={messages} idPrefix="a" />
+              </div>
+              <div
+                className="flex shrink-0 items-center gap-2 sm:gap-2.5 md:gap-3"
+                aria-hidden
+              >
+                <AnnouncementChips messages={messages} idPrefix="b" />
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
-
-      <style>{`
-        .announcement-bar-scroll::-webkit-scrollbar { display: none; height: 0; }
-      `}</style>
     </div>
   );
 };
