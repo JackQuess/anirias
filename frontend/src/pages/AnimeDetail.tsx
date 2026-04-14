@@ -307,7 +307,12 @@ const AnimeDetail: React.FC = () => {
               {anime.is_adult ? (
                 <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">18+</span>
               ) : null}
-              <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">4K HDR</span>
+              <span className="inline-flex items-center gap-1.5 flex-wrap">
+                <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">4K HDR</span>
+                <span className="px-1.5 py-0.5 rounded border border-amber-400/35 bg-amber-500/15 text-[10px] font-black uppercase tracking-wider text-amber-100/95">
+                  Yakında
+                </span>
+              </span>
               <span className="flex items-center gap-1.5">
                 <Subtitles className="w-4 h-4" />
                 Türkçe
