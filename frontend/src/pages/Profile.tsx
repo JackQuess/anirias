@@ -12,7 +12,7 @@ import { BANNERS, getBannerSrc } from '@/utils/banner';
 import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 import { translateGenre } from '@/utils/genreTranslations';
 import { showToast } from '@/components/ToastProvider';
-import { Pencil } from 'lucide-react';
+import { Pencil, ChevronRight, X } from 'lucide-react';
 
 const loggedAvatarErrors = new Set<string>();
 
@@ -227,34 +227,25 @@ const Profile: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-28 font-inter md:pb-24">
       <div className="mx-auto max-w-6xl px-4 pt-24 md:px-8">
-        {/* Banner — tam görünür (object-contain + letterbox); kırpma yok */}
-        <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0e] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]">
-          <div className="relative w-full min-h-[220px] sm:min-h-[280px] md:min-h-[340px] lg:min-h-[400px] xl:min-h-[440px] max-h-[520px]">
+        {/* Banner — genişliği doldurur (cover); yan siyah şerit yok */}
+        <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-black shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]">
+          <div className="relative w-full min-h-[200px] sm:min-h-[260px] md:min-h-[300px] lg:min-h-[340px] max-h-[min(420px,42vh)]">
             <img
               src={bannerSrc}
               alt=""
-              className="absolute inset-0 h-full w-full object-contain object-center"
+              className="absolute inset-0 h-full w-full object-cover object-center"
               referrerPolicy="no-referrer"
             />
-            {/* Alt profile kartına geçiş + hafif okunurluk; görseli kaplamaz */}
             <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-[#08080c]/95 via-[#08080c]/40 to-transparent"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 max-w-[min(280px,40%)] bg-gradient-to-r from-black/35 to-transparent"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-primary/[0.08] to-transparent"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[#08080c] via-[#08080c]/55 to-transparent"
               aria-hidden
             />
           </div>
         </div>
 
-        <div className="relative z-10 -mt-14 mb-12 sm:-mt-[5rem] md:-mt-[5.5rem] lg:-mt-24">
-          <div className="rounded-2xl border border-white/[0.08] bg-surface-elevated/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
-            <div className="flex flex-col gap-8 md:flex-row md:items-end md:gap-10">
+        <div className="relative z-10 -mt-12 mb-12 sm:-mt-16 md:-mt-[4.5rem] lg:-mt-20">
+          <div className="rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.07] via-[#12121a] to-[#0a0a0e] p-6 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:p-8">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-8">
               <div className="flex shrink-0 justify-center md:justify-start">
                 <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white/10 bg-primary/20 shadow-[0_0_40px_-8px_rgba(229,9,20,0.35)] ring-2 ring-primary/25 sm:h-32 sm:w-32">
                   {avatarSrc ? (
@@ -321,15 +312,15 @@ const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex w-full shrink-0 justify-center md:w-auto md:justify-end md:self-start md:pt-1">
+              <div className="flex w-full shrink-0 items-stretch justify-center lg:w-48 lg:flex-col lg:justify-between">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-b from-[#ff2d55] to-primary px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-[0_14px_44px_-12px_rgba(229,9,20,0.65),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/25 transition-[transform,filter,box-shadow] hover:brightness-110 hover:shadow-[0_18px_52px_-10px_rgba(229,9,20,0.55)] active:scale-[0.99] md:w-auto md:min-w-[200px]"
+                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-b from-[#ff2d55] to-primary px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_14px_44px_-12px_rgba(229,9,20,0.65),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/25 transition-[transform,filter,box-shadow] hover:brightness-110 hover:shadow-[0_18px_52px_-10px_rgba(229,9,20,0.55)] active:scale-[0.99] lg:min-h-[44px] lg:flex-1"
                 >
                   <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" aria-hidden />
                   <Pencil className="relative h-4 w-4 shrink-0" strokeWidth={2.5} />
-                  <span className="relative">Profili düzenle</span>
+                  <span className="relative">Düzenle</span>
                 </button>
               </div>
             </div>
@@ -555,73 +546,170 @@ const Profile: React.FC = () => {
       ) : null}
       </div>
 
-      {/* Edit Profile Modal */}
+      {/* Profil düzenle — önizlemeli modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-           <div className="absolute inset-0 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={() => setIsEditing(false)} />
-           <div className="relative w-full max-w-lg bg-surface-elevated border border-white/10 rounded-[3rem] p-10 shadow-2xl animate-fade-in-up">
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-8">PROFİLİ <span className="text-primary">DÜZENLE</span></h3>
-              <form onSubmit={handleUpdateProfile} className="space-y-6">
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">KULLANICI ADI</label>
-                    <input 
-                      type="text" 
-                      value={editForm.username}
-                      readOnly
-                      disabled
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white/60 font-black outline-none cursor-not-allowed opacity-70"
-                    />
-                    <p className="text-[11px] text-gray-500 font-semibold ml-2">Kullanıcı adı değiştirilemez</p>
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">HAKKINDA (BIO)</label>
-                    <textarea 
-                      rows={3}
-                      value={editForm.bio}
-                      onChange={e => {
-                        const sanitized = sanitizeBio(e.target.value);
-                        setEditForm({...editForm, bio: sanitized});
-                        if (sanitized.length <= 180) setErrors(prev => ({ ...prev, bio: undefined }));
-                      }}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-primary resize-none"
-                    />
-                    <div className="flex items-center justify-between text-[11px] text-gray-500 font-semibold px-2">
-                      <span className={errors.bio ? 'text-primary' : ''}>{errors.bio}</span>
-                      <span>{editForm.bio.length}/180</span>
+        <div className="fixed inset-0 z-[200] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            className="absolute inset-0 bg-black/88 backdrop-blur-md"
+            onClick={() => !saving && setIsEditing(false)}
+            aria-hidden
+          />
+          <div className="relative z-10 flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.12] bg-[#0c0c12] shadow-[0_32px_120px_-24px_rgba(0,0,0,0.95)] sm:max-h-[92vh] sm:rounded-2xl">
+            <div className="relative h-36 shrink-0 overflow-hidden border-b border-white/10 sm:h-40">
+              <img
+                src={bannerSrc}
+                alt=""
+                className="h-full w-full object-cover object-center"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/20 to-black/25" />
+              <div className="absolute bottom-3 left-4 flex max-w-[calc(100%-5rem)] items-center gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-white/25 bg-black/40 ring-2 ring-primary/50">
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-lg font-black text-white">
+                      {(editForm.username || displayName).charAt(0).toUpperCase()}
                     </div>
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">AVATAR</label>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary/90">Önizleme</p>
+                  <p className="truncate text-sm font-bold text-white">{editForm.username || displayName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !saving && setIsEditing(false)}
+                className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/70 hover:text-white"
+                aria-label="Kapat"
+              >
+                <X className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+              <div className="mb-5">
+                <h3 className="text-lg font-black tracking-tight text-white sm:text-xl">
+                  Profili <span className="text-primary">düzenle</span>
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                  Kullanıcı adı sabittir. Avatar, banner ve kısa bio ile profilini kişiselleştir.
+                </p>
+              </div>
+
+              <form onSubmit={handleUpdateProfile} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Kullanıcı adı</label>
+                  <input
+                    type="text"
+                    value={editForm.username}
+                    readOnly
+                    disabled
+                    className="w-full cursor-not-allowed rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-zinc-400 outline-none"
+                  />
+                  <p className="text-xs text-zinc-600">Değiştirilemez · destek için iletişime geç</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Hakkında</label>
+                  <textarea
+                    rows={3}
+                    value={editForm.bio}
+                    onChange={(e) => {
+                      const sanitized = sanitizeBio(e.target.value);
+                      setEditForm({ ...editForm, bio: sanitized });
+                      if (sanitized.length <= 180) setErrors((prev) => ({ ...prev, bio: undefined }));
+                    }}
+                    placeholder="Kısa bir tanıtım yaz…"
+                    className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-sm text-white outline-none ring-0 transition-colors placeholder:text-zinc-600 focus:border-primary/50"
+                  />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={errors.bio ? 'font-medium text-primary' : 'text-zinc-600'}>
+                      {errors.bio || ' '}
+                    </span>
+                    <span className="tabular-nums text-zinc-500">{editForm.bio.length}/180</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Avatar</span>
                     <button
                       type="button"
                       onClick={() => setIsAvatarModalOpen(true)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-semibold outline-none hover:border-primary transition-all"
+                      className="group flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left transition-all hover:border-primary/35 hover:bg-white/[0.06]"
                     >
-                      {selectedAvatar ? `Seçilen Avatar: ${selectedAvatar.name || selectedAvatar.id}` : 'Avatar Seç'}
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/50">
+                        {avatarSrc ? (
+                          <img src={avatarSrc} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-zinc-600">?</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-white">
+                          {selectedAvatar?.name || selectedAvatar?.id || 'Seç'}
+                        </p>
+                        <p className="text-[11px] text-zinc-500">Galeriden seç</p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-zinc-600 transition-transform group-hover:translate-x-0.5" />
                     </button>
-                    {errors.avatar && <p className="text-primary text-[11px] font-semibold px-2">{errors.avatar}</p>}
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">BANNER</label>
+                    {errors.avatar ? <p className="text-xs font-medium text-primary">{errors.avatar}</p> : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Banner</span>
                     <button
                       type="button"
                       onClick={() => setIsBannerModalOpen(true)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-semibold outline-none hover:border-primary transition-all"
+                      className="group relative flex aspect-[16/9] w-full overflow-hidden rounded-xl border border-white/10 bg-black/40 transition-all hover:border-primary/35"
                     >
-                      {selectedBanner ? 'Seçilen Banner' : 'Banner Seç'}
+                      <img
+                        src={bannerSrc}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover object-center"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/45">
+                        <span className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                          Değiştir
+                        </span>
+                      </div>
                     </button>
-                    {errors.banner && <p className="text-primary text-[11px] font-semibold px-2">{errors.banner}</p>}
-                 </div>
-                <div className="flex gap-4 pt-4">
-                   <button type="button" onClick={() => setIsEditing(false)} disabled={saving} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50">İPTAL</button>
-                   <button type="submit" disabled={saving} className="flex-1 bg-primary text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/25 transition-[filter] hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2">
-                     {saving ? (<> <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Kaydediliyor... </>) : 'KAYDET'}
-                   </button>
+                    {errors.banner ? <p className="text-xs font-medium text-primary">{errors.banner}</p> : null}
+                  </div>
                 </div>
-             </form>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    disabled={saving}
+                    className="min-h-[52px] rounded-xl border border-white/15 bg-white/[0.06] text-xs font-black uppercase tracking-[0.2em] text-white transition-colors hover:bg-white/[0.1] disabled:opacity-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#ff2d55] to-primary text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-primary/25 transition-[filter] hover:brightness-110 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Kaydediliyor
+                      </>
+                    ) : (
+                      'Kaydet'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-       </div>
-     )}
+        </div>
+      )}
 
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
