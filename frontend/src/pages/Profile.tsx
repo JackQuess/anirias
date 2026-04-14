@@ -12,6 +12,7 @@ import { BANNERS, getBannerSrc } from '@/utils/banner';
 import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 import { translateGenre } from '@/utils/genreTranslations';
 import { showToast } from '@/components/ToastProvider';
+import { Pencil } from 'lucide-react';
 
 const loggedAvatarErrors = new Set<string>();
 
@@ -226,21 +227,32 @@ const Profile: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-28 font-inter md:pb-24">
       <div className="mx-auto max-w-6xl px-4 pt-24 md:px-8">
-        {/* Banner + profil özeti */}
-        <div className="relative mb-4 overflow-hidden rounded-2xl border border-white/[0.08] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]">
-          <div className="relative h-40 sm:h-48 md:h-56">
+        {/* Banner — tam görünür (object-contain + letterbox); kırpma yok */}
+        <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0e] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]">
+          <div className="relative w-full min-h-[220px] sm:min-h-[280px] md:min-h-[340px] lg:min-h-[400px] xl:min-h-[440px] max-h-[520px]">
             <img
               src={bannerSrc}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-contain object-center"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#08080c] via-[#08080c]/75 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-transparent to-primary/[0.12]" />
+            {/* Alt profile kartına geçiş + hafif okunurluk; görseli kaplamaz */}
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-[#08080c]/95 via-[#08080c]/40 to-transparent"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 max-w-[min(280px,40%)] bg-gradient-to-r from-black/35 to-transparent"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-primary/[0.08] to-transparent"
+              aria-hidden
+            />
           </div>
         </div>
 
-        <div className="relative z-10 -mt-16 mb-12 sm:-mt-[4.5rem] md:-mt-20">
+        <div className="relative z-10 -mt-14 mb-12 sm:-mt-[5rem] md:-mt-[5.5rem] lg:-mt-24">
           <div className="rounded-2xl border border-white/[0.08] bg-surface-elevated/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:gap-10">
               <div className="flex shrink-0 justify-center md:justify-start">
@@ -309,13 +321,15 @@ const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex w-full shrink-0 md:w-auto md:pb-1">
+              <div className="flex w-full shrink-0 justify-center md:w-auto md:justify-end md:self-start md:pt-1">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-6 py-3.5 text-sm font-black uppercase tracking-wider text-white transition-all hover:border-primary/40 hover:bg-primary/10 md:w-auto"
+                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-b from-[#ff2d55] to-primary px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-[0_14px_44px_-12px_rgba(229,9,20,0.65),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/25 transition-[transform,filter,box-shadow] hover:brightness-110 hover:shadow-[0_18px_52px_-10px_rgba(229,9,20,0.55)] active:scale-[0.99] md:w-auto md:min-w-[200px]"
                 >
-                  Profili düzenle
+                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" aria-hidden />
+                  <Pencil className="relative h-4 w-4 shrink-0" strokeWidth={2.5} />
+                  <span className="relative">Profili düzenle</span>
                 </button>
               </div>
             </div>
