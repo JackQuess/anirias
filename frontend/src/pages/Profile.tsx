@@ -229,7 +229,7 @@ const Profile: React.FC = () => {
       <div className="mx-auto max-w-6xl px-4 pt-24 md:px-8">
         {/* Banner — genişliği doldurur (cover); yan siyah şerit yok */}
         <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-black shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]">
-          <div className="relative w-full min-h-[200px] sm:min-h-[260px] md:min-h-[300px] lg:min-h-[340px] max-h-[min(420px,42vh)]">
+          <div className="relative w-full min-h-[260px] sm:min-h-[300px] md:min-h-[360px] lg:min-h-[400px] xl:min-h-[440px] max-h-[min(520px,50vh)]">
             <img
               src={bannerSrc}
               alt=""
@@ -245,7 +245,7 @@ const Profile: React.FC = () => {
 
         <div className="relative z-10 -mt-12 mb-12 sm:-mt-16 md:-mt-[4.5rem] lg:-mt-20">
           <div className="rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.07] via-[#12121a] to-[#0a0a0e] p-6 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:p-8">
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
               <div className="flex shrink-0 justify-center md:justify-start">
                 <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white/10 bg-primary/20 shadow-[0_0_40px_-8px_rgba(229,9,20,0.35)] ring-2 ring-primary/25 sm:h-32 sm:w-32">
                   {avatarSrc ? (
@@ -312,14 +312,14 @@ const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex w-full shrink-0 items-stretch justify-center lg:w-48 lg:flex-col lg:justify-between">
+              <div className="flex w-full shrink-0 justify-center lg:w-auto lg:justify-end lg:pt-1">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-b from-[#ff2d55] to-primary px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_14px_44px_-12px_rgba(229,9,20,0.65),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/25 transition-[transform,filter,box-shadow] hover:brightness-110 hover:shadow-[0_18px_52px_-10px_rgba(229,9,20,0.55)] active:scale-[0.99] lg:min-h-[44px] lg:flex-1"
+                  className="group relative inline-flex h-10 items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-b from-[#ff2d55] to-primary px-4 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-md shadow-primary/30 ring-1 ring-white/20 transition-[transform,filter,box-shadow] hover:brightness-110 hover:shadow-lg hover:shadow-primary/35 active:scale-[0.98] sm:h-9 sm:px-3.5"
                 >
-                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" aria-hidden />
-                  <Pencil className="relative h-4 w-4 shrink-0" strokeWidth={2.5} />
+                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/12 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" aria-hidden />
+                  <Pencil className="relative h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
                   <span className="relative">Düzenle</span>
                 </button>
               </div>
