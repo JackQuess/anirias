@@ -344,7 +344,7 @@ const Browse: React.FC = () => {
       </div>
 
       <div className="px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20">
-        <div className="relative mb-3 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] via-[#101018]/95 to-[#08080c] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:mb-5">
+        <div className="relative z-30 mb-3 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] via-[#101018]/95 to-[#08080c] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:mb-5">
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" aria-hidden>
             <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/[0.06] blur-3xl" />
           </div>
@@ -606,7 +606,7 @@ const Browse: React.FC = () => {
             <LoadingSkeleton type="card" count={8} />
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-8 relative z-10">
+          <div className="relative z-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-8">
             {filteredItems.map((anime) => (
               <AnimeCard key={anime.id} anime={anime} />
             ))}
