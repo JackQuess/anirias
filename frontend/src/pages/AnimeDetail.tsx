@@ -301,20 +301,20 @@ const AnimeDetail: React.FC = () => {
               {titleString}
             </h1>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-white/90">
-              <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>
-              <span>{anime.year || '2024'}</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-normal text-white/80">
+              <span className="font-semibold text-emerald-400/95">{formatMatchLabel(scorePct)}</span>
+              <span className="text-white/70">{anime.year || '2024'}</span>
               {anime.is_adult ? (
-                <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">18+</span>
-              ) : null}
-              <span className="inline-flex items-center gap-1.5 flex-wrap">
-                <span className="px-1.5 py-0.5 border border-white/40 rounded text-[11px] text-white/80">4K HDR</span>
-                <span className="px-1.5 py-0.5 rounded border border-amber-400/35 bg-amber-500/15 text-[10px] font-black uppercase tracking-wider text-amber-100/95">
-                  Yakında
+                <span className="rounded border border-white/30 bg-black/20 px-2 py-0.5 text-[11px] text-white/75">
+                  18+
                 </span>
+              ) : null}
+              <span className="rounded border border-white/25 bg-black/25 px-2 py-0.5 text-[11px] text-white/75 backdrop-blur-sm">
+                4K HDR <span className="text-white/35">·</span>{' '}
+                <span className="text-white/60">Yakında</span>
               </span>
-              <span className="flex items-center gap-1.5">
-                <Subtitles className="w-4 h-4" />
+              <span className="flex items-center gap-1.5 text-white/75">
+                <Subtitles className="h-4 w-4 shrink-0 opacity-90" />
                 Türkçe
               </span>
             </div>
