@@ -173,7 +173,7 @@
 }
 
 /* Netflix-style Video Subtitles */
-video::cue {
+video.anirias-video-player::cue {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   font-size: 1.1em;
   font-weight: 500;
@@ -189,12 +189,13 @@ video::cue {
   white-space: pre-wrap;
 }
 
-/* Ensure subtitles are visible and readable */
-video::-webkit-media-text-track-container {
+/* Native cue layer: özel kontrol çubuğu (z-30) tam genişlikte üstte; metin altta kalmasın */
+video.anirias-video-player::-webkit-media-text-track-container {
   background: transparent;
+  transform: translateY(calc(-4.75rem - env(safe-area-inset-bottom, 0px)));
 }
 
-video::-webkit-media-text-track-display {
+video.anirias-video-player::-webkit-media-text-track-display {
   background: rgba(0, 0, 0, 0.75);
   padding: 0.3em 0.5em;
   border-radius: 2px;

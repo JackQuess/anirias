@@ -162,6 +162,68 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const hlsRef = useRef<Hls | null>(null);
   const subtitleFilesRef = useRef<VideoPlayerSubtitleFile[] | undefined>(subtitleFiles);
   subtitleFilesRef.current = subtitleFiles;
+  /** Harici VTT blob URL’leri (cleanup için) */
+  const vttBlobUrlsRef = useRef<string[]>([]);
+  /**
+   * CDN’den fetch + blob: <track src="https://..."> cross-origin’de cue yüklemeyebilir;
+   * blob: aynı origin sayılır, video crossOrigin gerekmez (MP4 CORS sorunu olmaz).
+   */
+  const [vttResolvedFiles, setVttResolvedFiles] = useState<VideoPlayerSubtitleFile[] | undefined>(undefined);
+
+  const subtitleFilesKey = useMemo(
+    () => subtitleFiles?.map((t) => t.src).join('\0') ?? '',
+    [subtitleFiles]
+  );
+
+  const subtitleFilesLatestRef = useRef(subtitleFiles);
+  subtitleFilesLatestRef.current = subtitleFiles;
+
+  useEffect(() => {
+    const list = subtitleFilesLatestRef.current;
+    if (!list?.length) {
+      vttBlobUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+      vttBlobUrlsRef.current = [];
+      setVttResolvedFiles(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    vttBlobUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    vttBlobUrlsRef.current = [];
+
+    (async () => {
+      const next: VideoPlayerSubtitleFile[] = [];
+      const blobs: string[] = [];
+      for (const t of list) {
+        try {
+          const res = await fetch(t.src, { mode: 'cors', credentials: 'omit' });
+          if (!res.ok) throw new Error(String(res.status));
+          const text = await res.text();
+          const blob = new Blob([text], { type: 'text/vtt;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          blobs.push(url);
+          next.push({ ...t, src: url });
+        } catch {
+          next.push({ ...t });
+        }
+      }
+      if (cancelled) {
+        blobs.forEach((u) => URL.revokeObjectURL(u));
+        return;
+      }
+      vttBlobUrlsRef.current = blobs;
+      setVttResolvedFiles(next);
+      requestAnimationFrame(() => syncSubtitleTracksFromMediaRef.current());
+    })();
+
+    return () => {
+      cancelled = true;
+      vttBlobUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+      vttBlobUrlsRef.current = [];
+    };
+  }, [subtitleFilesKey]);
+
+  const tracksForVideo = vttResolvedFiles ?? subtitleFiles;
 
   // Boot state management
   const [bootState, setBootState] = useState<PlayerBootState>('IDLE');
@@ -1956,7 +2018,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {isValidSrc && (
         <video
           ref={videoRef}
-          className={`absolute inset-0 object-contain transition-opacity duration-300 ${
+          className={`anirias-video-player absolute inset-0 object-contain transition-opacity duration-300 ${
             isFullscreen ? 'w-screen h-screen' : 'w-full h-full'
           }`}
           style={{
@@ -1975,9 +2037,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           onClick={handleVideoClick}
           onTouchStart={handleVideoTouch}
         >
-          {subtitleFiles?.map((t, i) => (
+          {tracksForVideo?.map((t, i) => (
             <track
-              key={`${t.src}-${i}`}
+              key={`${subtitleFilesKey}-${i}-${t.label}`}
               kind="subtitles"
               src={t.src}
               label={t.label}
