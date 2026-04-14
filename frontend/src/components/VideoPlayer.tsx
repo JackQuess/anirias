@@ -23,6 +23,27 @@ export interface VideoPlayerSubtitleFile {
   srclang?: string;
 }
 
+/** HTML track srclang: boş geçersiz; und/import eksik diller için */
+function normalizeTrackLang(lang?: string | null): string {
+  const s = (lang ?? '').trim().toLowerCase();
+  if (!s || s === 'undefined' || s === 'null') return 'und';
+  return (lang ?? 'und').trim();
+}
+
+/** Cross-origin WebVTT için <video crossOrigin> gerekir; aksi halde track yüklenmez (cues boş). */
+function needsVideoCrossOriginForSubtitles(files: VideoPlayerSubtitleFile[] | undefined): boolean {
+  if (!files?.length || typeof window === 'undefined') return false;
+  try {
+    const pageOrigin = window.location.origin;
+    return files.some((t) => {
+      const u = new URL(t.src, window.location.href);
+      return u.origin !== pageOrigin;
+    });
+  } catch {
+    return true;
+  }
+}
+
 interface VideoPlayerProps {
   src: string;
   poster?: string;
@@ -153,6 +174,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const seekBarRef = useRef<HTMLDivElement>(null);
   const volumeSliderRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const subtitleFilesRef = useRef<VideoPlayerSubtitleFile[] | undefined>(subtitleFiles);
+  subtitleFilesRef.current = subtitleFiles;
 
   // Boot state management
   const [bootState, setBootState] = useState<PlayerBootState>('IDLE');
@@ -217,8 +240,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const applySubtitleSelection = useCallback((enabled: boolean, index: number) => {
     const video = videoRef.current;
     const hls = hlsRef.current;
-    if (hls?.subtitleTracks?.length) {
+    const externals = subtitleFilesRef.current;
+
+    /**
+     * Harici <track> WebVTT varken HLS manifest altyazılarına öncelik verme:
+     * hls.subtitleTrack kullanılırsa native track'ler hiç showing olmaz (kök neden).
+     */
+    const preferNativeTracks = !!(externals && externals.length > 0);
+
+    if (preferNativeTracks) {
+      if (hls) hls.subtitleTrack = -1;
+      if (video) {
+        for (let i = 0; i < video.textTracks.length; i++) {
+          video.textTracks[i].mode = enabled && i === index ? 'showing' : 'disabled';
+        }
+      }
+    } else if (hls?.subtitleTracks?.length) {
       hls.subtitleTrack = enabled && index >= 0 ? index : -1;
+      if (video) {
+        for (let i = 0; i < video.textTracks.length; i++) {
+          video.textTracks[i].mode = 'disabled';
+        }
+      }
     } else if (video) {
       for (let i = 0; i < video.textTracks.length; i++) {
         video.textTracks[i].mode = enabled && i === index ? 'showing' : 'disabled';
@@ -239,6 +282,42 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const syncSubtitleTracksFromMedia = useCallback(() => {
     const video = videoRef.current;
     const hls = hlsRef.current;
+    const externals = subtitleFilesRef.current;
+
+    if (externals?.length && video) {
+      const tt = Array.from(video.textTracks);
+      const hlsN = hls?.subtitleTracks?.length ?? 0;
+      const opts: { index: number; label: string }[] = [];
+
+      for (let fi = 0; fi < externals.length; fi++) {
+        const want = externals[fi];
+        let ti = tt.findIndex(
+          (t) =>
+            (want.label && t.label?.trim() === want.label.trim()) ||
+            (want.srclang && t.language === normalizeTrackLang(want.srclang)) ||
+            (want.srclang && t.language === want.srclang)
+        );
+        if (ti < 0) {
+          const trackEls = Array.from(video.querySelectorAll('track[kind="subtitles"]'));
+          const el = trackEls[fi] as HTMLTrackElement | undefined;
+          if (el) {
+            ti = tt.findIndex((t) => t.label === el.label);
+          }
+        }
+        if (ti < 0) {
+          ti = hlsN + fi;
+          if (ti >= tt.length) ti = fi;
+        }
+        if (ti >= 0 && ti < tt.length) {
+          opts.push({ index: ti, label: want.label?.trim() || `Altyazı ${fi + 1}` });
+        }
+      }
+      if (opts.length > 0) {
+        setSubtitleOptions(opts);
+        return;
+      }
+    }
+
     if (hls?.subtitleTracks?.length) {
       setSubtitleOptions(
         hls.subtitleTracks.map((t: { name?: string; lang?: string }, i: number) => ({
@@ -289,6 +368,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       clearTimeout(t3);
     };
   }, [bootState, src]);
+
+  const externalSubKey = subtitleFiles?.map((t) => t.src).join('\0') ?? '';
+  useEffect(() => {
+    if (!externalSubKey) return;
+    const id = requestAnimationFrame(() => syncSubtitleTracksFromMediaRef.current());
+    return () => cancelAnimationFrame(id);
+  }, [src, externalSubKey]);
 
   useEffect(() => {
     if (!showSettingsMenu) return;
@@ -1895,6 +1981,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             maxWidth: isFullscreen ? '100vw' : '100%',
             maxHeight: isFullscreen ? '100vh' : '100%',
           }}
+          crossOrigin={needsVideoCrossOriginForSubtitles(subtitleFiles) ? 'anonymous' : undefined}
           preload="metadata"
           playsInline
           webkit-playsinline="true"
@@ -1909,7 +1996,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               kind="subtitles"
               src={t.src}
               label={t.label}
-              srcLang={t.srclang || ''}
+              srcLang={normalizeTrackLang(t.srclang)}
             />
           ))}
         </video>
