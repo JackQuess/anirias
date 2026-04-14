@@ -30,20 +30,6 @@ function normalizeTrackLang(lang?: string | null): string {
   return (lang ?? 'und').trim();
 }
 
-/** Cross-origin WebVTT için <video crossOrigin> gerekir; aksi halde track yüklenmez (cues boş). */
-function needsVideoCrossOriginForSubtitles(files: VideoPlayerSubtitleFile[] | undefined): boolean {
-  if (!files?.length || typeof window === 'undefined') return false;
-  try {
-    const pageOrigin = window.location.origin;
-    return files.some((t) => {
-      const u = new URL(t.src, window.location.href);
-      return u.origin !== pageOrigin;
-    });
-  } catch {
-    return true;
-  }
-}
-
 interface VideoPlayerProps {
   src: string;
   poster?: string;
@@ -1981,7 +1967,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             maxWidth: isFullscreen ? '100vw' : '100%',
             maxHeight: isFullscreen ? '100vh' : '100%',
           }}
-          crossOrigin={needsVideoCrossOriginForSubtitles(subtitleFiles) ? 'anonymous' : undefined}
           preload="metadata"
           playsInline
           webkit-playsinline="true"
