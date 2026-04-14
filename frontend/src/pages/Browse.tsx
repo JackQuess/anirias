@@ -344,61 +344,81 @@ const Browse: React.FC = () => {
       </div>
 
       <div className="px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20">
-        <div className="relative mb-4 overflow-hidden rounded-2xl border border-white/[0.09] bg-gradient-to-br from-white/[0.07] via-[#101018]/95 to-[#08080c] p-5 shadow-[0_28px_90px_-36px_rgba(0,0,0,0.88)] backdrop-blur-xl sm:mb-6 sm:p-7">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-primary/[0.07] blur-3xl" aria-hidden />
-          <div className="relative z-10 flex flex-col gap-6 sm:gap-7">
+        <div className="relative mb-3 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] via-[#101018]/95 to-[#08080c] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl sm:mb-5">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" aria-hidden>
+            <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/[0.06] blur-3xl" />
+          </div>
+          <div className="relative z-10 flex flex-col gap-3 p-3.5 sm:gap-4 sm:p-4 md:p-5">
           <div>
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Türler</p>
-                <p className="mt-1 text-xs text-zinc-400">Birden fazla seçebilirsin</p>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Türler{' '}
+              <span className="font-medium normal-case tracking-normal text-zinc-600">· birden fazla seçebilirsin</span>
+            </p>
+            <div className="relative">
+              <div className="flex w-full snap-x snap-mandatory items-center gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.12)_transparent] sm:gap-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/15">
+                {ZIP_GENRES.map(({ label, en }) => {
+                  const active =
+                    label === 'Tümü'
+                      ? selectedGenresEn.length === 0
+                      : Boolean(en && selectedGenresEn.includes(en));
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => toggleGenrePill(label)}
+                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition-all sm:px-3 sm:text-xs ${
+                        active
+                          ? 'border-primary/40 bg-primary/15 text-white shadow-[0_0_18px_-8px_rgba(229,9,20,0.3)]'
+                          : 'border-white/[0.07] bg-white/[0.03] text-zinc-400 hover:border-white/12 hover:bg-white/[0.05] hover:text-white'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[#08080c] via-[#08080c]/90 to-transparent sm:w-12"
+                aria-hidden
+              />
             </div>
-            <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:pb-0">
-              {ZIP_GENRES.map(({ label, en }) => {
-                const active =
-                  label === 'Tümü'
-                    ? selectedGenresEn.length === 0
-                    : Boolean(en && selectedGenresEn.includes(en));
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => toggleGenrePill(label)}
-                    className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-semibold transition-all sm:px-4 sm:text-sm ${
-                      active
-                        ? 'border-primary/45 bg-primary/15 text-white shadow-[0_0_24px_-8px_rgba(229,9,20,0.35)]'
-                        : 'border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:border-white/15 hover:bg-white/[0.06] hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 max-w-2xl text-[11px] leading-relaxed text-zinc-500 sm:text-xs">
-              Listelenen içerikler seçtiğin türlerden <span className="text-zinc-400">en az birini</span> içerir. Aynı türe tekrar
-              dokunarak seçimi kaldırırsın.
+            <p className="mt-1.5 max-w-2xl text-[10px] leading-snug text-zinc-500 sm:text-[11px]">
+              En az bir tür eşleşir; tekrar dokunarak kaldırırsın.
             </p>
           </div>
 
-          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden />
+          <div className="h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" aria-hidden />
 
           <div>
-            <p className="mb-4 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Detay filtreleri</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-            <div className="relative min-w-0 space-y-1.5" ref={formatRef}>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Format</span>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Detay</p>
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-300 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-white"
+                >
+                  <Filter className="h-3 w-3 opacity-70" />
+                  Sıfırla
+                </button>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-2.5">
+            <div
+              className={`relative min-w-0 space-y-1 ${isFormatOpen ? 'z-[90]' : 'z-0'}`}
+              ref={formatRef}
+            >
+              <span className="block pl-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Format</span>
               <button
                 type="button"
                 onClick={() => setIsFormatOpen(!isFormatOpen)}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-black/25 px-3 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:border-primary/25 hover:bg-white/[0.04]"
+                className="flex h-9 w-full cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-white/[0.09] bg-black/30 px-2.5 text-left text-xs font-medium text-white/90 transition-colors hover:border-primary/20 hover:bg-white/[0.04]"
               >
                 <span className="min-w-0 truncate">{FORMAT_OPTIONS.find((o) => o.value === formatFilter)?.label}</span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${isFormatOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isFormatOpen ? 'rotate-180' : ''}`} />
               </button>
               {isFormatOpen ? (
-                <div className="absolute top-full left-0 right-0 sm:right-auto sm:min-w-[220px] mt-2 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50 max-h-72 overflow-y-auto">
+                <div className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-surface-elevated shadow-2xl sm:right-auto sm:min-w-[220px]">
                   {FORMAT_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
@@ -420,18 +440,21 @@ const Browse: React.FC = () => {
               ) : null}
             </div>
 
-            <div className="relative min-w-0 space-y-1.5" ref={filterRef}>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Yayın durumu</span>
+            <div
+              className={`relative min-w-0 space-y-1 ${isFilterOpen ? 'z-[90]' : 'z-0'}`}
+              ref={filterRef}
+            >
+              <span className="block pl-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Yayın</span>
               <button
                 type="button"
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-black/25 px-3 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:border-primary/25 hover:bg-white/[0.04]"
+                className="flex h-9 w-full cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-white/[0.09] bg-black/30 px-2.5 text-left text-xs font-medium text-white/90 transition-colors hover:border-primary/20 hover:bg-white/[0.04]"
               >
                 <span className="min-w-0 truncate">{STATUS_OPTIONS.find((o) => o.value === filterStatus)?.label}</span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
               </button>
               {isFilterOpen ? (
-                <div className="absolute top-full left-0 right-0 sm:right-auto sm:min-w-[200px] mt-2 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                <div className="absolute left-0 right-0 top-full z-[100] mt-1 rounded-lg border border-white/10 bg-surface-elevated shadow-2xl sm:right-auto sm:min-w-[200px]">
                   {STATUS_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -453,18 +476,21 @@ const Browse: React.FC = () => {
               ) : null}
             </div>
 
-            <div className="relative min-w-0 space-y-1.5" ref={yearRef}>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Yıl</span>
+            <div
+              className={`relative min-w-0 space-y-1 ${isYearOpen ? 'z-[90]' : 'z-0'}`}
+              ref={yearRef}
+            >
+              <span className="block pl-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Yıl</span>
               <button
                 type="button"
                 onClick={() => setIsYearOpen(!isYearOpen)}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-black/25 px-3 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:border-primary/25 hover:bg-white/[0.04]"
+                className="flex h-9 w-full cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-white/[0.09] bg-black/30 px-2.5 text-left text-xs font-medium text-white/90 transition-colors hover:border-primary/20 hover:bg-white/[0.04]"
               >
                 <span className="min-w-0 truncate">{YEAR_PRESETS.find((y) => y.value === yearPreset)?.label}</span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${isYearOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isYearOpen ? 'rotate-180' : ''}`} />
               </button>
               {isYearOpen ? (
-                <div className="absolute top-full left-0 right-0 sm:right-auto sm:min-w-[220px] mt-2 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50 max-h-64 overflow-y-auto">
+                <div className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-surface-elevated shadow-2xl sm:right-auto sm:min-w-[220px]">
                   {YEAR_PRESETS.map((y) => (
                     <button
                       key={y.value}
@@ -486,18 +512,21 @@ const Browse: React.FC = () => {
               ) : null}
             </div>
 
-            <div className="relative min-w-0 space-y-1.5" ref={scoreRef}>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Minimum puan</span>
+            <div
+              className={`relative min-w-0 space-y-1 ${isScoreOpen ? 'z-[90]' : 'z-0'}`}
+              ref={scoreRef}
+            >
+              <span className="block pl-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Puan</span>
               <button
                 type="button"
                 onClick={() => setIsScoreOpen(!isScoreOpen)}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-black/25 px-3 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:border-primary/25 hover:bg-white/[0.04]"
+                className="flex h-9 w-full cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-white/[0.09] bg-black/30 px-2.5 text-left text-xs font-medium text-white/90 transition-colors hover:border-primary/20 hover:bg-white/[0.04]"
               >
                 <span className="min-w-0 truncate">{MIN_SCORE_OPTIONS.find((o) => o.value === minScore)?.label}</span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${isScoreOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isScoreOpen ? 'rotate-180' : ''}`} />
               </button>
               {isScoreOpen ? (
-                <div className="absolute top-full left-0 right-0 sm:right-auto sm:min-w-[180px] mt-2 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                <div className="absolute left-0 right-0 top-full z-[100] mt-1 rounded-lg border border-white/10 bg-surface-elevated shadow-2xl sm:right-auto sm:min-w-[180px]">
                   {MIN_SCORE_OPTIONS.map((o) => (
                     <button
                       key={o.value}
@@ -519,24 +548,24 @@ const Browse: React.FC = () => {
               ) : null}
             </div>
 
-            </div>
-
-            <div className="mt-1 flex flex-col gap-4 border-t border-white/[0.06] pt-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="relative w-full min-w-0 space-y-1.5 sm:max-w-sm" ref={sortRef}>
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Sıralama</span>
+            <div
+              className={`relative min-w-0 space-y-1 sm:col-span-2 lg:col-span-1 ${isSortOpen ? 'z-[90]' : 'z-0'}`}
+              ref={sortRef}
+            >
+              <span className="block pl-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-500">Sıra</span>
               <button
                 type="button"
                 onClick={() => setIsSortOpen(!isSortOpen)}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-black/25 px-3 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:border-primary/25 hover:bg-white/[0.04]"
+                className="flex h-9 w-full cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-white/[0.09] bg-black/30 px-2.5 text-left text-xs font-medium text-white/90 transition-colors hover:border-primary/20 hover:bg-white/[0.04]"
               >
-                <span className="flex min-w-0 items-center gap-2 truncate">
-                  <SortAsc className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span className="flex min-w-0 items-center gap-1.5 truncate">
+                  <SortAsc className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
                   {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
                 </span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
               </button>
               {isSortOpen ? (
-                <div className="absolute top-full left-0 right-0 sm:right-auto sm:min-w-[200px] mt-2 bg-surface-elevated border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                <div className="absolute left-0 right-0 top-full z-[100] mt-1 rounded-lg border border-white/10 bg-surface-elevated shadow-2xl sm:right-auto sm:min-w-[200px]">
                   {SORT_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -558,16 +587,6 @@ const Browse: React.FC = () => {
               ) : null}
             </div>
 
-            {hasActiveFilters ? (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 self-stretch rounded-xl border border-white/15 bg-white/[0.04] px-5 text-xs font-bold uppercase tracking-wider text-white/85 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-white sm:self-auto"
-              >
-                <Filter className="h-4 w-4 opacity-70" />
-                Sıfırla
-              </button>
-            ) : null}
             </div>
           </div>
           </div>
