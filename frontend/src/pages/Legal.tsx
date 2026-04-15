@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Mail, Instagram, Clock, ArrowUpRight } from 'lucide-react';
+import { Mail, Instagram, Clock, ArrowUpRight, Music2 } from 'lucide-react';
 import { PRIVACY_POLICY_LAST_UPDATED_TR, ABOUT_PAGE_LAST_UPDATED_TR } from '@/config/site';
 
 const Legal: React.FC = () => {
@@ -168,7 +168,7 @@ const Legal: React.FC = () => {
             ’nı inceleyebilir; KVKK kapsamındaki başvurularınızı aynı e-posta hattından iletebilirsiniz.
           </p>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 not-prose">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 not-prose">
             <a
               href="mailto:support@anirias.com"
               className="group relative overflow-hidden rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent p-6 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_24px_60px_-28px_rgba(229,9,20,0.2)]"
@@ -217,6 +217,32 @@ const Legal: React.FC = () => {
               </p>
               <span className="relative mt-5 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-zinc-500 transition-colors group-hover:text-white">
                 Instagram’da aç
+                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </span>
+            </a>
+
+            <a
+              href="https://www.tiktok.com/@aniriasresmi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative overflow-hidden rounded-2xl border border-white/[0.1] bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent p-6 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_24px_60px_-28px_rgba(229,9,20,0.2)]"
+            >
+              <div
+                className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-500/10 opacity-70 blur-3xl transition-opacity group-hover:opacity-100"
+                aria-hidden
+              />
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-white">
+                <Music2 className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <h4 className="relative mt-5 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
+                TikTok
+              </h4>
+              <p className="relative mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">@aniriasresmi</p>
+              <p className="relative mt-3 text-sm leading-relaxed text-zinc-500">
+                Kısa içerikler, duyurular ve öne çıkan anları burada paylaşıyoruz.
+              </p>
+              <span className="relative mt-5 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-zinc-500 transition-colors group-hover:text-white">
+                TikTok’ta aç
                 <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </span>
             </a>
