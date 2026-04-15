@@ -5,6 +5,7 @@ import { Anime, Episode } from '@/types';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
+import { formatUpcomingMonth, getUpcomingInfo } from '@/utils/upcoming';
 import { cn } from '@/lib/utils';
 import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 import { useAuth } from '@/services/auth';
@@ -115,6 +116,9 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
   };
 
   const showProgress = typeof progressPercent === 'number' && progressPercent >= 0;
+  const upcomingInfo = useMemo(() => getUpcomingInfo(anime, { fallbackYear: anime.year }), [anime]);
+  const upcomingMonth = useMemo(() => formatUpcomingMonth(upcomingInfo.date), [upcomingInfo.date]);
+  const upcomingBadgeText = upcomingMonth ? `YAKINDA • ${upcomingMonth}` : 'YAKINDA';
 
   return (
     <Link
@@ -137,9 +141,20 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
 
       {/* Başlık: her zaman görünür; hover’da tam panel açılınca gizlenir */}
       <div className="absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 pt-10 bg-gradient-to-t from-black/95 via-black/55 to-transparent pointer-events-none transition-opacity duration-300 group-hover:opacity-0">
-        <h3 className="text-white font-bold text-xs sm:text-sm line-clamp-2 leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,.85)]">
-          {displayTitle}
-        </h3>
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 text-white font-bold text-xs sm:text-sm line-clamp-2 leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,.85)]">
+            {displayTitle}
+          </h3>
+          {upcomingInfo.isUpcoming ? (
+            <span
+              aria-label="Yakında yayınlanacak"
+              className="shrink-0 rounded-md border border-amber-300/35 bg-amber-500/18 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-100/95"
+            >
+              <span className="sm:hidden">Yakında</span>
+              <span className="hidden sm:inline">{upcomingBadgeText}</span>
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="absolute top-2 left-2 flex flex-col gap-1 z-20">
@@ -163,9 +178,20 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
       </div>
 
       <div className="absolute inset-0 z-[25] p-4 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-        <h3 className="text-white font-bold text-sm md:text-base line-clamp-2 mb-2 leading-tight drop-shadow-md">
-          {displayTitle}
-        </h3>
+        <div className="mb-2 flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 text-white font-bold text-sm md:text-base line-clamp-2 leading-tight drop-shadow-md">
+            {displayTitle}
+          </h3>
+          {upcomingInfo.isUpcoming ? (
+            <span
+              aria-label="Yakında yayınlanacak"
+              className="shrink-0 rounded-md border border-amber-300/35 bg-amber-500/18 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-100/95"
+            >
+              <span className="md:hidden">Yakında</span>
+              <span className="hidden md:inline">{upcomingBadgeText}</span>
+            </span>
+          ) : null}
+        </div>
 
         <div className="flex items-center gap-2 mb-3 text-[11px] font-medium text-white/80 flex-wrap">
           <span className="text-green-400 font-bold">{formatMatchLabel(scorePct)}</span>

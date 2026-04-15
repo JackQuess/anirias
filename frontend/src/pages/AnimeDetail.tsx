@@ -6,13 +6,14 @@ import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { useAuth } from '@/services/auth';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-import { WatchlistStatus } from '@/types';
+import { Season, WatchlistStatus } from '@/types';
 import AnimeCard from '@/components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { translateGenre } from '@/utils/genreTranslations';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
+import { formatUpcomingMonth, getUpcomingInfo } from '@/utils/upcoming';
 
 const ADULT_GLOBAL_LS_KEY = 'anirias_adult_global_ack';
 
@@ -72,8 +73,17 @@ const AnimeDetail: React.FC = () => {
       return [];
     }
   }, [animeId]);
+  const fetchSeasonsWithId = useCallback(async () => {
+    if (!animeId) return [];
+    try {
+      return await db.getSeasons(animeId);
+    } catch {
+      return [];
+    }
+  }, [animeId]);
 
   const { data: allEpisodes, loading: episodesLoading } = useLoad(fetchEpisodesWithId, [animeId]);
+  const { data: seasonsData } = useLoad(fetchSeasonsWithId, [animeId]);
   const { data: similarAnimes } = useLoad(fetchSimilarWithId, [animeId]);
   const { data: watchlist } = useLoad(fetchWatchlist, [user?.id]);
 
@@ -124,7 +134,63 @@ const AnimeDetail: React.FC = () => {
     return grouped;
   }, [allEpisodes]);
 
-  const seasonNumbers = React.useMemo(() => Object.keys(episodesBySeason).map(Number).sort((a, b) => a - b), [episodesBySeason]);
+  const seasonRows = React.useMemo(() => {
+    const byNumber = new Map<
+      number,
+      {
+        season: Season | null;
+        episodeCount: number;
+        fallbackDate: string | null;
+      }
+    >();
+
+    if (Array.isArray(seasonsData)) {
+      seasonsData.forEach((season) => {
+        const n = Number(season.season_number);
+        if (!Number.isFinite(n) || n <= 0) return;
+        byNumber.set(n, { season, episodeCount: 0, fallbackDate: null });
+      });
+    }
+
+    Object.entries(episodesBySeason).forEach(([key, eps]) => {
+      const n = Number(key);
+      if (!Number.isFinite(n) || n <= 0) return;
+      const firstAirDate = eps.find((ep) => ep.air_date)?.air_date || null;
+      const prev = byNumber.get(n);
+      byNumber.set(n, {
+        season: prev?.season || null,
+        episodeCount: eps.length,
+        fallbackDate: firstAirDate || prev?.fallbackDate || null,
+      });
+    });
+
+    return [...byNumber.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([seasonNumber, meta]) => {
+        const title =
+          meta.season?.title_override?.trim() ||
+          meta.season?.title?.trim() ||
+          `${seasonNumber}. Sezon`;
+        const info = getUpcomingInfo(meta.season || { season_number: seasonNumber }, {
+          fallbackDate: meta.fallbackDate,
+          fallbackYear: meta.season?.year ?? null,
+        });
+        const month = formatUpcomingMonth(info.date);
+        return {
+          seasonNumber,
+          title,
+          episodeCount: meta.episodeCount,
+          isUpcoming: info.isUpcoming,
+          upcomingText: month ? `YAKINDA • ${month}` : 'YAKINDA',
+        };
+      });
+  }, [seasonsData, episodesBySeason]);
+
+  const seasonNumbers = React.useMemo(() => seasonRows.map((row) => row.seasonNumber), [seasonRows]);
+  const seasonRowByNumber = React.useMemo(
+    () => new Map(seasonRows.map((row) => [row.seasonNumber, row])),
+    [seasonRows]
+  );
 
   useEffect(() => {
     const qs = searchParams.get('season');
@@ -276,7 +342,7 @@ const AnimeDetail: React.FC = () => {
   }
 
   const inList = watchlistStatus !== 'none';
-  const firstSeason = seasonNumbers[0] ?? 1;
+  const firstSeason = seasonRows[0]?.seasonNumber ?? 1;
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav md:pb-24 font-inter">
@@ -366,14 +432,63 @@ const AnimeDetail: React.FC = () => {
               >
                 {seasonNumbers.map((sn) => (
                   <option key={sn} value={sn}>
-                    {sn}. Sezon
+                    {seasonRowByNumber.get(sn)?.title || `${sn}. Sezon`}
+                    {seasonRowByNumber.get(sn)?.isUpcoming ? ' · Yakında' : ''}
                   </option>
                 ))}
               </select>
             ) : (
-              <span className="text-white/50 text-sm">{seasonNumbers.length ? `${seasonNumbers[0]}. Sezon` : 'Sezon'}</span>
+              <span className="text-white/50 text-sm">
+                {seasonRows.length ? seasonRows[0].title : seasonNumbers.length ? `${seasonNumbers[0]}. Sezon` : 'Sezon'}
+              </span>
             )}
           </div>
+
+          {seasonRows.length > 0 ? (
+            <div className="mb-6 space-y-2">
+              {seasonRows.map((row) => {
+                const selected = (selectedSeasonNumber ?? firstSeason) === row.seasonNumber;
+                const episodeCountText = `${row.episodeCount} bölüm`;
+                return (
+                  <button
+                    key={row.seasonNumber}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSeasonNumber(row.seasonNumber);
+                      setSearchParams({ season: String(row.seasonNumber) });
+                    }}
+                    className={
+                      'w-full rounded-lg border px-3 py-2 text-left transition-colors sm:px-4 ' +
+                      (selected
+                        ? 'border-white/25 bg-white/[0.06]'
+                        : 'border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]')
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-semibold text-white/90 truncate">{row.title}</span>
+                          {row.isUpcoming ? (
+                            <span
+                              aria-label="Yakında yayınlanacak"
+                              className="rounded-md border border-amber-300/35 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-100/95"
+                            >
+                              <span className="sm:hidden">Yakında</span>
+                              <span className="hidden sm:inline">{row.upcomingText}</span>
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className={row.isUpcoming ? 'mt-0.5 text-xs text-white/35' : 'mt-0.5 text-xs text-white/55'}>
+                          {episodeCountText}
+                        </p>
+                      </div>
+                      <span className={selected ? 'text-xs text-white/75' : 'text-xs text-white/45'}>S{row.seasonNumber}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           <div className="space-y-4">
             {episodesLoading ? (
