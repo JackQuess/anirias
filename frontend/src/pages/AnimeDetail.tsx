@@ -23,6 +23,22 @@ const getApiBase = (): string | null => {
   return apiBase.replace(/\/+$/, '');
 };
 
+/**
+ * Some external synopsis sources prepend global franchise numbering
+ * like "Episode 72 - ...". If it doesn't match current local episode,
+ * strip the prefix to avoid confusing users.
+ */
+const normalizeEpisodeBlurb = (raw: string, localEpisodeNumber: number): string => {
+  const s = raw.trim();
+  if (!s) return s;
+  const m = s.match(/^(episode|bölüm)\s+(\d+)\s*[-:]\s*(.+)$/i);
+  if (!m) return s;
+  const externalNo = Number(m[2]);
+  if (!Number.isFinite(externalNo)) return s;
+  if (externalNo === localEpisodeNumber) return s;
+  return m[3]?.trim() || s;
+};
+
 const AnimeDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -500,10 +516,11 @@ const AnimeDetail: React.FC = () => {
                 const sn = ep.season_number || selectedSeasonNumber || 1;
                 const mins = ep.duration_seconds ? Math.floor(ep.duration_seconds / 60) : 24;
                 const playable = episodeHasPlayableVideo(ep);
-                const blurb =
+                const rawBlurb =
                   ep.short_note?.replace(/<[^>]*>/g, '') ||
                   episodeSynopses[epNum]?.replace(/<[^>]*>/g, '') ||
                   'Bu bölümde hikâye ilerliyor ve karakterler yeni gelişmelerle karşılaşıyor.';
+                const blurb = normalizeEpisodeBlurb(rawBlurb, epNum);
                 const rowClass =
                   'flex items-center gap-4 p-4 rounded-lg border transition-colors ' +
                   (playable
