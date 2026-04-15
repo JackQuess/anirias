@@ -9,7 +9,7 @@ import GlobalLoader from './components/GlobalLoader';
 import WelcomeModal from './components/WelcomeModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import FeedbackCard from './components/FeedbackCard';
-import FeedbackFloatingButton from './components/FeedbackFloatingButton';
+import LiveSupportWidget from './components/LiveSupportWidget';
 import AnnouncementBanner from './components/AnnouncementBanner';
 import { ToastProvider } from './components/ToastProvider';
 
@@ -29,6 +29,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminAutoImport from './pages/AdminAutoImport';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminFeedback from './pages/AdminFeedback';
+import AdminLiveSupport from './pages/AdminLiveSupport';
 import AdminMascotSettings from './pages/AdminMascotSettings';
 import AdminAnnouncement from './pages/AdminAnnouncement';
 import AdminMaintenance from './pages/AdminMaintenance';
@@ -70,7 +71,7 @@ const App: React.FC = () => {
           <AnnouncementBanner />
           <WelcomeModal />
           <FeedbackCard />
-          <FeedbackFloatingButton />
+          <LiveSupportWidget />
           <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
@@ -113,6 +114,7 @@ const App: React.FC = () => {
             <Route path="import" element={<AdminAutoImport />} />
             <Route path="calendar" element={<AdminCalendar />} />
             <Route path="feedback" element={<AdminFeedback />} />
+            <Route path="support" element={<AdminLiveSupport />} />
             <Route path="site-settings/mascots" element={<AdminMascotSettings />} />
             <Route path="announcement" element={<AdminAnnouncement />} />
             <Route path="top-announcement" element={<AdminTopAnnouncement />} />

@@ -238,6 +238,23 @@ export interface Feedback {
   profiles?: Profile | null;
 }
 
+export interface SupportConversation {
+  id: string;
+  user_id: string;
+  status: 'open' | 'closed';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  conversation_id: string;
+  sender_role: 'user' | 'admin';
+  sender_user_id: string;
+  message: string;
+  created_at: string;
+}
+
 export interface Announcement {
   id: string;
   title: string;
