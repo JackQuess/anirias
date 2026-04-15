@@ -119,13 +119,21 @@ const LiveSupportWidget: React.FC = () => {
     try {
       const conv = await ensureConversation();
       if (!conv) return;
-      const { error } = await supabase.from('support_messages').insert({
-        conversation_id: conv.id,
-        sender_role: 'user',
-        sender_user_id: user.id,
-        message: text,
-      });
+      const { data: inserted, error } = await supabase
+        .from('support_messages')
+        .insert({
+          conversation_id: conv.id,
+          sender_role: 'user',
+          sender_user_id: user.id,
+          message: text,
+        })
+        .select('*')
+        .single();
       if (error) throw error;
+      if (inserted) {
+        const row = inserted as SupportMessage;
+        setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+      }
       await supabase
         .from('support_conversations')
         .update({ updated_at: new Date().toISOString() })
