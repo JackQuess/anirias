@@ -460,52 +460,6 @@ const AnimeDetail: React.FC = () => {
             )}
           </div>
 
-          {seasonRows.length > 0 ? (
-            <div className="mb-6 space-y-2">
-              {seasonRows.map((row) => {
-                const selected = (selectedSeasonNumber ?? firstSeason) === row.seasonNumber;
-                const episodeCountText = `${row.episodeCount} bölüm`;
-                return (
-                  <button
-                    key={row.seasonNumber}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSeasonNumber(row.seasonNumber);
-                      setSearchParams({ season: String(row.seasonNumber) });
-                    }}
-                    className={
-                      'w-full rounded-lg border px-3 py-2 text-left transition-colors sm:px-4 ' +
-                      (selected
-                        ? 'border-white/25 bg-white/[0.06]'
-                        : 'border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]')
-                    }
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-sm font-semibold text-white/90 truncate">{row.title}</span>
-                          {row.isUpcoming ? (
-                            <span
-                              aria-label="Yakında yayınlanacak"
-                              className="rounded-md border border-amber-300/35 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-100/95"
-                            >
-                              <span className="sm:hidden">Yakında</span>
-                              <span className="hidden sm:inline">{row.upcomingText}</span>
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className={row.isUpcoming ? 'mt-0.5 text-xs text-white/35' : 'mt-0.5 text-xs text-white/55'}>
-                          {episodeCountText}
-                        </p>
-                      </div>
-                      <span className={selected ? 'text-xs text-white/75' : 'text-xs text-white/45'}>S{row.seasonNumber}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-
           <div className="space-y-4">
             {episodesLoading ? (
               <p className="text-muted text-sm py-8">Yükleniyor...</p>
