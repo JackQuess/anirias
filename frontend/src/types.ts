@@ -189,11 +189,6 @@ export interface CommentProfile {
   username?: string | null;
   avatar_id?: string | null;
   role?: 'user' | 'admin' | string | null;
-  xp_level?: number;
-  /** Görünen isim (ör. Rias Gremory) */
-  xp_badge?: string;
-  /** Tailwind renk eşlemesi için anahtar */
-  xp_badge_key?: 'rias' | 'issei' | 'akeno' | 'asia' | 'koneko' | 'kiba';
 }
 
 export interface Comment {
@@ -206,12 +201,27 @@ export interface Comment {
   is_spoiler?: boolean;
   text: string;
   created_at: string;
+  /** Yumuşak silme (migration sonrası); silinenler public listede görünmez */
+  deleted_at?: string | null;
+  deleted_kind?: 'user' | 'admin' | 'report' | string | null;
+  deleted_reason?: string | null;
   user?: Profile;
   profiles?: CommentProfile;
+  animes?: { title?: { romaji?: string; english?: string } | null; slug?: string | null } | null;
   /** Enriched on read; not a DB column */
   like_count?: number;
   liked_by_me?: boolean;
   replies?: Comment[];
+}
+
+export interface CommentReportListItem {
+  id: string;
+  comment_id: string;
+  reporter_user_id: string;
+  reason: string;
+  details?: string | null;
+  created_at: string;
+  comment: Comment | null;
 }
 
 export interface AdminNotification {

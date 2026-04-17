@@ -7,7 +7,7 @@ import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import LoadingSkeleton from './LoadingSkeleton';
 import { getAvatarSrc } from '@/utils/avatar';
-import type { Comment, CommentProfile } from '@/types';
+import type { Comment } from '@/types';
 
 /** Spoiler yorum: kapalıyken tıklanınca açılır. */
 const CommentSpoilerText: React.FC<{
@@ -89,6 +89,11 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
   const [replyingToParentId, setReplyingToParentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replySpoiler, setReplySpoiler] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportTargetId, setReportTargetId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('other');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
 
   const shouldFetch =
     animeId &&
@@ -154,6 +159,38 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
     }
   };
 
+  const openReport = (id: string) => {
+    setReportTargetId(id);
+    setReportReason('other');
+    setReportDetails('');
+    setReportOpen(true);
+  };
+
+  const submitReport = async () => {
+    if (!reportTargetId) return;
+    setReportBusy(true);
+    try {
+      await db.reportComment(reportTargetId, reportReason, reportDetails);
+      alert('Şikayetin alındı. Teşekkürler.');
+      setReportOpen(false);
+      setReportTargetId(null);
+    } catch (e: any) {
+      alert(e?.message ? String(e.message) : 'Şikayet gönderilemedi.');
+    } finally {
+      setReportBusy(false);
+    }
+  };
+
+  const removeOwnComment = async (id: string) => {
+    if (!confirm('Bu yorumu kaldırmak istediğine emin misin? (Geri alınamaz.)')) return;
+    try {
+      await db.softDeleteOwnComment(id);
+      reload();
+    } catch (e: any) {
+      alert(e?.message ? String(e.message) : 'Yorum kaldırılamadı.');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -167,24 +204,61 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
 
   const isWatch = variant === 'watch';
 
-  const getXpBadgeClass = (key?: CommentProfile['xp_badge_key']) => {
-    switch (key) {
-      case 'rias':
-        return 'border-rose-700/55 bg-rose-950/45 text-rose-100';
-      case 'issei':
-        return 'border-orange-500/50 bg-orange-950/40 text-orange-100';
-      case 'akeno':
-        return 'border-violet-500/50 bg-violet-950/45 text-violet-100';
-      case 'asia':
-        return 'border-teal-500/45 bg-teal-950/35 text-teal-100';
-      case 'koneko':
-        return 'border-slate-300/40 bg-slate-800/55 text-slate-100';
-      case 'kiba':
-        return 'border-sky-600/50 bg-sky-950/40 text-sky-100';
-      default:
-        return 'border-white/15 bg-white/10 text-white/65';
-    }
-  };
+  const reportModal = reportOpen ? (
+    <div
+      className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="comment-report-title"
+    >
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#12121a] p-6 shadow-2xl">
+        <h4 id="comment-report-title" className="text-lg font-bold text-white mb-1">
+          Yorumu şikayet et
+        </h4>
+        <p className="text-xs text-white/50 mb-4">Sebep seç; istersen kısa not ekle.</p>
+        <label className="block text-[10px] font-bold uppercase tracking-wider text-white/40 mb-1">Sebep</label>
+        <select
+          value={reportReason}
+          onChange={(e) => setReportReason(e.target.value)}
+          className="w-full mb-3 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-primary"
+        >
+          <option value="spam">Spam / reklam</option>
+          <option value="insult">Hakaret / taciz</option>
+          <option value="spoiler">Spoiler (işaretlenmemiş)</option>
+          <option value="other">Diğer</option>
+        </select>
+        <label className="block text-[10px] font-bold uppercase tracking-wider text-white/40 mb-1">Not (isteğe bağlı)</label>
+        <textarea
+          value={reportDetails}
+          onChange={(e) => setReportDetails(e.target.value)}
+          rows={3}
+          maxLength={500}
+          placeholder="Kısa açıklama…"
+          className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-primary resize-none"
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              setReportOpen(false);
+              setReportTargetId(null);
+            }}
+            className="rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/50 hover:text-white"
+          >
+            Vazgeç
+          </button>
+          <button
+            type="button"
+            disabled={reportBusy}
+            onClick={() => void submitReport()}
+            className="rounded-lg bg-primary px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:brightness-110 disabled:opacity-50"
+          >
+            {reportBusy ? 'Gönderiliyor…' : 'Gönder'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const watchAvatarBlock = (c: Comment, small: boolean) => (
     <div
@@ -210,6 +284,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
 
   if (isWatch) {
     return (
+      <>
       <div className="space-y-6">
         <h3 className="text-xl font-bold text-white">
           Yorumlar <span className="text-white/40 font-normal">({comments?.length || 0})</span>
@@ -277,15 +352,6 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                           Admin
                         </span>
                       ) : null}
-                      <span
-                        className={cn(
-                          'text-[9px] font-semibold normal-case tracking-tight px-1.5 py-0.5 rounded border max-w-[min(100%,14rem)] truncate',
-                          getXpBadgeClass(c.profiles?.xp_badge_key)
-                        )}
-                        title={c.profiles?.xp_badge}
-                      >
-                        {c.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(c.profiles?.xp_level || 1))}
-                      </span>
                       {c.is_spoiler ? (
                         <span className="text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/35">
                           Spoiler
@@ -322,6 +388,24 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                           className="text-xs text-white/50 hover:text-white transition-colors"
                         >
                           {replyingToParentId === c.id ? 'Vazgeç' : 'Yanıtla'}
+                        </button>
+                      ) : null}
+                      {user && user.id !== c.user_id ? (
+                        <button
+                          type="button"
+                          onClick={() => openReport(c.id)}
+                          className="text-xs text-amber-400/90 hover:text-amber-300 transition-colors"
+                        >
+                          Şikayet
+                        </button>
+                      ) : null}
+                      {user && user.id === c.user_id ? (
+                        <button
+                          type="button"
+                          onClick={() => void removeOwnComment(c.id)}
+                          className="text-xs text-white/35 hover:text-red-400 transition-colors"
+                        >
+                          Kaldır
                         </button>
                       ) : null}
                     </div>
@@ -378,15 +462,6 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                                 Admin
                               </span>
                             ) : null}
-                            <span
-                              className={cn(
-                                'text-[8px] font-semibold normal-case tracking-tight px-1 py-0.5 rounded border max-w-[min(100%,12rem)] truncate',
-                                getXpBadgeClass(r.profiles?.xp_badge_key)
-                              )}
-                              title={r.profiles?.xp_badge}
-                            >
-                              {r.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(r.profiles?.xp_level || 1))}
-                            </span>
                             {r.is_spoiler ? (
                               <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/35">
                                 Spoiler
@@ -400,17 +475,37 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                             isSpoiler={r.is_spoiler}
                             className="text-xs text-white/75 leading-relaxed"
                           />
-                          <button
-                            type="button"
-                            onClick={() => void handleCommentLike(r.id)}
-                            className={cn(
-                              'flex items-center gap-1 text-[10px] mt-1.5 transition-colors',
-                              r.liked_by_me ? 'text-primary' : 'text-white/45 hover:text-white'
-                            )}
-                          >
-                            <ThumbsUp className={cn('w-3 h-3', r.liked_by_me && 'fill-current')} />
-                            {r.like_count ?? 0}
-                          </button>
+                          <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void handleCommentLike(r.id)}
+                              className={cn(
+                                'flex items-center gap-1 text-[10px] transition-colors',
+                                r.liked_by_me ? 'text-primary' : 'text-white/45 hover:text-white'
+                              )}
+                            >
+                              <ThumbsUp className={cn('w-3 h-3', r.liked_by_me && 'fill-current')} />
+                              {r.like_count ?? 0}
+                            </button>
+                            {user && user.id !== r.user_id ? (
+                              <button
+                                type="button"
+                                onClick={() => openReport(r.id)}
+                                className="text-[10px] text-amber-400/90 hover:text-amber-300"
+                              >
+                                Şikayet
+                              </button>
+                            ) : null}
+                            {user && user.id === r.user_id ? (
+                              <button
+                                type="button"
+                                onClick={() => void removeOwnComment(r.id)}
+                                className="text-[10px] text-white/35 hover:text-red-400"
+                              >
+                                Kaldır
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -423,11 +518,14 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
           )}
         </div>
       </div>
+      {reportModal}
+      </>
     );
   }
 
   /* —— default (diğer sayfalar) —— */
   return (
+    <>
     <div className="space-y-12">
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">
@@ -503,15 +601,6 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                         Admin
                       </span>
                     ) : null}
-                    <span
-                      className={cn(
-                        'px-2 py-0.5 rounded text-[8px] font-semibold normal-case tracking-tight border max-w-[min(100%,14rem)] truncate',
-                        getXpBadgeClass(c.profiles?.xp_badge_key)
-                      )}
-                      title={c.profiles?.xp_badge}
-                    >
-                      {c.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(c.profiles?.xp_level || 1))}
-                    </span>
                     {c.is_spoiler ? (
                       <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/35">
                         Spoiler
@@ -525,6 +614,27 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                     isSpoiler={c.is_spoiler}
                     className="text-gray-400 text-sm leading-relaxed"
                   />
+                  {user ? (
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      {user.id !== c.user_id ? (
+                        <button
+                          type="button"
+                          onClick={() => openReport(c.id)}
+                          className="text-[10px] font-bold uppercase tracking-wider text-amber-500/90 hover:text-amber-400"
+                        >
+                          Şikayet
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void removeOwnComment(c.id)}
+                          className="text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-red-400"
+                        >
+                          Kaldır
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
                   {(c.replies?.length ?? 0) > 0 ? (
                     <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
                       {c.replies!.map((r) => (
@@ -536,15 +646,6 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                                 Admin
                               </span>
                             ) : null}
-                            <span
-                              className={cn(
-                                'text-[7px] font-semibold normal-case tracking-tight px-1 py-0.5 rounded border max-w-[min(100%,12rem)] truncate',
-                                getXpBadgeClass(r.profiles?.xp_badge_key)
-                              )}
-                              title={r.profiles?.xp_badge}
-                            >
-                              {r.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(r.profiles?.xp_level || 1))}
-                            </span>
                             {r.is_spoiler ? (
                               <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">
                                 Spoiler
@@ -557,6 +658,27 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                             isSpoiler={r.is_spoiler}
                             className="text-gray-500 text-xs leading-relaxed"
                           />
+                          {user ? (
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {user.id !== r.user_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openReport(r.id)}
+                                  className="text-[9px] font-bold uppercase text-amber-500/90 hover:text-amber-400"
+                                >
+                                  Şikayet
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void removeOwnComment(r.id)}
+                                  className="text-[9px] font-bold uppercase text-white/40 hover:text-red-400"
+                                >
+                                  Kaldır
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -576,6 +698,8 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
         )}
       </div>
     </div>
+    {reportModal}
+    </>
   );
 };
 

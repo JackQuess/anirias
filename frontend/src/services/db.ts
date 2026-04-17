@@ -1,7 +1,7 @@
 
 import { supabase, hasSupabaseEnv } from './supabaseClient';
 import { getAdminToken } from '../utils/adminToken';
-import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry, SiteTrafficSummary } from '../types';
+import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry, SiteTrafficSummary, CommentReportListItem } from '../types';
 import { getOrCreateVisitSessionKey } from '../utils/visitSession';
 import { getDisplayTitle } from '../utils/title';
 
@@ -1424,28 +1424,55 @@ export const db = {
       let topLevel: any[] | null = null;
       let topErr: any = null;
 
-      const primaryTop = await supabase!
-        .from('comments')
-        .select('*, profiles(username,avatar_id,role)')
-        .match({
-          anime_id: animeId,
-          episode_id: episodeId,
-        })
-        .is('parent_id', null)
-        .order('created_at', { ascending: false });
-
-      topLevel = primaryTop.data as any[] | null;
-      topErr = primaryTop.error;
-
-      if (topErr && schemaMentionsUnknownColumn(topErr, 'parent_id')) {
-        const legacy = await supabase!
+      const fetchTopLevel = async () => {
+        const base = supabase!
           .from('comments')
           .select('*, profiles(username,avatar_id,role)')
           .match({
             anime_id: animeId,
             episode_id: episodeId,
           })
-          .order('created_at', { ascending: false });
+          .is('parent_id', null);
+        const withDel = await base.is('deleted_at', null).order('created_at', { ascending: false });
+        if (withDel.error && schemaMentionsUnknownColumn(withDel.error, 'deleted_at')) {
+          return await supabase!
+            .from('comments')
+            .select('*, profiles(username,avatar_id,role)')
+            .match({
+              anime_id: animeId,
+              episode_id: episodeId,
+            })
+            .is('parent_id', null)
+            .order('created_at', { ascending: false });
+        }
+        return withDel;
+      };
+
+      let primaryTop = await fetchTopLevel();
+
+      topLevel = primaryTop.data as any[] | null;
+      topErr = primaryTop.error;
+
+      if (topErr && schemaMentionsUnknownColumn(topErr, 'parent_id')) {
+        const legacyBase = supabase!
+          .from('comments')
+          .select('*, profiles(username,avatar_id,role)')
+          .match({
+            anime_id: animeId,
+            episode_id: episodeId,
+          });
+        const legacyTry = await legacyBase.is('deleted_at', null).order('created_at', { ascending: false });
+        let legacy = legacyTry;
+        if (legacyTry.error && schemaMentionsUnknownColumn(legacyTry.error, 'deleted_at')) {
+          legacy = await supabase!
+            .from('comments')
+            .select('*, profiles(username,avatar_id,role)')
+            .match({
+              anime_id: animeId,
+              episode_id: episodeId,
+            })
+            .order('created_at', { ascending: false });
+        }
         if (!legacy.error && legacy.data) {
           topLevel = (legacy.data as any[]).filter((c) => !c.parent_id);
           topErr = null;
@@ -1464,29 +1491,22 @@ export const db = {
 
       let replies: any[] = [];
       if (parentIds.length > 0) {
-        const { data: repData, error: repErr } = await supabase!
+        const repBase = supabase!
           .from('comments')
           .select('*, profiles(username,avatar_id,role)')
-          .in('parent_id', parentIds)
-          .order('created_at', { ascending: true });
+          .in('parent_id', parentIds);
+        let repWithDel = await repBase.is('deleted_at', null).order('created_at', { ascending: true });
+        if (repWithDel.error && schemaMentionsUnknownColumn(repWithDel.error, 'deleted_at')) {
+          repWithDel = await supabase!
+            .from('comments')
+            .select('*, profiles(username,avatar_id,role)')
+            .in('parent_id', parentIds)
+            .order('created_at', { ascending: true });
+        }
+        const repErr = repWithDel.error;
+        const repData = repWithDel.data;
         if (repErr && import.meta.env.DEV) console.error('[db.getComments] replies:', repErr);
         replies = !repErr && Array.isArray(repData) ? repData : [];
-      }
-
-      const allRows = [...top, ...replies];
-      const userIds = [...new Set(allRows.map((r: any) => r?.user_id).filter(Boolean))] as string[];
-      const watchedCountByUserId: Record<string, number> = {};
-      if (userIds.length > 0) {
-        const { data: historyRows, error: historyErr } = await supabase!
-          .from('watch_history')
-          .select('user_id')
-          .in('user_id', userIds);
-        if (historyErr && import.meta.env.DEV) console.warn('[db.getComments] watch_history:', historyErr.message);
-        for (const row of historyRows || []) {
-          const uid = (row as any)?.user_id;
-          if (!uid) continue;
-          watchedCountByUserId[uid] = (watchedCountByUserId[uid] || 0) + 1;
-        }
       }
 
       const allIds = [...parentIds, ...replies.map((r: any) => r.id)];
@@ -1511,44 +1531,12 @@ export const db = {
         return String(raw || '');
       };
 
-      /** High School DxD temalı sıra: Admin ayrı; altı Rias > Issei > Akeno > (Asia | Koneko | Kiba). */
-      const resolveCharacterRank = (
-        userId: string,
-        level: number
-      ): { key: 'rias' | 'issei' | 'akeno' | 'asia' | 'koneko' | 'kiba'; label: string } => {
-        if (level >= 7) return { key: 'rias', label: 'Rias Gremory' };
-        if (level >= 5) return { key: 'issei', label: 'Issei Hyodo' };
-        if (level >= 3) return { key: 'akeno', label: 'Akeno Himejima' };
-        const low = [
-          { key: 'asia' as const, label: 'Asia Argento' },
-          { key: 'koneko' as const, label: 'Koneko Toujou' },
-          { key: 'kiba' as const, label: 'Yuuto Kiba' },
-        ];
-        const uid = String(userId || 'anonymous');
-        let h = 0;
-        for (let i = 0; i < uid.length; i++) {
-          h = (h + uid.charCodeAt(i) * (i + 1)) % 997;
-        }
-        return low[Math.abs(h) % 3];
-      };
-
-      const enrich = (row: any): Comment => {
-        const watchedEpisodes = watchedCountByUserId[row.user_id] || 0;
-        const xpLevel = Math.floor(watchedEpisodes / 10) + 1;
-        const rank = resolveCharacterRank(String(row.user_id || ''), xpLevel);
-        return {
-          ...row,
-          profiles: {
-            ...(row?.profiles || {}),
-            xp_level: xpLevel,
-            xp_badge: rank.label,
-            xp_badge_key: rank.key,
-          },
-          text: normalizeCommentText(row),
-          like_count: likeMap[row.id]?.count ?? 0,
-          liked_by_me: likeMap[row.id]?.liked ?? false,
-        };
-      };
+      const enrich = (row: any): Comment => ({
+        ...row,
+        text: normalizeCommentText(row),
+        like_count: likeMap[row.id]?.count ?? 0,
+        liked_by_me: likeMap[row.id]?.liked ?? false,
+      });
 
       return top.map((c: any) => {
         const childRows = byParent.get(c.id) || [];
@@ -1561,6 +1549,65 @@ export const db = {
       if (import.meta.env.DEV) console.error('[db.getComments] Unexpected error:', err);
       return [];
     }
+  },
+
+  reportComment: async (commentId: string, reason: string, details?: string) => {
+    requireSupabaseEnv('reportComment');
+    const { data: { user } } = await supabase!.auth.getUser();
+    if (!user) throw new Error('Giriş yapmanız gerekir.');
+    const { error } = await supabase!.from('comment_reports').insert({
+      comment_id: commentId,
+      reporter_user_id: user.id,
+      reason: String(reason || 'other').slice(0, 64),
+      details: details?.trim() ? details.trim().slice(0, 500) : null,
+    });
+    if (error) {
+      const code = String((error as any).code || '');
+      const msg = `${error.message || ''}`;
+      if (code === '23505' || /duplicate|unique/i.test(msg)) {
+        throw new Error('Bu yorumu zaten şikayet ettin.');
+      }
+      if (/relation|does not exist|42P01/i.test(msg)) {
+        throw new Error('Şikayet tablosu henüz kurulmamış (Supabase SQL migration).');
+      }
+      throw error;
+    }
+  },
+
+  softDeleteOwnComment: async (commentId: string) => {
+    requireSupabaseEnv('softDeleteOwnComment');
+    const { error } = await supabase!.rpc('soft_delete_own_comment', { p_comment_id: commentId });
+    if (error) {
+      const msg = error.message || '';
+      if (/function.*does not exist|42883/i.test(msg)) {
+        throw new Error('Yumuşak silme henüz kurulmamış (Supabase SQL migration).');
+      }
+      throw error;
+    }
+  },
+
+  getCommentModeration: async (
+    adminToken?: string
+  ): Promise<{ success: boolean; reports: CommentReportListItem[]; deletedComments: Comment[] }> => {
+    return callBackendApi('/api/admin/comment-moderation', 'GET', undefined, adminToken);
+  },
+
+  adminSoftDeleteComment: async (commentId: string, reason?: string, adminToken?: string) => {
+    return callBackendApi(
+      `/api/admin/comment-moderation/${encodeURIComponent(commentId)}/soft-delete`,
+      'POST',
+      reason ? { reason } : {},
+      adminToken
+    );
+  },
+
+  adminRestoreComment: async (commentId: string, adminToken?: string) => {
+    return callBackendApi(
+      `/api/admin/comment-moderation/${encodeURIComponent(commentId)}/restore`,
+      'POST',
+      {},
+      adminToken
+    );
   },
 
   addComment: async (comment: Partial<Comment>) => {
