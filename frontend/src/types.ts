@@ -188,6 +188,12 @@ export interface PublicCalendarEntry {
 export interface CommentProfile {
   username?: string | null;
   avatar_id?: string | null;
+  role?: 'user' | 'admin' | string | null;
+  xp_level?: number;
+  /** Görünen isim (ör. Rias Gremory) */
+  xp_badge?: string;
+  /** Tailwind renk eşlemesi için anahtar */
+  xp_badge_key?: 'rias' | 'issei' | 'akeno' | 'asia' | 'koneko' | 'kiba';
 }
 
 export interface Comment {

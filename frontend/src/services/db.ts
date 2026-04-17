@@ -1426,7 +1426,7 @@ export const db = {
 
       const primaryTop = await supabase!
         .from('comments')
-        .select('*, profiles(username,avatar_id)')
+        .select('*, profiles(username,avatar_id,role)')
         .match({
           anime_id: animeId,
           episode_id: episodeId,
@@ -1440,7 +1440,7 @@ export const db = {
       if (topErr && schemaMentionsUnknownColumn(topErr, 'parent_id')) {
         const legacy = await supabase!
           .from('comments')
-          .select('*, profiles(username,avatar_id)')
+          .select('*, profiles(username,avatar_id,role)')
           .match({
             anime_id: animeId,
             episode_id: episodeId,
@@ -1466,11 +1466,27 @@ export const db = {
       if (parentIds.length > 0) {
         const { data: repData, error: repErr } = await supabase!
           .from('comments')
-          .select('*, profiles(username,avatar_id)')
+          .select('*, profiles(username,avatar_id,role)')
           .in('parent_id', parentIds)
           .order('created_at', { ascending: true });
         if (repErr && import.meta.env.DEV) console.error('[db.getComments] replies:', repErr);
         replies = !repErr && Array.isArray(repData) ? repData : [];
+      }
+
+      const allRows = [...top, ...replies];
+      const userIds = [...new Set(allRows.map((r: any) => r?.user_id).filter(Boolean))] as string[];
+      const watchedCountByUserId: Record<string, number> = {};
+      if (userIds.length > 0) {
+        const { data: historyRows, error: historyErr } = await supabase!
+          .from('watch_history')
+          .select('user_id')
+          .in('user_id', userIds);
+        if (historyErr && import.meta.env.DEV) console.warn('[db.getComments] watch_history:', historyErr.message);
+        for (const row of historyRows || []) {
+          const uid = (row as any)?.user_id;
+          if (!uid) continue;
+          watchedCountByUserId[uid] = (watchedCountByUserId[uid] || 0) + 1;
+        }
       }
 
       const allIds = [...parentIds, ...replies.map((r: any) => r.id)];
@@ -1495,12 +1511,44 @@ export const db = {
         return String(raw || '');
       };
 
-      const enrich = (row: any): Comment => ({
-        ...row,
-        text: normalizeCommentText(row),
-        like_count: likeMap[row.id]?.count ?? 0,
-        liked_by_me: likeMap[row.id]?.liked ?? false,
-      });
+      /** High School DxD temalı sıra: Admin ayrı; altı Rias > Issei > Akeno > (Asia | Koneko | Kiba). */
+      const resolveCharacterRank = (
+        userId: string,
+        level: number
+      ): { key: 'rias' | 'issei' | 'akeno' | 'asia' | 'koneko' | 'kiba'; label: string } => {
+        if (level >= 7) return { key: 'rias', label: 'Rias Gremory' };
+        if (level >= 5) return { key: 'issei', label: 'Issei Hyodo' };
+        if (level >= 3) return { key: 'akeno', label: 'Akeno Himejima' };
+        const low = [
+          { key: 'asia' as const, label: 'Asia Argento' },
+          { key: 'koneko' as const, label: 'Koneko Toujou' },
+          { key: 'kiba' as const, label: 'Yuuto Kiba' },
+        ];
+        const uid = String(userId || 'anonymous');
+        let h = 0;
+        for (let i = 0; i < uid.length; i++) {
+          h = (h + uid.charCodeAt(i) * (i + 1)) % 997;
+        }
+        return low[Math.abs(h) % 3];
+      };
+
+      const enrich = (row: any): Comment => {
+        const watchedEpisodes = watchedCountByUserId[row.user_id] || 0;
+        const xpLevel = Math.floor(watchedEpisodes / 10) + 1;
+        const rank = resolveCharacterRank(String(row.user_id || ''), xpLevel);
+        return {
+          ...row,
+          profiles: {
+            ...(row?.profiles || {}),
+            xp_level: xpLevel,
+            xp_badge: rank.label,
+            xp_badge_key: rank.key,
+          },
+          text: normalizeCommentText(row),
+          like_count: likeMap[row.id]?.count ?? 0,
+          liked_by_me: likeMap[row.id]?.liked ?? false,
+        };
+      };
 
       return top.map((c: any) => {
         const childRows = byParent.get(c.id) || [];

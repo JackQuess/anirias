@@ -7,7 +7,7 @@ import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import LoadingSkeleton from './LoadingSkeleton';
 import { getAvatarSrc } from '@/utils/avatar';
-import type { Comment } from '@/types';
+import type { Comment, CommentProfile } from '@/types';
 
 /** Spoiler yorum: kapalıyken tıklanınca açılır. */
 const CommentSpoilerText: React.FC<{
@@ -167,6 +167,25 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
 
   const isWatch = variant === 'watch';
 
+  const getXpBadgeClass = (key?: CommentProfile['xp_badge_key']) => {
+    switch (key) {
+      case 'rias':
+        return 'border-rose-700/55 bg-rose-950/45 text-rose-100';
+      case 'issei':
+        return 'border-orange-500/50 bg-orange-950/40 text-orange-100';
+      case 'akeno':
+        return 'border-violet-500/50 bg-violet-950/45 text-violet-100';
+      case 'asia':
+        return 'border-teal-500/45 bg-teal-950/35 text-teal-100';
+      case 'koneko':
+        return 'border-slate-300/40 bg-slate-800/55 text-slate-100';
+      case 'kiba':
+        return 'border-sky-600/50 bg-sky-950/40 text-sky-100';
+      default:
+        return 'border-white/15 bg-white/10 text-white/65';
+    }
+  };
+
   const watchAvatarBlock = (c: Comment, small: boolean) => (
     <div
       className={cn(
@@ -253,6 +272,20 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-bold text-sm text-white">{c.profiles?.username || 'Anonim'}</span>
+                      {c.profiles?.role === 'admin' ? (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/40 bg-primary/20 text-primary">
+                          Admin
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn(
+                          'text-[9px] font-semibold normal-case tracking-tight px-1.5 py-0.5 rounded border max-w-[min(100%,14rem)] truncate',
+                          getXpBadgeClass(c.profiles?.xp_badge_key)
+                        )}
+                        title={c.profiles?.xp_badge}
+                      >
+                        {c.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(c.profiles?.xp_level || 1))}
+                      </span>
                       {c.is_spoiler ? (
                         <span className="text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/35">
                           Spoiler
@@ -340,6 +373,20 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-0.5">
                             <span className="font-semibold text-xs text-white">{r.profiles?.username || 'Anonim'}</span>
+                            {r.profiles?.role === 'admin' ? (
+                              <span className="text-[8px] font-black uppercase tracking-wider px-1 py-0.5 rounded border border-primary/40 bg-primary/20 text-primary">
+                                Admin
+                              </span>
+                            ) : null}
+                            <span
+                              className={cn(
+                                'text-[8px] font-semibold normal-case tracking-tight px-1 py-0.5 rounded border max-w-[min(100%,12rem)] truncate',
+                                getXpBadgeClass(r.profiles?.xp_badge_key)
+                              )}
+                              title={r.profiles?.xp_badge}
+                            >
+                              {r.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(r.profiles?.xp_level || 1))}
+                            </span>
                             {r.is_spoiler ? (
                               <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/35">
                                 Spoiler
@@ -451,20 +498,25 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                     <span className="text-sm font-black text-white uppercase tracking-tight">
                       {c.profiles?.username || 'Anonim'}
                     </span>
+                    {c.profiles?.role === 'admin' ? (
+                      <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-brand-red text-white">
+                        Admin
+                      </span>
+                    ) : null}
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded text-[8px] font-semibold normal-case tracking-tight border max-w-[min(100%,14rem)] truncate',
+                        getXpBadgeClass(c.profiles?.xp_badge_key)
+                      )}
+                      title={c.profiles?.xp_badge}
+                    >
+                      {c.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(c.profiles?.xp_level || 1))}
+                    </span>
                     {c.is_spoiler ? (
                       <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/35">
                         Spoiler
                       </span>
                     ) : null}
-                    <span
-                      className={`px-2 py-0.5 rounded text-[8px] font-black uppercase italic ${
-                        (c.user as any)?.role === 'admin'
-                          ? 'bg-brand-red text-white'
-                          : 'bg-white/10 text-gray-500'
-                      }`}
-                    >
-                      {(c.user as any)?.role || 'Üye'}
-                    </span>
                     <span className="text-[10px] text-gray-700 font-bold ml-auto">{formatDate(c.created_at)}</span>
                   </div>
                   <CommentSpoilerText
@@ -479,6 +531,20 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                         <div key={r.id} className="text-gray-500 text-xs pl-3 border-l-2 border-brand-red/40 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-white/70 font-bold">{r.profiles?.username || 'Anonim'}</span>
+                            {r.profiles?.role === 'admin' ? (
+                              <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-brand-red text-white">
+                                Admin
+                              </span>
+                            ) : null}
+                            <span
+                              className={cn(
+                                'text-[7px] font-semibold normal-case tracking-tight px-1 py-0.5 rounded border max-w-[min(100%,12rem)] truncate',
+                                getXpBadgeClass(r.profiles?.xp_badge_key)
+                              )}
+                              title={r.profiles?.xp_badge}
+                            >
+                              {r.profiles?.xp_badge || 'Asia Argento'} · Lv.{Math.max(1, Number(r.profiles?.xp_level || 1))}
+                            </span>
                             {r.is_spoiler ? (
                               <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">
                                 Spoiler
