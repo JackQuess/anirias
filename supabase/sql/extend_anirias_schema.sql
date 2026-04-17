@@ -1,6 +1,7 @@
 -- Schema extension for ANIRIAS (non-destructive)
 alter table public.animes
   add column if not exists slug text,
+  add column if not exists description_tr text,
   add column if not exists created_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
 create unique index if not exists animes_slug_unique on public.animes (slug);

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.animes (
   slug TEXT,
   title JSONB NOT NULL, -- Örn: {"romaji": "Naruto", "english": "Naruto"}
   description TEXT,
+  description_tr TEXT,
   cover_image TEXT,
   banner_image TEXT,
   score NUMERIC DEFAULT 0,

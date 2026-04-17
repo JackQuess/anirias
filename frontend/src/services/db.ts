@@ -538,6 +538,33 @@ export const db = {
     return data;
   },
 
+  backfillDescriptionTr: async (
+    opts: { limit?: number; dryRun?: boolean },
+    adminToken?: string
+  ): Promise<{
+    success: boolean;
+    dryRun: boolean;
+    scanned: number;
+    translated: number;
+    skipped: number;
+    failed: number;
+    details: Array<{ id: string; title: string; status: 'translated' | 'skipped' | 'failed'; reason?: string }>;
+  }> => {
+    const data = await callBackendApi(
+      '/api/admin/backfill-description-tr',
+      'POST',
+      {
+        limit: opts.limit ?? 20,
+        dryRun: opts.dryRun === true,
+      },
+      adminToken
+    );
+    if (!data.success) {
+      throw new Error(data.error || 'TR özet backfill başarısız');
+    }
+    return data;
+  },
+
   updateAnime: async (id: string, updates: Partial<Anime>, adminToken?: string): Promise<void> => {
     // Admin operation - uses backend API for security
     try {

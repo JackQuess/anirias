@@ -22,6 +22,7 @@ import {
   type AniListMedia,
   type AniListSeasonRange,
 } from './anilist.js';
+import { translateToTurkish } from './translator.js';
 import { validateEpisodeCount } from './myanimelist.js';
 import {
   ensureAnimeSlug,
@@ -80,6 +81,8 @@ async function createOrUpdateAnime(
   malId?: number | null,
   animelySlug?: string | null
 ): Promise<string> {
+  const cleanedDescription = cleanDescription(media.description);
+  const translatedDescription = await translateToTurkish(cleanedDescription);
   const existing = await fetchAnimeRowByAnilistId(media.id);
 
   if (existing?.id) {
@@ -98,22 +101,30 @@ async function createOrUpdateAnime(
     };
     const prevLabel = ex.anilist_content_rating ?? ex.rating ?? null;
     
+    const animeUpdatePayload: Record<string, unknown> = {
+      title: { romaji: titleRomaji, english: titleEnglish },
+      description: cleanedDescription,
+      cover_image: media.coverImage?.large || media.coverImage?.extraLarge || null,
+      banner_image: media.bannerImage || null,
+      score: media.averageScore ? Math.round(media.averageScore / 10) : null,
+      year: media.seasonYear || null,
+      genres: media.genres || [],
+      format: media.format || null,
+      // Note: mal_id column may not exist - check schema first
+      // For now, we'll store it in a metadata field or skip if column doesn't exist
+      slug: slug,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (translatedDescription) {
+      animeUpdatePayload.description_tr = translatedDescription;
+    } else if (!cleanedDescription) {
+      animeUpdatePayload.description_tr = null;
+    }
+
     const { error } = await supabaseAdmin
       .from('animes')
-      .update({
-        title: { romaji: titleRomaji, english: titleEnglish },
-        description: cleanDescription(media.description),
-        cover_image: media.coverImage?.large || media.coverImage?.extraLarge || null,
-        banner_image: media.bannerImage || null,
-        score: media.averageScore ? Math.round(media.averageScore / 10) : null,
-        year: media.seasonYear || null,
-        genres: media.genres || [],
-        format: media.format || null,
-        // Note: mal_id column may not exist - check schema first
-        // For now, we'll store it in a metadata field or skip if column doesn't exist
-        slug: slug,
-        updated_at: new Date().toISOString(),
-      })
+      .update(animeUpdatePayload)
       .eq('id', existing.id);
 
     if (error) throw new Error(`Anime update failed: ${error.message}`);
@@ -149,7 +160,8 @@ async function createOrUpdateAnime(
     .from('animes')
     .insert({
       title: { romaji: titleRomaji, english: titleEnglish },
-      description: cleanDescription(media.description),
+      description: cleanedDescription,
+      description_tr: translatedDescription || null,
       cover_image: media.coverImage?.large || media.coverImage?.extraLarge || null,
       banner_image: media.bannerImage || null,
       score: media.averageScore ? Math.round(media.averageScore / 10) : null,

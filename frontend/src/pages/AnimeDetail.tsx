@@ -308,7 +308,7 @@ const AnimeDetail: React.FC = () => {
       userId: user?.id ?? null,
     });
   }, [anime, watchlist, user?.id]);
-  const synopsis = anime?.description?.replace(/<[^>]*>/g, '') || '';
+  const synopsis = (anime?.description_tr || anime?.description || '').replace(/<[^>]*>/g, '');
 
   const toggleList = async () => {
     if (!user || !animeId) {

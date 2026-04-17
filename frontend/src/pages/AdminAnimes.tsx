@@ -35,6 +35,8 @@ const AdminAnimes: React.FC = () => {
   const [adminToken, setAdminTokenState] = useState(() => getAdminToken() ?? '');
   const [adultSyncing, setAdultSyncing] = useState(false);
   const [adultSyncMsg, setAdultSyncMsg] = useState<string | null>(null);
+  const [trBackfillRunning, setTrBackfillRunning] = useState(false);
+  const [trBackfillMsg, setTrBackfillMsg] = useState<string | null>(null);
 
   // Filtered animes - always array
   const filteredAnimes = useMemo(() => {
@@ -126,6 +128,26 @@ const AdminAnimes: React.FC = () => {
     }
   };
 
+  const runDescriptionTrBackfill = async (dryRun: boolean) => {
+    const token = (getAdminToken() || window.prompt('Admin Token (X-ADMIN-TOKEN)') || '').trim();
+    if (!token) {
+      alert('Admin token gerekli.');
+      return;
+    }
+    setTrBackfillRunning(true);
+    setTrBackfillMsg(dryRun ? 'TR özet dry-run başlatıldı…' : 'TR özet çeviri başlatıldı…');
+    try {
+      const result = await db.backfillDescriptionTr({ limit: 25, dryRun }, token);
+      const summary = `Taranan: ${result.scanned}, çevrilen: ${result.translated}, atlanan: ${result.skipped}, hata: ${result.failed}`;
+      setTrBackfillMsg(dryRun ? `Dry-run tamam. ${summary}` : `Backfill tamam. ${summary}`);
+      if (!dryRun) await reload();
+    } catch (e: any) {
+      setTrBackfillMsg(`Hata: ${e?.message || 'Bilinmeyen'}`);
+    } finally {
+      setTrBackfillRunning(false);
+    }
+  };
+
   return (
     <div className="space-y-6 lg:space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
@@ -138,6 +160,22 @@ const AdminAnimes: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <button
+            type="button"
+            onClick={() => void runDescriptionTrBackfill(true)}
+            disabled={adultSyncing || trBackfillRunning}
+            className="w-full sm:w-auto bg-white/5 border border-white/15 active:bg-white/10 lg:hover:bg-white/10 text-white px-6 lg:px-8 py-4 lg:py-5 rounded-xl lg:rounded-[1.5rem] text-[10px] lg:text-xs font-black uppercase tracking-widest transition-all touch-manipulation disabled:opacity-50"
+          >
+            {trBackfillRunning ? 'TR ÖZET KONTROL…' : 'TR ÖZET DRY-RUN'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void runDescriptionTrBackfill(false)}
+            disabled={adultSyncing || trBackfillRunning}
+            className="w-full sm:w-auto bg-emerald-500/15 border border-emerald-400/35 active:bg-emerald-500/25 lg:hover:bg-emerald-500/25 text-emerald-200 px-6 lg:px-8 py-4 lg:py-5 rounded-xl lg:rounded-[1.5rem] text-[10px] lg:text-xs font-black uppercase tracking-widest transition-all touch-manipulation disabled:opacity-50"
+          >
+            {trBackfillRunning ? 'TR ÖZET ÇEVRİLİYOR…' : 'TR ÖZET BACKFILL'}
+          </button>
           <button
             type="button"
             onClick={() => void runAniListAdultSync()}
@@ -158,6 +196,12 @@ const AdminAnimes: React.FC = () => {
       {adultSyncMsg ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[11px] text-gray-300 font-medium">
           {adultSyncMsg}
+        </div>
+      ) : null}
+
+      {trBackfillMsg ? (
+        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-[11px] text-emerald-100 font-medium">
+          {trBackfillMsg}
         </div>
       ) : null}
 

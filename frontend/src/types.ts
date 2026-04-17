@@ -24,6 +24,7 @@ export interface Anime {
     english: string;
   };
   description: string | null;
+  description_tr?: string | null;
   cover_image: string | null;
   banner_image: string | null;
   score: number;
