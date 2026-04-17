@@ -46,6 +46,7 @@ import MyList from './pages/MyList';
 import DesktopAccess from './pages/DesktopAccess';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
+import TranslatorApplication from './pages/TranslatorApplication';
 import AuthCallback from './pages/AuthCallback';
 import UpdatePassword from './pages/UpdatePassword';
 import SearchPage from './pages/Search';
@@ -96,6 +97,7 @@ const App: React.FC = () => {
             <Route path="/hakkimizda" element={<Legal />} />
             <Route path="/gizlilik" element={<Legal />} />
             <Route path="/iletisim" element={<Legal />} />
+            <Route path="/cevirmen-basvuru" element={<TranslatorApplication />} />
           </Route>
 
           <Route path="/login" element={<Login />} />

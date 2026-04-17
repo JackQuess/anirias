@@ -76,6 +76,7 @@ const Layout: React.FC = () => {
                   ['/hakkimizda', 'Hakkımızda'],
                   ['/gizlilik', 'Gizlilik'],
                   ['/iletisim', 'İletişim'],
+                  ['/cevirmen-basvuru', 'Çeviri başvurusu'],
                 ] as const
               ).map(([to, label], i) => (
                 <React.Fragment key={to}>
