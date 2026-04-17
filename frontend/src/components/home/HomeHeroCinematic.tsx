@@ -185,7 +185,7 @@ const HomeHeroCinematic: React.FC = () => {
               </div>
 
               <p className="text-base md:text-lg text-white/90 line-clamp-3 max-w-xl font-normal leading-relaxed drop-shadow-md">
-                {current.description?.replace(/<[^>]*>/g, '') || ''}
+                {(current.description_tr || current.description || '').replace(/<[^>]*>/g, '')}
               </p>
 
               <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 mt-3 sm:mt-4 w-full sm:w-auto">

@@ -598,7 +598,7 @@ const WatchSlug: React.FC = () => {
       }))
     : undefined;
 
-  const synopsis = (anime.description || '').replace(/<[^>]*>/g, '');
+  const synopsis = (anime.description_tr || anime.description || '').replace(/<[^>]*>/g, '');
   const hasSubtitles = !!(subtitleFiles && subtitleFiles.length > 0);
 
   const commentsFallback = (

@@ -124,8 +124,8 @@ const Watch: React.FC = () => {
   }, [anime, watchlistForMatch, user?.id]);
 
   const synopsisPlain = useMemo(
-    () => (anime?.description || '').replace(/<[^>]*>/g, ''),
-    [anime?.description]
+    () => (anime?.description_tr || anime?.description || '').replace(/<[^>]*>/g, ''),
+    [anime?.description_tr, anime?.description]
   );
 
   const handleShareZip = useCallback(async () => {
