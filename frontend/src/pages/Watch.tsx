@@ -1022,7 +1022,7 @@ const Watch: React.FC = () => {
 
           <div className={cn(activeTab === 'comments' ? 'block' : 'hidden lg:block')}>
             <div className="rounded-lg border border-white/5 bg-[#0c0c10] p-5 md:p-6 shadow-xl">
-              <Comments animeId={animeId!} episodeId={currentEpisode.id} variant="watch" />
+              <Comments animeId={anime?.id || animeId!} episodeId={currentEpisode.id} variant="watch" />
             </div>
           </div>
 

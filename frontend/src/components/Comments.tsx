@@ -80,6 +80,8 @@ export interface CommentsProps {
   variant?: 'default' | 'watch';
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'default' }) => {
   const { user, profile } = useAuth();
   const [commentText, setCommentText] = useState('');
@@ -93,6 +95,8 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
     episodeId &&
     typeof animeId === 'string' &&
     typeof episodeId === 'string' &&
+    UUID_RE.test(animeId) &&
+    UUID_RE.test(episodeId) &&
     animeId !== 'all' &&
     episodeId !== 'all' &&
     animeId.trim() !== '' &&
@@ -131,8 +135,9 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
         setComposerSpoiler(false);
       }
       reload();
-    } catch (e) {
-      alert('Yorum gönderilemedi. Bolum bilgisi eksik veya gecersiz olabilir.');
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : '';
+      alert(msg ? `Yorum gönderilemedi: ${msg}` : 'Yorum gönderilemedi. Bolum bilgisi eksik veya gecersiz olabilir.');
     }
   };
 
