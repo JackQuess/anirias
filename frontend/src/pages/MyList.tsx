@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Bookmark, Play, Clock } from 'lucide-react';
 import { useAuth } from '@/services/auth';
@@ -9,6 +9,9 @@ import PageHero from '@/components/cinematic/PageHero';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import type { WatchlistEntry, WatchProgress } from '@/types';
+
+const HERO_FALLBACK =
+  'https://images.unsplash.com/photo-1578632738981-4330c7091f35?auto=format&fit=crop&q=80&w=1920';
 
 const MyList: React.FC = () => {
   const { user, status } = useAuth();
@@ -42,16 +45,43 @@ const MyList: React.FC = () => {
 
   const loading = loadingCw || loadingWl;
 
+  const heroBackdropUrls = useMemo(() => {
+    const seen = new Set<string>();
+    const urls: string[] = [];
+    const pushAnime = (a: { banner_image?: string | null; cover_image?: string | null } | null | undefined) => {
+      if (!a) return;
+      const raw = a.banner_image || a.cover_image;
+      if (!raw) return;
+      const u = proxyImage(raw);
+      if (!u || u.startsWith('data:')) return;
+      if (seen.has(u)) return;
+      seen.add(u);
+      urls.push(u);
+    };
+    for (const item of continueItems) {
+      pushAnime(item.anime);
+      if (urls.length >= 12) break;
+    }
+    for (const w of savedItems) {
+      if (urls.length >= 12) break;
+      pushAnime(w.anime);
+    }
+    return urls;
+  }, [continueItems, savedItems]);
+
   return (
     <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
-      <PageHero
-        title="Listem"
-        description="Daha sonra izlemek için kaydettiğin tüm anime serileri burada. Kendi koleksiyonunu oluştur ve dilediğin zaman izle."
-        image="https://images.unsplash.com/photo-1542332213-31f87348057f?auto=format&fit=crop&q=80&w=1920"
-        className="rounded-none mb-0 h-[350px] md:h-[450px]"
-      />
+      <div className="px-0 md:px-0">
+        <PageHero
+          title="Listem"
+          description="Daha sonra izlemek için kaydettiğin tüm anime serileri burada. Kaldığın yerden devam et, koleksiyonunu yönet."
+          image={HERO_FALLBACK}
+          imageUrls={heroBackdropUrls.length > 0 ? heroBackdropUrls : undefined}
+          className="rounded-none mb-0"
+        />
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-16 relative z-20">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-12 -mt-12 sm:-mt-16 md:-mt-20 relative z-20 pt-4 md:pt-6">
         {continueItems.length > 0 ? (
           <div className="mb-16">
             <div className="flex items-center gap-3 mb-6">
