@@ -74,7 +74,8 @@ const callBackendApi = async (
       '').trim();
   if (!token) throw new Error('Admin token is required');
 
-  const res = await fetch(`${apiBase}${endpoint}`, {
+  const url = `${apiBase}${endpoint}`;
+  const res = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -83,7 +84,21 @@ const callBackendApi = async (
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const data = await res.json();
+  const raw = await res.text();
+  let data: any = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!data || typeof data !== 'object') {
+    const preview = String(raw || '').slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `Backend JSON yaniti alinamadi (${res.status}) [${url}]${preview ? `: ${preview}` : ''}`
+    );
+  }
+
   if (!res.ok) {
     const error: any = new Error(data?.error || `HTTP ${res.status}: ${data?.message || 'Unknown error'}`);
     error.errorCode = data?.errorCode;
