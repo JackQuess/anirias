@@ -168,11 +168,12 @@ const Legal: React.FC = () => {
             ’nı inceleyebilir; KVKK kapsamındaki başvurularınızı aynı e-posta hattından iletebilirsiniz.
           </p>
           <p className="mb-10 text-gray-400">
-            Çeviri ekibine katılmak için önce{' '}
+            Çeviri ekibine katılmak için{' '}
             <Link to="/cevirmen-basvuru" className="text-primary underline-offset-4 hover:underline">
               çevirmen başvurusu
             </Link>{' '}
-            sayfasındaki ilkeleri okuyun; başvurunuzu e-postada konu satırında “Çevirmen başvurusu” ile iletin.
+            sayfasındaki metinleri okuyup <strong className="text-white/90">aynı sayfadaki başvuru formunu</strong> doldurun. E-posta ile ayrı başvuru
+            gerekmez; ek sorularınız için bu iletişim kanallarını kullanabilirsiniz.
           </p>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 not-prose">

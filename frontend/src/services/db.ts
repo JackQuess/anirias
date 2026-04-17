@@ -2199,6 +2199,76 @@ export const db = {
   },
 
   /**
+   * Çevirmen başvurusu — admin Geri Bildirimler listesinde [ÇEVİRMEN BAŞVURUSU] ön ekiyle görünür.
+   */
+  submitTranslatorApplication: async (params: {
+    userId: string | null;
+    siteUsername?: string | null;
+    fullName: string;
+    email: string;
+    locationOrTimezone?: string;
+    experienceText: string;
+    toolsText: string;
+    languageSkills: string;
+    weeklyAvailability: string;
+    genresOrSeries: string;
+    portfolioText?: string;
+    compensationModel: 'volunteer' | 'open_discussion' | 'paid_preferred';
+    compensationNote?: string;
+    whyAnirias: string;
+  }): Promise<void> => {
+    if (!checkEnv()) {
+      throw new Error('Supabase yapılandırılmamış');
+    }
+    const compLabel =
+      params.compensationModel === 'volunteer'
+        ? 'Gönüllü katkı (ücret beklentisi yok)'
+        : params.compensationModel === 'open_discussion'
+          ? 'Ücret/telafi konuşulabilir'
+          : 'Ücretli iş birliği tercih ediyorum';
+    const lines = [
+      '[ÇEVİRMEN BAŞVURUSU]',
+      `Ad / görünen ad: ${params.fullName.trim()}`,
+      `E-posta: ${params.email.trim()}`,
+      ...(params.siteUsername?.trim() ? [`Site kullanıcı adı: ${params.siteUsername.trim()}`] : []),
+      ...(params.userId ? [`Hesap user_id: ${params.userId}`] : ['Hesap: giriş yapılmadan gönderildi']),
+      ...(params.locationOrTimezone?.trim() ? [`Şehir / saat dilimi: ${params.locationOrTimezone.trim()}`] : []),
+      '--- Deneyim ---',
+      params.experienceText.trim(),
+      '--- Araçlar ve yazılım ---',
+      params.toolsText.trim(),
+      '--- Dil becerileri (TR / EN / JP vb.) ---',
+      params.languageSkills.trim(),
+      '--- Haftalık müsaitlik ---',
+      params.weeklyAvailability.trim(),
+      '--- İlgi alanı, tür veya seri tercihi ---',
+      params.genresOrSeries.trim(),
+      ...(params.portfolioText?.trim() ? ['--- Portföy / linkler ---', params.portfolioText.trim()] : []),
+      '--- Ücret beklentisi ---',
+      compLabel,
+      ...(params.compensationNote?.trim() ? [`Not: ${params.compensationNote.trim()}`] : []),
+      '--- Neden ANIRIAS ve izleyiciye taahhüdünüz ---',
+      params.whyAnirias.trim(),
+    ];
+    let message = lines.join('\n');
+    const maxLen = 14000;
+    if (message.length > maxLen) {
+      message = `${message.slice(0, maxLen)}\n\n...[metin uzunluğu sınırı — devamı kesildi]`;
+    }
+    const { error } = await supabase!.from('feedback').insert({
+      user_id: params.userId,
+      message,
+      rating: null,
+      page_url: typeof window !== 'undefined' ? window.location.href : null,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    });
+    if (error) {
+      if (import.meta.env.DEV) console.error('[db.submitTranslatorApplication]', error);
+      throw new Error(error.message || 'Başvuru kaydedilemedi');
+    }
+  },
+
+  /**
    * Get site settings by key
    */
   async getSiteSetting(key: string): Promise<any | null> {
