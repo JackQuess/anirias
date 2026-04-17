@@ -1491,7 +1491,7 @@ export const db = {
       }
 
       const normalizeCommentText = (row: any): string => {
-        const raw = row?.text ?? row?.message ?? row?.body ?? row?.comment_text ?? '';
+        const raw = row?.text ?? row?.content ?? row?.message ?? row?.body ?? row?.comment_text ?? '';
         return String(raw || '');
       };
 
@@ -1529,6 +1529,7 @@ export const db = {
       anime_id: comment.anime_id,
       episode_id: comment.episode_id ?? null,
       text: commentText,
+      content: commentText,
     };
     if (comment.parent_id) {
       payload.parent_id = comment.parent_id;
@@ -1543,13 +1544,20 @@ export const db = {
       return new RegExp(col, 'i').test(msg) && /schema cache|column|42703|PGRST/i.test(msg);
     };
 
-    let { error } = await supabase!.from('comments').insert([payload]);
+    let insertPayload: Record<string, unknown> = { ...payload };
+    let { error } = await supabase!.from('comments').insert([insertPayload]);
+
+    // Some schemas don't have `content`; retry without it.
+    if (error && schemaMentionsUnknownColumn(error, 'content')) {
+      delete insertPayload.content;
+      ({ error } = await supabase!.from('comments').insert([insertPayload]));
+    }
 
     // Backward compatibility: some live schemas use message/body/comment_text instead of text.
     if (error && schemaMentionsUnknownColumn(error, 'text')) {
       const fallbackColumns = ['message', 'body', 'comment_text'];
       for (const col of fallbackColumns) {
-        const retryPayload: Record<string, unknown> = { ...payload };
+        const retryPayload: Record<string, unknown> = { ...insertPayload };
         delete retryPayload.text;
         retryPayload[col] = commentText;
         const retry = await supabase!.from('comments').insert([retryPayload]);
@@ -1563,7 +1571,7 @@ export const db = {
       const msg = `${(error as any).message || ''} ${(error as any).details || ''}`;
       if (/is_spoiler|schema cache|column|42703|PGRST/i.test(msg)) {
         const variants: Record<string, unknown>[] = [];
-        const rest = { ...payload };
+        const rest = { ...insertPayload };
         delete rest.is_spoiler;
         variants.push(rest);
         for (const col of ['message', 'body', 'comment_text']) {
