@@ -29,23 +29,9 @@ const MyList: React.FC = () => {
   const { data: progressRows, loading: loadingCw } = useLoad(fetchContinue, [user?.id]);
   const { data: watchlistRows, loading: loadingWl } = useLoad(fetchList, [user?.id]);
 
-  if (status === 'LOADING') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center font-inter">
-        <div className="h-12 w-12 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) return <Navigate to="/login" replace />;
-
-  const continueItems: WatchProgress[] = progressRows || [];
-  const savedItems: WatchlistEntry[] =
-    (watchlistRows || []).filter((w) => w.status !== 'watching' && w.anime) ?? [];
-
-  const loading = loadingCw || loadingWl;
-
   const heroBackdropUrls = useMemo(() => {
+    const continueItems = progressRows ?? [];
+    const savedItems = (watchlistRows ?? []).filter((w) => w.status !== 'watching' && w.anime);
     const seen = new Set<string>();
     const urls: string[] = [];
     const pushAnime = (a: { banner_image?: string | null; cover_image?: string | null } | null | undefined) => {
@@ -67,7 +53,23 @@ const MyList: React.FC = () => {
       pushAnime(w.anime);
     }
     return urls;
-  }, [continueItems, savedItems]);
+  }, [progressRows, watchlistRows]);
+
+  if (status === 'LOADING') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center font-inter">
+        <div className="h-12 w-12 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  const continueItems: WatchProgress[] = progressRows || [];
+  const savedItems: WatchlistEntry[] =
+    (watchlistRows || []).filter((w) => w.status !== 'watching' && w.anime) ?? [];
+
+  const loading = loadingCw || loadingWl;
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
