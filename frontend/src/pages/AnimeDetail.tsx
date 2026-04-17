@@ -6,6 +6,7 @@ import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { useAuth } from '@/services/auth';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import Comments from '@/components/Comments';
 import { Season, WatchlistStatus } from '@/types';
 import AnimeCard from '@/components/AnimeCard';
 import { getDisplayTitle } from '@/utils/title';
@@ -47,6 +48,7 @@ const AnimeDetail: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [watchlistStatus, setWatchlistStatus] = useState<WatchlistStatus | 'none'>('none');
   const [adultGateDismissed, setAdultGateDismissed] = useState(false);
+  const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   /** AniList/MAL (Jikan) bölüm özetleri — anilist_id varsa backend doldurur */
   const [episodeSynopses, setEpisodeSynopses] = useState<Record<number, string>>({});
 
@@ -229,6 +231,12 @@ const AnimeDetail: React.FC = () => {
     return episodesBySeason[selectedSeasonNumber] || [];
   }, [selectedSeasonNumber, episodesBySeason]);
 
+  const commentEpisodeId = React.useMemo(() => {
+    if (visibleEpisodes.length > 0) return visibleEpisodes[0].id;
+    if (allEpisodes && allEpisodes.length > 0) return allEpisodes[0].id;
+    return null;
+  }, [visibleEpisodes, allEpisodes]);
+
   useEffect(() => {
     if (!watchlist || !animeId) return;
     const entry = watchlist.find((w) => w.anime_id === animeId);
@@ -309,6 +317,7 @@ const AnimeDetail: React.FC = () => {
     });
   }, [anime, watchlist, user?.id]);
   const synopsis = (anime?.description_tr || anime?.description || '').replace(/<[^>]*>/g, '');
+  const canExpandSynopsis = synopsis.length > 220;
 
   const toggleList = async () => {
     if (!user || !animeId) {
@@ -401,7 +410,22 @@ const AnimeDetail: React.FC = () => {
               </span>
             </div>
 
-            <p className="text-base md:text-lg text-white/80 line-clamp-3 max-w-2xl mt-2 leading-relaxed">{synopsis}</p>
+            <div className="max-w-2xl mt-2">
+              <p
+                className={`text-base md:text-lg text-white/80 leading-relaxed ${!isSynopsisExpanded ? 'line-clamp-3' : ''}`}
+              >
+                {synopsis}
+              </p>
+              {canExpandSynopsis ? (
+                <button
+                  type="button"
+                  onClick={() => setIsSynopsisExpanded((v) => !v)}
+                  className="mt-1 text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+                >
+                  {isSynopsisExpanded ? 'Daha az' : 'Daha fazla'}
+                </button>
+              ) : null}
+            </div>
 
             <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-4 mt-4 sm:mt-6">
               <Link
@@ -579,6 +603,15 @@ const AnimeDetail: React.FC = () => {
             <p className="text-white text-sm">İzlenme: {(anime.view_count || 0).toLocaleString('tr-TR')}</p>
           </div>
         </div>
+      </div>
+
+      <div className="px-4 sm:px-6 md:px-12 pb-8 sm:pb-12">
+        <h2 className="text-2xl font-bold text-white mb-6">Yorumlar</h2>
+        {commentEpisodeId ? (
+          <Comments animeId={anime.id} episodeId={commentEpisodeId} />
+        ) : (
+          <p className="text-white/50 text-sm">Yorum yazmak icin once bolum eklenmeli.</p>
+        )}
       </div>
 
       {similarAnimes && similarAnimes.length > 0 ? (

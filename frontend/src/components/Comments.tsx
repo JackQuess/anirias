@@ -97,6 +97,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
     episodeId !== 'all' &&
     animeId.trim() !== '' &&
     episodeId.trim() !== '';
+  const canPost = shouldFetch;
 
   const { data: comments, loading, reload } = useLoad(
     () => {
@@ -110,7 +111,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
 
   const handleSend = async (parentId?: string | null) => {
     const text = (parentId ? replyText : commentText).trim();
-    if (!text || !user) return;
+    if (!text || !user || !canPost) return;
     const isSpoilerFlag = parentId ? replySpoiler : composerSpoiler;
     try {
       await db.addComment({
@@ -131,7 +132,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
       }
       reload();
     } catch (e) {
-      alert('Yorum gönderilemedi.');
+      alert('Yorum gönderilemedi. Bolum bilgisi eksik veya gecersiz olabilir.');
     }
   };
 
@@ -209,8 +210,9 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
               <textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Yorum ekle…"
+                placeholder={canPost ? 'Yorum ekle…' : 'Yorum icin gecerli bolum secilemedi.'}
                 rows={2}
+                disabled={!canPost}
                 className="w-full bg-transparent border-0 border-b border-white/20 pb-2 outline-none focus:border-white transition-colors text-sm text-white placeholder:text-white/40 resize-none"
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -218,7 +220,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                 <button
                   type="button"
                   onClick={() => void handleSend()}
-                  disabled={!commentText.trim()}
+                  disabled={!commentText.trim() || !canPost}
                   className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white disabled:opacity-40 transition-colors"
                 >
                   Gönder
@@ -293,6 +295,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                           onChange={(e) => setReplyText(e.target.value)}
                           placeholder={`${c.profiles?.username || 'Kullanıcı'} yanıtla…`}
                           rows={2}
+                          disabled={!canPost}
                           className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-primary resize-none"
                         />
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -311,7 +314,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
                             </button>
                             <button
                               type="button"
-                              disabled={!replyText.trim()}
+                              disabled={!replyText.trim() || !canPost}
                               onClick={() => void handleSend(c.id)}
                               className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white disabled:opacity-40"
                             >
@@ -393,7 +396,8 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Bölüm hakkındaki düşüncelerini paylaş..."
+              placeholder={canPost ? 'Bölüm hakkındaki düşüncelerini paylaş...' : 'Yorum icin gecerli bolum secilemedi.'}
+              disabled={!canPost}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-red transition-all resize-none min-h-[120px] placeholder:text-gray-700"
             />
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -401,7 +405,7 @@ const Comments: React.FC<CommentsProps> = ({ animeId, episodeId, variant = 'defa
               <button
                 type="button"
                 onClick={() => void handleSend()}
-                disabled={!commentText.trim()}
+                disabled={!commentText.trim() || !canPost}
                 className="bg-brand-red hover:bg-brand-redHover text-white px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand-red/20 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
               >
                 YORUMU PAYLAŞ
