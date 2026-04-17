@@ -132,6 +132,7 @@ const Navbar: React.FC = () => {
     { label: 'Takvim', path: '/calendar', comingSoon: !CALENDAR_PAGE_PUBLIC_LIVE },
     { label: 'Listem', path: '/list' },
     { label: 'Uygulamalar', path: '/uygulamalar' },
+    { label: 'Çeviri başvurusu', path: '/cevirmen-basvuru' },
   ];
 
   return (
