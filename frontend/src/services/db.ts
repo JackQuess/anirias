@@ -1490,8 +1490,14 @@ export const db = {
         byParent.get(pid)!.push(r);
       }
 
+      const normalizeCommentText = (row: any): string => {
+        const raw = row?.text ?? row?.message ?? row?.body ?? row?.comment_text ?? '';
+        return String(raw || '');
+      };
+
       const enrich = (row: any): Comment => ({
         ...row,
+        text: normalizeCommentText(row),
         like_count: likeMap[row.id]?.count ?? 0,
         liked_by_me: likeMap[row.id]?.liked ?? false,
       });
@@ -1513,11 +1519,16 @@ export const db = {
     if (!checkEnv()) return;
     await ensureProfileForCommentAuthor(comment.user_id);
 
+    const commentText = String(comment.text || '').trim();
+    if (!commentText) {
+      throw new Error('Yorum metni bos olamaz');
+    }
+
     const payload: Record<string, unknown> = {
       user_id: comment.user_id,
       anime_id: comment.anime_id,
       episode_id: comment.episode_id ?? null,
-      text: comment.text,
+      text: commentText,
     };
     if (comment.parent_id) {
       payload.parent_id = comment.parent_id;
@@ -1527,14 +1538,46 @@ export const db = {
       payload.is_spoiler = true;
     }
 
+    const schemaMentionsUnknownColumn = (e: any, col: string) => {
+      const msg = `${e?.message || ''} ${e?.details || ''} ${e?.hint || ''}`;
+      return new RegExp(col, 'i').test(msg) && /schema cache|column|42703|PGRST/i.test(msg);
+    };
+
     let { error } = await supabase!.from('comments').insert([payload]);
+
+    // Backward compatibility: some live schemas use message/body/comment_text instead of text.
+    if (error && schemaMentionsUnknownColumn(error, 'text')) {
+      const fallbackColumns = ['message', 'body', 'comment_text'];
+      for (const col of fallbackColumns) {
+        const retryPayload: Record<string, unknown> = { ...payload };
+        delete retryPayload.text;
+        retryPayload[col] = commentText;
+        const retry = await supabase!.from('comments').insert([retryPayload]);
+        error = retry.error;
+        if (!error) break;
+        if (!schemaMentionsUnknownColumn(error, col)) break;
+      }
+    }
     // Spoiler açık ama sütun yoksa: spoiler olmadan tekrar dene (kullanıcıya içerik kaybı olmaması için uyar)
     if (error && comment.is_spoiler && payload.is_spoiler === true) {
       const msg = `${(error as any).message || ''} ${(error as any).details || ''}`;
       if (/is_spoiler|schema cache|column|42703|PGRST/i.test(msg)) {
+        const variants: Record<string, unknown>[] = [];
         const rest = { ...payload };
         delete rest.is_spoiler;
-        ({ error } = await supabase!.from('comments').insert([rest]));
+        variants.push(rest);
+        for (const col of ['message', 'body', 'comment_text']) {
+          const alt: Record<string, unknown> = { ...rest };
+          delete alt.text;
+          alt[col] = commentText;
+          variants.push(alt);
+        }
+
+        for (const variant of variants) {
+          const retry = await supabase!.from('comments').insert([variant]);
+          error = retry.error;
+          if (!error) break;
+        }
         if (!error && import.meta.env.DEV) {
           console.warn('[db.addComment] is_spoiler sütunu yok; yorum spoilersız kaydedildi. add_comment_is_spoiler.sql çalıştırın.');
         }
