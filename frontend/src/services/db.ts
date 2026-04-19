@@ -415,6 +415,25 @@ export const db = {
     }
   },
 
+  getAnimesByIds: async (ids: string[]): Promise<Anime[]> => {
+    if (!checkEnv()) return [];
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return [];
+    try {
+      const { data, error } = await supabase!.from('animes').select('*').in('id', unique);
+      if (error) {
+        if (import.meta.env.DEV) console.error('[db.getAnimesByIds] Query error:', error);
+        return [];
+      }
+      const rows = Array.isArray(data) ? data : [];
+      const byId = new Map(rows.map((a: Anime) => [a.id, a]));
+      return unique.map((id) => byId.get(id)).filter((a): a is Anime => Boolean(a));
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getAnimesByIds] Unexpected error:', err);
+      return [];
+    }
+  },
+
   getAnimeByIdOrSlug: async (identifier: string): Promise<Anime | null> => {
     if (!identifier || identifier.trim() === '') {
       if (import.meta.env.DEV) console.warn('[db.getAnimeByIdOrSlug] Empty identifier provided');

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Bookmark, Play, Clock } from 'lucide-react';
+import { Bookmark, Play, Clock, BellRing } from 'lucide-react';
 import { useAuth } from '@/services/auth';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
@@ -8,7 +8,8 @@ import AnimeCard from '@/components/AnimeCard';
 import PageHero from '@/components/cinematic/PageHero';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
-import type { WatchlistEntry, WatchProgress } from '@/types';
+import type { Anime, WatchlistEntry, WatchProgress } from '@/types';
+import { notifications as animeNotifications } from '@/services/notifications';
 
 const HERO_FALLBACK =
   'https://images.unsplash.com/photo-1578632738981-4330c7091f35?auto=format&fit=crop&q=80&w=1920';
@@ -26,12 +27,21 @@ const MyList: React.FC = () => {
     return db.getWatchlist(user.id);
   }, [user?.id]);
 
+  const fetchFollowedAnimes = useCallback(async (): Promise<Anime[]> => {
+    if (!user?.id) return [];
+    const ids = await animeNotifications.getFollowingAnimes(user.id);
+    if (!ids.length) return [];
+    return db.getAnimesByIds(ids);
+  }, [user?.id]);
+
   const { data: progressRows, loading: loadingCw } = useLoad(fetchContinue, [user?.id]);
   const { data: watchlistRows, loading: loadingWl } = useLoad(fetchList, [user?.id]);
+  const { data: followedAnimes, loading: loadingFollow } = useLoad(fetchFollowedAnimes, [user?.id]);
 
   const heroBackdropUrls = useMemo(() => {
     const continueItems = progressRows ?? [];
     const savedItems = (watchlistRows ?? []).filter((w) => w.status !== 'watching' && w.anime);
+    const followItems = followedAnimes ?? [];
     const seen = new Set<string>();
     const urls: string[] = [];
     const pushAnime = (a: { banner_image?: string | null; cover_image?: string | null } | null | undefined) => {
@@ -52,8 +62,12 @@ const MyList: React.FC = () => {
       if (urls.length >= 12) break;
       pushAnime(w.anime);
     }
+    for (const a of followItems) {
+      if (urls.length >= 12) break;
+      pushAnime(a);
+    }
     return urls;
-  }, [progressRows, watchlistRows]);
+  }, [progressRows, watchlistRows, followedAnimes]);
 
   if (status === 'LOADING') {
     return (
@@ -69,14 +83,15 @@ const MyList: React.FC = () => {
   const savedItems: WatchlistEntry[] =
     (watchlistRows || []).filter((w) => w.status !== 'watching' && w.anime) ?? [];
 
-  const loading = loadingCw || loadingWl;
+  const loading = loadingCw || loadingWl || loadingFollow;
+  const followList = followedAnimes ?? [];
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav md:pb-12 font-inter">
       <div className="px-0 md:px-0">
         <PageHero
           title="Listem"
-          description="Daha sonra izlemek için kaydettiğin tüm anime serileri burada. Kaldığın yerden devam et, koleksiyonunu yönet."
+          description="İzlemeye devam et, takip ettiklerin ve kaydettiğin seriler burada. Yeni bölüm bildirimleri için anime sayfasından Takip et."
           image={HERO_FALLBACK}
           imageUrls={heroBackdropUrls.length > 0 ? heroBackdropUrls : undefined}
           className="rounded-none mb-0"
@@ -140,6 +155,44 @@ const MyList: React.FC = () => {
           </div>
         ) : null}
 
+        <div className="mb-16">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <BellRing className="w-6 h-6 text-primary" />
+              <h2 className="text-2xl font-bold text-white">Takip edilenler</h2>
+            </div>
+            <span className="text-white/50 font-medium bg-white/5 px-3 py-1 rounded-full text-sm">
+              {followList.length} anime
+            </span>
+          </div>
+          {loading && followList.length === 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="aspect-[2/3] bg-white/5 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : followList.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+              {followList.map((anime) => (
+                <AnimeCard key={anime.id} anime={anime} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-surface-elevated/80 px-5 py-10 text-center">
+              <p className="text-white/60 text-sm max-w-md mx-auto mb-4">
+                Yeni bölüm bildirimi almak istediğin animeleri dizi veya izleme sayfasındaki{' '}
+                <span className="text-white font-semibold">Takip et</span> ile ekleyebilirsin.
+              </p>
+              <Link
+                to="/browse"
+                className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-white/10 text-white text-sm font-bold hover:bg-white/15 transition-colors"
+              >
+                Kataloğa git
+              </Link>
+            </div>
+          )}
+        </div>
+
         <div>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -168,9 +221,10 @@ const MyList: React.FC = () => {
               <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
                 <Bookmark className="w-8 h-8 text-white/40" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Listeniz henüz boş</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Kayıtlı listen henüz boş</h3>
               <p className="text-white/50 mb-8 max-w-md">
-                Henüz listenize bir anime eklemediniz. Katalogdan keşfetmeye başlayın.
+                Planlama / tamamlanan listene henüz ekleme yapmadın. Yeni bölüm uyarıları için üstteki Takip
+                edilenler bölümünü kullanabilirsin.
               </p>
               <Link
                 to="/browse"
