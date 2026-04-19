@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Play, Plus, Subtitles, Check } from 'lucide-react';
+import { Play, Plus, Subtitles, Check, Bell, BellRing } from 'lucide-react';
 import { Anime, Episode } from '@/types';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 import { useAuth } from '@/services/auth';
 import { db } from '@/services/db';
+import { notifications as animeNotifications } from '@/services/notifications';
 import { useMatchScoreWatchlist } from '@/context/MatchScoreContext';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 
@@ -23,11 +24,21 @@ export interface AnimeCardProps {
   progressPercent?: number;
   /** true: kartın tamamı izleme sayfasına gider (ana sayfa İzlemeye devam); yoksa anime detay */
   linkToWatch?: boolean;
+  /** false: sağ üstteki yeni bölüm takip düğmesini gizle (ör. özel vitrinler) */
+  showFollowButton?: boolean;
 }
 
-const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster', progressPercent, linkToWatch = false }) => {
+const AnimeCard: React.FC<AnimeCardProps> = ({
+  anime,
+  episode,
+  layout = 'poster',
+  progressPercent,
+  linkToWatch = false,
+  showFollowButton = true,
+}) => {
   const [imgErrorCount, setImgErrorCount] = useState(0);
   const [inList, setInList] = useState(false);
+  const [followingNewEpisodes, setFollowingNewEpisodes] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { watchlist, reload: reloadMatchWatchlist } = useMatchScoreWatchlist();
@@ -65,6 +76,22 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
     };
   }, [user?.id, anime.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!user || !showFollowButton) {
+        if (!cancelled) setFollowingNewEpisodes(false);
+        return;
+      }
+      const ok = await animeNotifications.isFollowing(user.id, anime.id);
+      if (!cancelled) setFollowingNewEpisodes(ok);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, anime.id, showFollowButton]);
+
   const getImageUrl = useCallback(() => {
     if (imgErrorCount === 0) return displayImage;
     if (imgErrorCount === 1 && displayImage) {
@@ -93,6 +120,26 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
       reloadMatchWatchlist();
     } catch (err) {
       if (import.meta.env.DEV) console.error('Watchlist toggle', err);
+    }
+  };
+
+  const handleFollowToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      alert('Lütfen önce giriş yapın.');
+      return;
+    }
+    try {
+      if (followingNewEpisodes) {
+        const ok = await animeNotifications.unfollowAnime(user.id, anime.id);
+        if (ok) setFollowingNewEpisodes(false);
+      } else {
+        const ok = await animeNotifications.followAnime(user.id, anime.id);
+        if (ok) setFollowingNewEpisodes(true);
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Follow toggle', err);
     }
   };
 
@@ -176,6 +223,23 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime, episode, layout = 'poster'
           </>
         ) : null}
       </div>
+
+      {user && showFollowButton ? (
+        <button
+          type="button"
+          onClick={handleFollowToggle}
+          title={followingNewEpisodes ? 'Yeni bölüm bildirimini kapat' : 'Yeni bölüm için takip et'}
+          aria-label={followingNewEpisodes ? 'Takibi bırak' : 'Yeni bölüm bildirimi için takip et'}
+          className={cn(
+            'absolute top-2 right-2 z-30 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-colors touch-manipulation',
+            followingNewEpisodes
+              ? 'border-primary/50 bg-primary/25 text-primary hover:bg-primary/35'
+              : 'border-white/25 bg-black/55 text-white hover:bg-black/70 hover:border-white/40'
+          )}
+        >
+          {followingNewEpisodes ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+        </button>
+      ) : null}
 
       <div className="absolute inset-0 z-[25] p-4 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
         <div className="mb-2 flex items-start gap-2">
