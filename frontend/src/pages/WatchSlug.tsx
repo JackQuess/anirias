@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Subtitles, Share2, ChevronLeft, Plus, Check, ThumbsUp, Flag } from 'lucide-react';
+import { Subtitles, Share2, ChevronLeft, Plus, Check, ThumbsUp, Flag, Bell, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AnimeCard from '@/components/AnimeCard';
 import { useLoad } from '../services/useLoad';
@@ -19,6 +19,7 @@ import ReportWatchModal from '@/components/ReportWatchModal';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 import { createWatchParty } from '@/services/watchPartyApi';
 import { showToast } from '@/components/ToastProvider';
+import { notifications as animeNotifications } from '@/services/notifications';
 
 const Comments = lazy(() => import('../components/Comments'));
 
@@ -31,6 +32,8 @@ type WatchInfoPanelProps = {
   scorePct: number;
   inList: boolean;
   onToggleList: () => void | Promise<void>;
+  followingNewEpisodes: boolean;
+  onToggleFollow: () => void | Promise<void>;
   onShare: () => void | Promise<void>;
   hasSubtitles: boolean;
   user: { id: string } | null;
@@ -50,6 +53,8 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
   scorePct,
   inList,
   onToggleList,
+  followingNewEpisodes,
+  onToggleFollow,
   onShare,
   hasSubtitles,
   user,
@@ -159,6 +164,19 @@ const WatchInfoPanel: React.FC<WatchInfoPanelProps> = ({
             {inList ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             {inList ? 'Listemde' : 'Listeme ekle'}
           </button>
+          <button
+            type="button"
+            onClick={() => void onToggleFollow()}
+            title="Yeni bölüm yayınlandığında bildirim"
+            className={`inline-flex items-center gap-2 text-xs font-semibold border rounded-lg px-3 py-2 transition-colors ${
+              followingNewEpisodes
+                ? 'text-primary border-primary/40 bg-primary/10 hover:bg-primary/15'
+                : 'text-white/50 hover:text-white border-white/10'
+            }`}
+          >
+            {followingNewEpisodes ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+            {followingNewEpisodes ? 'Takiptesin' : 'Takip et'}
+          </button>
         </div>
       ) : null}
     </div>
@@ -267,6 +285,17 @@ const WatchSlug: React.FC = () => {
     [user?.id]
   );
 
+  const fetchWatchFollow = useCallback(async () => {
+    if (!user?.id || !anime?.id) return false;
+    try {
+      return await animeNotifications.isFollowing(user.id, anime.id);
+    } catch {
+      return false;
+    }
+  }, [user?.id, anime?.id]);
+
+  const { data: watchFollowingNewEpisodes, reload: reloadWatchFollow } = useLoad(fetchWatchFollow, [user?.id, anime?.id]);
+
   const { data: episodeLikeSummary, reload: reloadEpisodeLikes } = useLoad(
     () => {
       if (!episode?.id) return Promise.resolve({ count: 0, liked: false });
@@ -324,6 +353,45 @@ const WatchSlug: React.FC = () => {
       if (import.meta.env.DEV) console.error('[WatchSlug] watchlist:', err);
     }
   }, [user, anime?.id, listStatus]);
+
+  const toggleFollowNewEpisodes = useCallback(async () => {
+    if (!user || !anime?.id) {
+      alert('Lütfen önce giriş yapın.');
+      return;
+    }
+    const wasFollowing = watchFollowingNewEpisodes === true;
+    try {
+      if (wasFollowing) {
+        const ok = await animeNotifications.unfollowAnime(user.id, anime.id);
+        if (!ok) {
+          showToast('Takipten çıkılamadı.', 'error');
+          return;
+        }
+      } else {
+        const ok = await animeNotifications.followAnime(user.id, anime.id);
+        if (!ok) {
+          showToast('Takip başlatılamadı.', 'error');
+          return;
+        }
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+          const allow = window.confirm(
+            'Yeni bölüm çıkınca tarayıcı bildirimi de gösterilsin mi? (Sekme arka plandayken uyarı.)'
+          );
+          if (allow) {
+            try {
+              await Notification.requestPermission();
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
+      reloadWatchFollow();
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[WatchSlug] follow:', err);
+      showToast('Takip güncellenemedi.', 'error');
+    }
+  }, [user, anime?.id, watchFollowingNewEpisodes, reloadWatchFollow]);
 
   const shareWatch = useCallback(async () => {
     if (!anime || !episode || seasonNum == null) return;
@@ -661,6 +729,8 @@ const WatchSlug: React.FC = () => {
             scorePct={scorePct}
             inList={listStatus !== 'none'}
             onToggleList={toggleWatchlist}
+            followingNewEpisodes={watchFollowingNewEpisodes === true}
+            onToggleFollow={toggleFollowNewEpisodes}
             onShare={shareWatch}
             hasSubtitles={hasSubtitles}
             user={user}

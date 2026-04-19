@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Play, Plus, Check, Share2, Subtitles, AlertTriangle } from 'lucide-react';
+import { Play, Plus, Check, Share2, Subtitles, AlertTriangle, Bell, BellRing } from 'lucide-react';
 import { useLoad } from '@/services/useLoad';
 import { db } from '@/services/db';
 import { useAuth } from '@/services/auth';
@@ -15,6 +15,7 @@ import { translateGenre } from '@/utils/genreTranslations';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 import { episodeHasPlayableVideo } from '@/utils/episodePlayable';
 import { formatUpcomingMonth, getUpcomingInfo } from '@/utils/upcoming';
+import { notifications as animeNotifications } from '@/services/notifications';
 
 const ADULT_GLOBAL_LS_KEY = 'anirias_adult_global_ack';
 
@@ -104,6 +105,17 @@ const AnimeDetail: React.FC = () => {
   const { data: seasonsData } = useLoad(fetchSeasonsWithId, [animeId]);
   const { data: similarAnimes } = useLoad(fetchSimilarWithId, [animeId]);
   const { data: watchlist } = useLoad(fetchWatchlist, [user?.id]);
+
+  const fetchAnimeFollow = useCallback(async () => {
+    if (!user?.id || !animeId) return false;
+    try {
+      return await animeNotifications.isFollowing(user.id, animeId);
+    } catch {
+      return false;
+    }
+  }, [user?.id, animeId]);
+
+  const { data: isFollowingForNotify, reload: reloadAnimeFollow } = useLoad(fetchAnimeFollow, [user?.id, animeId]);
 
   useEffect(() => {
     const aid = anime?.anilist_id;
@@ -337,6 +349,45 @@ const AnimeDetail: React.FC = () => {
     }
   };
 
+  const toggleFollowForEpisodes = async () => {
+    if (!user || !animeId) {
+      alert('Lütfen önce giriş yapın.');
+      return;
+    }
+    const wasFollowing = isFollowingForNotify === true;
+    try {
+      if (wasFollowing) {
+        const ok = await animeNotifications.unfollowAnime(user.id, animeId);
+        if (!ok) {
+          alert('Takipten çıkılamadı. Bağlantınızı veya izinleri kontrol edin.');
+          return;
+        }
+      } else {
+        const ok = await animeNotifications.followAnime(user.id, animeId);
+        if (!ok) {
+          alert('Takip başlatılamadı. Bağlantınızı veya anime_follows tablosunu kontrol edin.');
+          return;
+        }
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+          const allow = window.confirm(
+            'Yeni bölüm çıkınca tarayıcı bildirimi de gösterilsin mi? (Sekme arka plandayken küçük uyarı.)'
+          );
+          if (allow) {
+            try {
+              await Notification.requestPermission();
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
+      reloadAnimeFollow();
+    } catch (e) {
+      if (import.meta.env.DEV) console.error(e);
+      alert('Takip durumu güncellenemedi.');
+    }
+  };
+
   const shareAnime = async () => {
     const url = window.location.href;
     try {
@@ -367,6 +418,7 @@ const AnimeDetail: React.FC = () => {
   }
 
   const inList = watchlistStatus !== 'none';
+  const followingForNewEpisodes = isFollowingForNotify === true;
   const firstSeason = seasonRows[0]?.seasonNumber ?? 1;
 
   return (
@@ -443,6 +495,21 @@ const AnimeDetail: React.FC = () => {
                 {inList ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
                 {inList ? 'Listemde' : 'Listeme Ekle'}
               </button>
+              {user ? (
+                <button
+                  type="button"
+                  onClick={toggleFollowForEpisodes}
+                  className={`flex min-h-[44px] flex-1 sm:flex-initial items-center justify-center gap-2 border px-6 sm:px-8 py-3 rounded font-bold text-sm sm:text-base transition-colors active:scale-95 touch-manipulation ${
+                    followingForNewEpisodes
+                      ? 'border-primary/60 bg-primary/15 text-primary hover:bg-primary/20'
+                      : 'bg-transparent border-white/40 text-white hover:bg-white/10'
+                  }`}
+                  title="Yeni bölüm yayınlandığında bildirim alırsın"
+                >
+                  {followingForNewEpisodes ? <BellRing className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" /> : <Bell className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />}
+                  {followingForNewEpisodes ? 'Takiptesin' : 'Takip et'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={shareAnime}

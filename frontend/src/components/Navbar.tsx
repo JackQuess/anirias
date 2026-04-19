@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, Bell, LogIn } from 'lucide-react';
 import { useAuth } from '@/services/auth';
 import { db } from '@/services/db';
-import { Notification } from '../types';
+import type { Notification as AppNotification } from '../types';
 import { getAvatarSrc } from '@/utils/avatar';
 import { supabase } from '@/services/supabaseClient';
 import { scheduleRemoveChannel } from '@/utils/supabaseRealtime';
@@ -12,6 +12,20 @@ import { DESKTOP_ACCESS_PAGE } from '@/config/desktop';
 import { CALENDAR_PAGE_PUBLIC_LIVE } from '@/config/calendarPublic';
 
 type NavItem = { label: string; path: string; comingSoon?: boolean };
+
+const tryDesktopNotification = (row: Record<string, unknown>) => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (!document.hidden) return;
+  const title = typeof row.title === 'string' && row.title.trim() ? row.title : 'Anirias';
+  const body = typeof row.body === 'string' ? row.body : '';
+  const id = row.id != null ? String(row.id) : 'anirias-notif';
+  try {
+    new Notification(title, { body, tag: id });
+  } catch {
+    /* Safari / kapalı ortam */
+  }
+};
 
 const Navbar: React.FC = () => {
   const { user, profile, activePlan, signOut } = useAuth();
@@ -21,7 +35,7 @@ const Navbar: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -90,10 +104,9 @@ const Navbar: React.FC = () => {
         },
         (payload: any) => {
           // New notification received via Realtime
-          const newNotification = payload.new as Notification;
+          const newNotification = payload.new as AppNotification;
           setNotifications((prev) => [newNotification, ...prev]);
-          
-          // Show toast notification (optional - can be enhanced with a toast library)
+          tryDesktopNotification(payload.new as Record<string, unknown>);
           if (import.meta.env.DEV) {
             console.log('[Navbar] New notification received:', newNotification);
           }
@@ -239,7 +252,7 @@ const Navbar: React.FC = () => {
                             Bildirim yok
                           </div>
                         ) : (
-                          notifications.map(n => {
+                          notifications.map((n) => {
                             // Build link based on notification type
                             let link = '#';
                             if ((n.type === 'new_episode' || n.type === 'upcoming' || n.type === 'released') && n.episode && n.episode.anime_slug) {
@@ -275,6 +288,23 @@ const Navbar: React.FC = () => {
                           })
                         )}
                       </div>
+                      {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default' ? (
+                        <div className="mt-3 pt-3 border-t border-white/10">
+                          <button
+                            type="button"
+                            className="w-full text-left text-[10px] font-bold uppercase tracking-wide text-primary hover:text-white transition-colors"
+                            onClick={async () => {
+                              try {
+                                await Notification.requestPermission();
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                          >
+                            Tarayıcı bildirimlerini aç (arka planda uyarı)
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
