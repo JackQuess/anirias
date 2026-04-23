@@ -1,15 +1,55 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 interface MaintenancePageProps {
   message?: string;
+  endsAt?: string;
 }
+
+type CountdownParts = {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+};
+
+const toCountdownParts = (remainingMs: number): CountdownParts => {
+  const safeMs = Math.max(0, remainingMs);
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { days, hours, minutes, seconds };
+};
+
+const formatFullCountdown = (parts: CountdownParts): string => {
+  return `${parts.days} gün ${parts.hours} saat ${parts.minutes} dk ${parts.seconds} sn`;
+};
 
 /**
  * Tam ekran bakım sayfası — yalnızca Layout altındaki genel site için.
  * /admin ve giriş sayfaları etkilenmez.
  */
-const MaintenancePage: React.FC<MaintenancePageProps> = ({ message }) => {
+const MaintenancePage: React.FC<MaintenancePageProps> = ({ message, endsAt }) => {
+  const targetTimeMs = useMemo(() => {
+    if (!endsAt) return null;
+    const parsed = new Date(endsAt).getTime();
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [endsAt]);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!targetTimeMs) return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [targetTimeMs]);
+
+  const remainingMs = targetTimeMs ? Math.max(0, targetTimeMs - now) : null;
+  const countdown = remainingMs !== null ? toCountdownParts(remainingMs) : null;
+  const hasCountdown = countdown !== null && remainingMs !== null;
+  const countdownFinished = remainingMs === 0;
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 text-center font-inter">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(153,0,17,0.12)_0%,_transparent_55%)] pointer-events-none" />
@@ -28,6 +68,39 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ message }) => {
             ? message
             : 'Sitemiz şu anda kısa süreli bakımda. Yakında tekrar buradayız.'}
         </p>
+        {hasCountdown ? (
+          <div className="mt-6 mb-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            {countdownFinished ? (
+              <p className="text-emerald-400 text-xs font-black uppercase tracking-widest">
+                Planlanan bakım süresi doldu, site kısa süre içinde açılabilir.
+              </p>
+            ) : (
+              <>
+                <p className="text-gray-300 text-sm font-bold leading-relaxed">
+                  Sitenin açılmasına son <span className="text-white">{formatFullCountdown(countdown)}</span> kaldı.
+                </p>
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  <div className="rounded-xl bg-black/40 border border-white/10 py-2">
+                    <p className="text-lg font-black text-white">{countdown.days}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500">Gün</p>
+                  </div>
+                  <div className="rounded-xl bg-black/40 border border-white/10 py-2">
+                    <p className="text-lg font-black text-white">{countdown.hours}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500">Saat</p>
+                  </div>
+                  <div className="rounded-xl bg-black/40 border border-white/10 py-2">
+                    <p className="text-lg font-black text-white">{countdown.minutes}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500">Dakika</p>
+                  </div>
+                  <div className="rounded-xl bg-black/40 border border-white/10 py-2">
+                    <p className="text-lg font-black text-white">{countdown.seconds}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500">Saniye</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
         <p className="text-gray-600 text-xs font-bold uppercase tracking-widest mt-6 mb-8">
           Yönetici misiniz? Giriş yaparak panele ulaşabilirsiniz.
         </p>

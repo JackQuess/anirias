@@ -36,8 +36,15 @@ const Layout: React.FC = () => {
   }
 
   if (showMaintenanceForUser) {
-    const msg = (maintenance as { message?: string }).message;
-    return <MaintenancePage message={typeof msg === 'string' ? msg : undefined} />;
+    const data = maintenance as { message?: string; endsAt?: string };
+    const msg = data.message;
+    const endsAt = data.endsAt;
+    return (
+      <MaintenancePage
+        message={typeof msg === 'string' ? msg : undefined}
+        endsAt={typeof endsAt === 'string' ? endsAt : undefined}
+      />
+    );
   }
 
   return (

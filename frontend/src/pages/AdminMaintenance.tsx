@@ -8,11 +8,32 @@ import ErrorState from '../components/ErrorState';
 export type MaintenanceSetting = {
   enabled: boolean;
   message: string;
+  endsAt: string;
 };
 
 const DEFAULT_MAINTENANCE: MaintenanceSetting = {
   enabled: false,
   message: '',
+  endsAt: '',
+};
+
+const toDatetimeLocalValue = (value?: string): string => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const hours = String(parsed.getHours()).padStart(2, '0');
+  const minutes = String(parsed.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const fromDatetimeLocalValue = (value: string): string => {
+  if (!value.trim()) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString();
 };
 
 const AdminMaintenance: React.FC = () => {
@@ -27,6 +48,9 @@ const AdminMaintenance: React.FC = () => {
         message: typeof (settingsData as MaintenanceSetting).message === 'string'
           ? (settingsData as MaintenanceSetting).message
           : '',
+        endsAt: typeof (settingsData as { endsAt?: unknown }).endsAt === 'string'
+          ? toDatetimeLocalValue((settingsData as { endsAt?: string }).endsAt)
+          : '',
       });
     }
   }, [settingsData]);
@@ -34,9 +58,11 @@ const AdminMaintenance: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const parsedEndsAt = fromDatetimeLocalValue(settings.endsAt);
       const success = await db.updateSiteSetting('maintenance', {
         enabled: settings.enabled,
         message: settings.message.trim(),
+        endsAt: parsedEndsAt || null,
       });
       if (success) {
         showToast(
@@ -134,6 +160,23 @@ const AdminMaintenance: React.FC = () => {
             placeholder="Örn: Sunucu güncellemesi yapıyoruz, birkaç saat içinde döneceğiz."
             className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-brand-red/50 focus:outline-none resize-y min-h-[100px]"
           />
+        </div>
+
+        <div>
+          <label htmlFor="maintenance-end-time" className="block text-white font-black uppercase tracking-widest text-xs mb-2">
+            Açılış zamanı (isteğe bağlı)
+          </label>
+          <input
+            id="maintenance-end-time"
+            type="datetime-local"
+            value={settings.endsAt}
+            onChange={(e) => setSettings((s) => ({ ...s, endsAt: e.target.value }))}
+            className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-brand-red/50 focus:outline-none"
+          />
+          <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
+            Tarih/saat girersen bakım ekranında canlı geri sayım görünür
+            (<span className="text-gray-400">3 gün 4 saat 2 dk 8 sn kaldı</span> gibi).
+          </p>
         </div>
 
         <button
