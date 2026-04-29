@@ -38,8 +38,6 @@ const AnnouncementBanner: React.FC = () => {
     typeof maintenance === 'object' &&
     (maintenance as { enabled?: boolean }).enabled === true;
 
-  if (maintenanceOn || !announcement || isDismissed) return null;
-
   useEffect(() => {
     if (!announcement || isDismissed) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -57,6 +55,8 @@ const AnnouncementBanner: React.FC = () => {
       document.body.style.overflow = prevOverflow;
     };
   }, [announcement, isDismissed]);
+
+  if (maintenanceOn || !announcement || isDismissed) return null;
 
   return (
     <div
