@@ -38,12 +38,18 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ message, endsAt }) =>
     return Number.isNaN(parsed) ? null : parsed;
   }, [endsAt]);
   const [now, setNow] = useState(() => Date.now());
+  const [socialCtaVisible, setSocialCtaVisible] = useState(false);
 
   useEffect(() => {
     if (!targetTimeMs) return undefined;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [targetTimeMs]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSocialCtaVisible(true), 120);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const remainingMs = targetTimeMs ? Math.max(0, targetTimeMs - now) : null;
   const countdown = remainingMs !== null ? toCountdownParts(remainingMs) : null;
@@ -104,6 +110,37 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ message, endsAt }) =>
         <p className="text-gray-600 text-xs font-bold uppercase tracking-widest mt-6 mb-8">
           Yönetici misiniz? Giriş yaparak panele ulaşabilirsiniz.
         </p>
+        <section
+          className={`mb-8 rounded-2xl border border-white/10 bg-black/55 px-4 py-6 text-center shadow-[0_0_36px_rgba(229,9,20,0.08)] backdrop-blur-sm transition-all duration-700 ${
+            socialCtaVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
+          }`}
+        >
+          <p className="text-sm font-semibold tracking-wide text-zinc-300">Takip ederek ilk erişenlerden biri ol</p>
+          <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a
+              href="https://instagram.com/aniriasresmi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-fuchsia-600 via-pink-500 to-orange-400 px-7 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(236,72,153,0.45)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)] sm:w-auto"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="currentColor">
+                <path d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.8A3.95 3.95 0 0 0 3.8 7.75v8.5a3.95 3.95 0 0 0 3.95 3.95h8.5a3.95 3.95 0 0 0 3.95-3.95v-8.5a3.95 3.95 0 0 0-3.95-3.95h-8.5Zm8.9 1.55a1.2 1.2 0 1 1-1.2 1.2 1.2 1.2 0 0 1 1.2-1.2ZM12 7a5 5 0 1 1-5 5 5 5 0 0 1 5-5Zm0 1.8A3.2 3.2 0 1 0 15.2 12 3.2 3.2 0 0 0 12 8.8Z" />
+              </svg>
+              Instagram
+            </a>
+            <a
+              href="https://tiktok.com/@aniriasresmi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-300/25 bg-zinc-950 px-7 py-3 text-sm font-bold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_18px_rgba(34,211,238,0.35),0_0_30px_rgba(236,72,153,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.09),0_0_26px_rgba(34,211,238,0.5),0_0_40px_rgba(236,72,153,0.35)] sm:w-auto"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5 text-cyan-300 transition-colors duration-300 group-hover:text-pink-400" aria-hidden="true" fill="currentColor">
+                <path d="M16.8 3.5c.7 1.7 2 3.1 3.7 3.8v3.2a8 8 0 0 1-3.5-.8v5.7a6.6 6.6 0 1 1-6.6-6.6c.3 0 .7 0 1 .1v3.4a3.1 3.1 0 1 0 2.1 3V2h3.3v1.5Z" />
+              </svg>
+              TikTok
+            </a>
+          </div>
+        </section>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/login?returnUrl=/admin"
