@@ -80,7 +80,7 @@ BEGIN
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'username', 'user_' || substr(NEW.id::text, 1, 8)),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'user'),
+    'user',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=' || NEW.id
   );
   RETURN NEW;
@@ -90,6 +90,29 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+CREATE OR REPLACE FUNCTION public.protect_profile_role()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'INSERT' AND NEW.role IS DISTINCT FROM 'user' THEN
+    RAISE EXCEPTION 'profile role cannot be set by clients';
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND NEW.role IS DISTINCT FROM OLD.role THEN
+    RAISE EXCEPTION 'profile role cannot be changed by clients';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER protect_profile_role_trigger
+  BEFORE INSERT OR UPDATE OF role ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.protect_profile_role();
 
 -- ----------------------------------------------------------------------------
 -- 2.2 ANIMES
@@ -539,7 +562,7 @@ INSERT INTO public.profiles (id, username, role, avatar_url, created_at)
 SELECT
   au.id,
   COALESCE(au.raw_user_meta_data->>'username', 'user_' || substr(au.id::text, 1, 8)),
-  COALESCE(au.raw_user_meta_data->>'role', 'user'),
+  'user',
   'https://api.dicebear.com/7.x/avataaars/svg?seed=' || au.id,
   timezone('utc'::text, now())
 FROM auth.users au

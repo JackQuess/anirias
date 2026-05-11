@@ -96,14 +96,30 @@ router.put('/update-profile-role', async (req: Request, res: Response) => {
       });
     }
 
-    // Prevent self-demotion (optional safety check)
-    // You can remove this if you want to allow admins to demote themselves
-    // if (profile.role === 'admin' && role === 'user') {
-    //   return res.status(400).json({
-    //     success: false,
-    //     error: 'Cannot demote yourself from admin role',
-    //   });
-    // }
+    // Do not allow the last admin account to be demoted.
+    if (profile.role === 'admin' && role === 'user') {
+      const { count, error: countError } = await supabaseAdmin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'admin')
+        .neq('id', user_id);
+
+      if (countError) {
+        console.error('[update-profile-role] Admin count error:', countError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to verify remaining admin accounts',
+          details: countError.message,
+        });
+      }
+
+      if ((count ?? 0) === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot demote the last admin account',
+        });
+      }
+    }
 
     // Update profile role using service role
     const { data, error } = await supabaseAdmin
@@ -150,4 +166,3 @@ router.put('/update-profile-role', async (req: Request, res: Response) => {
 });
 
 export default router;
-

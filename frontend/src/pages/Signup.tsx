@@ -47,7 +47,7 @@ const Signup: React.FC = () => {
         email,
         password,
         options: {
-          data: { username: username.trim(), role: 'user' },
+          data: { username: username.trim() },
         },
       });
       const timeoutPromise = new Promise<never>((_, reject) =>

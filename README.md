@@ -47,12 +47,35 @@ begin
   values (
     new.id, 
     new.raw_user_meta_data->>'username', 
-    coalesce(new.raw_user_meta_data->>'role', 'user'),
+    'user',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=' || new.id
   );
   return new;
 end;
 $$ language plpgsql security definer;
+
+create or replace function public.protect_profile_role()
+returns trigger as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' and new.role is distinct from 'user' then
+    raise exception 'profile role cannot be set by clients';
+  end if;
+
+  if tg_op = 'UPDATE' and new.role is distinct from old.role then
+    raise exception 'profile role cannot be changed by clients';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger protect_profile_role_trigger
+  before insert or update of role on public.profiles
+  for each row execute function public.protect_profile_role();
 
 create trigger on_auth_user_created
   after insert on auth.users
