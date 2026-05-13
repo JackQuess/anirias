@@ -1798,11 +1798,60 @@ export const db = {
          if (import.meta.env.DEV) console.error('[db.getAdminUsers] Query error:', error);
          return [];
        }
-       return Array.isArray(data) ? data : [];
+
+       const profiles = Array.isArray(data) ? (data as Profile[]) : [];
+       if (profiles.length === 0) return [];
+
+       const ids = profiles.map((p) => p.id);
+       const { data: moderation, error: moderationError } = await supabase!
+         .from('user_moderation')
+         .select('*')
+         .in('user_id', ids);
+
+       if (moderationError) {
+         if (import.meta.env.DEV) console.warn('[db.getAdminUsers] Moderation query error:', moderationError);
+         return profiles;
+       }
+
+       const moderationByUser = new Map<string, any>();
+       for (const row of moderation || []) moderationByUser.set(row.user_id, row);
+
+       return profiles.map((profile) => ({
+         ...profile,
+         ...(moderationByUser.get(profile.id) || {}),
+       }));
      } catch (err: any) {
        if (import.meta.env.DEV) console.error('[db.getAdminUsers] Unexpected error:', err);
        return [];
      }
+  },
+
+  getOwnUserModeration: async (userId: string): Promise<Partial<Profile> | null> => {
+    if (!checkEnv() || !userId) return null;
+
+    try {
+      const { data, error } = await supabase!
+        .from('user_moderation')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        if (import.meta.env.DEV) console.warn('[db.getOwnUserModeration]', error);
+        return null;
+      }
+
+      return data as Partial<Profile> | null;
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[db.getOwnUserModeration]', err);
+      return null;
+    }
+  },
+
+  acknowledgeAccountWarning: async (): Promise<void> => {
+    if (!checkEnv()) return;
+    const { error } = await supabase!.rpc('acknowledge_account_warning');
+    if (error) throw error;
   },
 
   updateProfileRole: async (userId: string, role: 'user' | 'admin', adminToken?: string): Promise<void> => {
@@ -1826,6 +1875,34 @@ export const db = {
     if (!result.success) {
       throw new Error(result.error || 'Failed to update profile role');
     }
+  },
+
+  updateUserModeration: async (
+    userId: string,
+    updates: {
+      is_banned?: boolean;
+      ban_reason?: string | null;
+      clear_warning?: boolean;
+      warning_message?: string | null;
+    },
+    adminToken?: string
+  ): Promise<Profile> => {
+    if (!checkEnv()) {
+      throw new Error('Supabase environment not configured');
+    }
+
+    const result = await callBackendApi(
+      '/api/admin/update-user-moderation',
+      'PUT',
+      { user_id: userId, ...updates },
+      adminToken
+    );
+
+    if (!result.success || !result.profile) {
+      throw new Error(result.error || 'Failed to update user moderation');
+    }
+
+    return result.profile as Profile;
   },
 
   autoPatchEpisodeVideos: async () => {

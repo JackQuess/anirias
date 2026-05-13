@@ -35,6 +35,7 @@ DROP TABLE IF EXISTS public.comments CASCADE;
 DROP TABLE IF EXISTS public.episodes CASCADE;
 DROP TABLE IF EXISTS public.seasons CASCADE;
 DROP TABLE IF EXISTS public.animes CASCADE;
+DROP TABLE IF EXISTS public.user_moderation CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 
 -- Fonksiyonlari sil
@@ -113,6 +114,21 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER protect_profile_role_trigger
   BEFORE INSERT OR UPDATE OF role ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.protect_profile_role();
+
+CREATE TABLE public.user_moderation (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL PRIMARY KEY,
+  is_banned BOOLEAN DEFAULT false,
+  ban_reason TEXT,
+  banned_at TIMESTAMP WITH TIME ZONE,
+  banned_until TIMESTAMP WITH TIME ZONE,
+  account_warning_message TEXT,
+  account_warning_updated_at TIMESTAMP WITH TIME ZONE,
+  account_warning_seen_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_moderation_is_banned ON public.user_moderation(is_banned) WHERE is_banned = true;
 
 -- ----------------------------------------------------------------------------
 -- 2.2 ANIMES
@@ -410,6 +426,7 @@ CREATE TRIGGER update_announcements_updated_at BEFORE UPDATE ON public.announcem
 -- BOLUM 4: ROW LEVEL SECURITY (RLS)
 -- ============================================================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_moderation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.animes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.episodes ENABLE ROW LEVEL SECURITY;
@@ -430,6 +447,25 @@ ALTER TABLE public.weekly_calendar_cache ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can read own moderation" ON public.user_moderation FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins can read user moderation" ON public.user_moderation FOR SELECT USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE OR REPLACE FUNCTION public.acknowledge_account_warning()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.user_moderation
+  SET account_warning_seen_at = NOW(),
+      updated_at = NOW()
+  WHERE user_id = auth.uid()
+    AND account_warning_message IS NOT NULL;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.acknowledge_account_warning() TO authenticated;
 
 -- Animes, Seasons, Episodes (herkes okur, sadece admin yazar)
 CREATE POLICY "Content is viewable by everyone." ON public.animes FOR SELECT USING (true);

@@ -4,6 +4,7 @@ export interface Profile {
   username: string | null;
   role: 'user' | 'admin';
   created_at: string;
+  updated_at?: string | null;
   bio?: string;
   avatar_id?: string | null;
   banner_id?: string | null;
@@ -11,6 +12,13 @@ export interface Profile {
   banner_url?: string;
   /** 18+ içerik uyarısı bir kez onaylandı (Supabase profiles; cihazlar arası). */
   is_adult_confirmed?: boolean | null;
+  is_banned?: boolean | null;
+  ban_reason?: string | null;
+  banned_at?: string | null;
+  banned_until?: string | null;
+  account_warning_message?: string | null;
+  account_warning_updated_at?: string | null;
+  account_warning_seen_at?: string | null;
 }
 
 export type ActivePlan = 'free' | 'pro' | 'pro_max';

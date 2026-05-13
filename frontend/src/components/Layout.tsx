@@ -13,7 +13,7 @@ import MaintenancePage from './MaintenancePage';
 import { useAuth } from '@/services/auth';
 
 const Layout: React.FC = () => {
-  const { user, profile, status } = useAuth();
+  const { user, profile, status, setProfile } = useAuth();
   const { data: maintenance, loading } = useLoad(() => db.getSiteSetting('maintenance'));
   const maintenanceOn =
     hasSupabaseEnv &&
@@ -23,6 +23,29 @@ const Layout: React.FC = () => {
     (maintenance as { enabled?: boolean }).enabled === true;
 
   const isAdmin = profile?.role === 'admin';
+  const warningUpdatedAt = profile?.account_warning_updated_at
+    ? new Date(profile.account_warning_updated_at).getTime()
+    : null;
+  const warningSeenAt = profile?.account_warning_seen_at
+    ? new Date(profile.account_warning_seen_at).getTime()
+    : null;
+  const showAccountWarning = Boolean(
+    user &&
+    profile?.account_warning_message &&
+    warningUpdatedAt &&
+    (!warningSeenAt || warningSeenAt < warningUpdatedAt)
+  );
+
+  const acknowledgeAccountWarning = async () => {
+    if (!user || !profile) return;
+    const seenAt = new Date().toISOString();
+    try {
+      await db.acknowledgeAccountWarning();
+      setProfile({ ...profile, account_warning_seen_at: seenAt });
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[Layout] account warning ack failed:', err);
+    }
+  };
   /** Bakım yalnızca admin olmayanlara; admin siteyi normal kullanır */
   const showMaintenanceForUser = maintenanceOn && !isAdmin;
 
@@ -51,6 +74,25 @@ const Layout: React.FC = () => {
     <div className="flex flex-col min-h-screen bg-background">
       <ScrollToTop />
       <Navbar />
+      {showAccountWarning ? (
+        <div className="fixed inset-x-0 top-[max(5.5rem,calc(5rem+env(safe-area-inset-top,0px)))] z-[1200] px-4">
+          <div className="mx-auto flex max-w-3xl flex-col gap-4 rounded-2xl border border-amber-400/30 bg-[#15110a]/95 p-5 shadow-2xl shadow-black/30 backdrop-blur md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">Hesap Uyarısı</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-white/90">
+                {profile?.account_warning_message}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={acknowledgeAccountWarning}
+              className="shrink-0 rounded-xl border border-amber-300/30 bg-amber-300 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-amber-200"
+            >
+              Okudum
+            </button>
+          </div>
+        </div>
+      ) : null}
       <MatchScoreProvider>
         <main className="flex-grow pt-[max(6rem,calc(5.5rem+env(safe-area-inset-top,0px)))] md:pt-24 lg:pt-32 pb-mobile-nav md:pb-0 font-inter antialiased">
           <Outlet />

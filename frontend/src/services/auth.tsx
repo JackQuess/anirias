@@ -21,6 +21,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_REQUEST_TIMEOUT_MS = 8000;  // 8 sn - getSession icin (Supabase yavassa hizlica UNAUTH)
 const PROFILE_REQUEST_TIMEOUT_MS = 10000; // 10 sn - profil sorgusu
 
+const isProfileBanned = (profile: Profile | null): boolean => {
+  if (!profile?.is_banned) return false;
+  if (!profile.banned_until) return true;
+  const until = new Date(profile.banned_until).getTime();
+  return Number.isNaN(until) || until > Date.now();
+};
+
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   try {
@@ -51,7 +58,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         PROFILE_REQUEST_TIMEOUT_MS,
         'Profil isteği zaman aşımına uğradı'
       );
-      if (prof) setProfile(prof);
+      const moderation = prof ? await db.getOwnUserModeration(currentUser.id) : null;
+      const mergedProfile = prof ? ({ ...prof, ...(moderation || {}) } as Profile) : null;
+      if (mergedProfile && isProfileBanned(mergedProfile)) {
+        setProfile(mergedProfile);
+        const reason = mergedProfile.ban_reason?.trim();
+        if (typeof window !== 'undefined') {
+          window.alert(reason ? `Hesabınız banlandı.\n\nSebep: ${reason}` : 'Hesabınız banlandı.');
+        }
+        try {
+          await supabase.auth.signOut();
+        } catch (_) {}
+        localStorage.clear();
+        sessionStorage.clear();
+        setUser(null);
+        setProfile(null);
+        setActivePlan('free');
+        setStatus('UNAUTHENTICATED');
+        return;
+      }
+      if (mergedProfile) setProfile(mergedProfile);
     } catch (e) {
       console.error('[Auth] Profil yüklenirken hata:', e);
     }
