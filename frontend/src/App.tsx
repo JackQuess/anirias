@@ -29,6 +29,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminAutoImport from './pages/AdminAutoImport';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminFeedback from './pages/AdminFeedback';
+import AdminTeamApplications from './pages/AdminTeamApplications';
 import AdminLiveSupport from './pages/AdminLiveSupport';
 import AdminMascotSettings from './pages/AdminMascotSettings';
 import AdminAnnouncement from './pages/AdminAnnouncement';
@@ -119,6 +120,7 @@ const App: React.FC = () => {
             <Route path="import" element={<AdminAutoImport />} />
             <Route path="calendar" element={<AdminCalendar />} />
             <Route path="feedback" element={<AdminFeedback />} />
+            <Route path="team-applications" element={<AdminTeamApplications />} />
             <Route path="comments" element={<AdminCommentModeration />} />
             <Route path="support" element={<AdminLiveSupport />} />
             <Route path="site-settings/mascots" element={<AdminMascotSettings />} />

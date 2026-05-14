@@ -263,6 +263,48 @@ export interface Feedback {
   profiles?: Profile | null;
 }
 
+export type TeamApplicationStatus =
+  | 'pending'
+  | 'contacted'
+  | 'trial_assigned'
+  | 'accepted'
+  | 'rejected'
+  | 'archived';
+
+export interface TeamApplicationRecord {
+  id: string;
+  user_id: string | null;
+  site_username: string | null;
+  display_name: string;
+  email: string;
+  discord_or_social: string | null;
+  role_interests: string[];
+  weekly_availability: string;
+  skills_text: string;
+  previous_experience: string | null;
+  contribution_plan: string;
+  operations_scenario: string;
+  review_process_answer: string;
+  trial_task_preference: string;
+  trial_task_answer: string;
+  conflict_scenario: string;
+  motivation_text: string;
+  ack_volunteer_basis: boolean;
+  ack_admin_review: boolean;
+  ack_limited_access: boolean;
+  status: TeamApplicationStatus;
+  admin_notes: string | null;
+  trial_task_assigned: string | null;
+  trial_score: number | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  page_url: string | null;
+  user_agent: string | null;
+  created_at: string;
+  updated_at: string;
+  profiles?: Profile | null;
+}
+
 export interface SupportConversation {
   id: string;
   user_id: string;

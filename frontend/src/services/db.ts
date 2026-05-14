@@ -1,7 +1,7 @@
 
 import { supabase, hasSupabaseEnv } from './supabaseClient';
 import { getAdminToken } from '../utils/adminToken';
-import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry, SiteTrafficSummary, CommentReportListItem } from '../types';
+import { Anime, Episode, Season, WatchlistEntry, WatchlistStatus, WatchHistory, CalendarEntry, Notification, Comment, WatchProgress, Profile, ActivityLog, Feedback, PublicCalendarEntry, SiteTrafficSummary, CommentReportListItem, TeamApplicationRecord, TeamApplicationStatus } from '../types';
 import { getOrCreateVisitSessionKey } from '../utils/visitSession';
 import { getDisplayTitle } from '../utils/title';
 
@@ -2256,6 +2256,79 @@ export const db = {
     }
   },
 
+  getTeamApplications: async (): Promise<TeamApplicationRecord[]> => {
+    if (!checkEnv()) return [];
+
+    try {
+      const { data: applicationData, error: applicationError } = await supabase!
+        .from('team_applications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (applicationError) {
+        if (import.meta.env.DEV) console.error('[db.getTeamApplications] Query error:', applicationError);
+        return [];
+      }
+
+      if (!applicationData || applicationData.length === 0) {
+        return [];
+      }
+
+      const userIds = [...new Set(applicationData.map((f) => f.user_id).filter(Boolean))] as string[];
+      const profilesMap: Record<string, any> = {};
+
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase!
+          .from('profiles')
+          .select('id, username, role')
+          .in('id', userIds);
+
+        if (!profilesError && profilesData) {
+          profilesData.forEach((profile) => {
+            profilesMap[profile.id] = profile;
+          });
+        }
+      }
+
+      return applicationData.map((application) => ({
+        ...application,
+        role_interests: Array.isArray(application.role_interests) ? application.role_interests : [],
+        profiles: application.user_id ? profilesMap[application.user_id] || null : null,
+      })) as TeamApplicationRecord[];
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[db.getTeamApplications] Unexpected error:', err);
+      return [];
+    }
+  },
+
+  updateTeamApplicationReview: async (
+    id: string,
+    updates: {
+      status?: TeamApplicationStatus;
+      admin_notes?: string | null;
+      trial_task_assigned?: string | null;
+      trial_score?: number | null;
+    },
+    adminToken?: string
+  ): Promise<TeamApplicationRecord> => {
+    if (!checkEnv()) {
+      throw new Error('Supabase environment not configured');
+    }
+
+    const result = await callBackendApi(
+      `/api/admin/team-applications/${encodeURIComponent(id)}`,
+      'PUT',
+      updates,
+      adminToken
+    );
+
+    if (!result.success || !result.application) {
+      throw new Error(result.error || 'Failed to update team application');
+    }
+
+    return result.application as TeamApplicationRecord;
+  },
+
   /**
    * İzleme sayfası "Bildir" — kayıt admin Geri Bildirimler listesinde görünür ([İZLEME — İçerik bildirimi] ön eki).
    */
@@ -2411,45 +2484,39 @@ export const db = {
     motivationText: string;
     previousExperience?: string;
     contributionPlan: string;
+    operationsScenario: string;
+    reviewProcessAnswer: string;
+    trialTaskPreference: string;
+    trialTaskAnswer: string;
+    conflictScenario: string;
+    ackAdminReview: boolean;
+    ackLimitedAccess: boolean;
     ackVolunteerBasis: boolean;
   }): Promise<void> => {
     if (!checkEnv()) {
       throw new Error('Supabase yapılandırılmamış');
     }
 
-    const lines = [
-      '[EKİBE KATIL BAŞVURUSU]',
-      `Ad / görünen ad: ${params.displayName.trim()}`,
-      `E-posta: ${params.email.trim()}`,
-      ...(params.siteUsername?.trim() ? [`Site kullanıcı adı: ${params.siteUsername.trim()}`] : []),
-      ...(params.userId ? [`Hesap user_id: ${params.userId}`] : ['Hesap: giriş yapılmadan gönderildi']),
-      ...(params.discordOrSocial?.trim() ? [`Discord / sosyal: ${params.discordOrSocial.trim()}`] : []),
-      `İlgilendiği alanlar: ${params.roleInterests.join(', ')}`,
-      '--- Haftalık müsaitlik ---',
-      params.weeklyAvailability.trim(),
-      '--- Yetkinlikler / yapabilecekleri ---',
-      params.skillsText.trim(),
-      ...(params.previousExperience?.trim() ? ['--- Önceki deneyim / örnekler ---', params.previousExperience.trim()] : []),
-      '--- ANIRIAS için ilk katkı planı ---',
-      params.contributionPlan.trim(),
-      '--- Motivasyon ---',
-      params.motivationText.trim(),
-      '--- Gönüllülük beyanı ---',
-      params.ackVolunteerBasis
-        ? 'Mevcut aşamada fan katkısı ve gönüllülük esasıyla başlanacağını; site büyüyüp gelir oluşursa harçlık/sembolik destek ihtimalinin ayrıca değerlendirileceğini kabul etti.'
-        : 'Gönüllülük beyanı işaretlenmedi.',
-    ];
-
-    let message = lines.join('\n');
-    const maxLen = 14000;
-    if (message.length > maxLen) {
-      message = `${message.slice(0, maxLen)}\n\n...[metin uzunluğu sınırı — devamı kesildi]`;
-    }
-
-    const { error } = await supabase!.from('feedback').insert({
+    const { error } = await supabase!.from('team_applications').insert({
       user_id: params.userId,
-      message,
-      rating: null,
+      site_username: params.siteUsername?.trim() || null,
+      display_name: params.displayName.trim(),
+      email: params.email.trim(),
+      discord_or_social: params.discordOrSocial?.trim() || null,
+      role_interests: params.roleInterests,
+      weekly_availability: params.weeklyAvailability.trim(),
+      skills_text: params.skillsText.trim(),
+      previous_experience: params.previousExperience?.trim() || null,
+      contribution_plan: params.contributionPlan.trim(),
+      operations_scenario: params.operationsScenario.trim(),
+      review_process_answer: params.reviewProcessAnswer.trim(),
+      trial_task_preference: params.trialTaskPreference.trim(),
+      trial_task_answer: params.trialTaskAnswer.trim(),
+      conflict_scenario: params.conflictScenario.trim(),
+      motivation_text: params.motivationText.trim(),
+      ack_volunteer_basis: params.ackVolunteerBasis,
+      ack_admin_review: params.ackAdminReview,
+      ack_limited_access: params.ackLimitedAccess,
       page_url: typeof window !== 'undefined' ? window.location.href : null,
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
     });

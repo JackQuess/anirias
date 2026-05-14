@@ -10,16 +10,32 @@ const MIN_AVAILABILITY = 15;
 const MIN_SKILLS = 120;
 const MIN_MOTIVATION = 160;
 const MIN_PLAN = 120;
+const MIN_OPERATIONS = 120;
+const MIN_REVIEW = 80;
+const MIN_TRIAL_TASK = 80;
+const MIN_CONFLICT = 80;
 
 const roleOptions = [
   'Topluluk / Discord düzeni',
   'Yorum ve şikayet moderasyonu',
   'İçerik araştırma ve katalog düzeni',
+  'Takvim ve yayın günü takibi',
+  'Yeni gelen bölüm ve anime takibi',
+  'Anime veri doğrulama / sezon düzeni',
   'Sosyal medya / kısa video fikirleri',
   'Duyuru, metin ve editörlük',
   'Test / hata bildirme',
   'Tasarım veya görsel destek',
   'Teknik destek / frontend',
+];
+
+const trialTaskOptions = [
+  '10 anime katalog kontrolü',
+  '1 haftalık yayın takvimi kontrolü',
+  'Yeni gelen 10 bölümün sezon/bölüm eşleşmesini kontrol',
+  '20 yorum veya şikayet için moderasyon simülasyonu',
+  'Sosyal medya için 5 içerik fikri',
+  'Site hatası raporlama ve yeniden üretme notu',
 ];
 
 const inputClass =
@@ -36,8 +52,15 @@ const TeamApplication: React.FC = () => {
   const [skillsText, setSkillsText] = useState('');
   const [previousExperience, setPreviousExperience] = useState('');
   const [contributionPlan, setContributionPlan] = useState('');
+  const [operationsScenario, setOperationsScenario] = useState('');
+  const [reviewProcessAnswer, setReviewProcessAnswer] = useState('');
+  const [trialTaskPreference, setTrialTaskPreference] = useState(trialTaskOptions[0]);
+  const [trialTaskAnswer, setTrialTaskAnswer] = useState('');
+  const [conflictScenario, setConflictScenario] = useState('');
   const [motivationText, setMotivationText] = useState('');
   const [ackVolunteerBasis, setAckVolunteerBasis] = useState(false);
+  const [ackAdminReview, setAckAdminReview] = useState(false);
+  const [ackLimitedAccess, setAckLimitedAccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -91,12 +114,28 @@ const TeamApplication: React.FC = () => {
       showToast(`İlk katkı planı en az ${MIN_PLAN} karakter olmalıdır.`, 'error');
       return;
     }
+    if (operationsScenario.trim().length < MIN_OPERATIONS) {
+      showToast(`Operasyon senaryosu cevabı en az ${MIN_OPERATIONS} karakter olmalıdır.`, 'error');
+      return;
+    }
+    if (reviewProcessAnswer.trim().length < MIN_REVIEW) {
+      showToast(`Onay ve deneme süreci cevabı en az ${MIN_REVIEW} karakter olmalıdır.`, 'error');
+      return;
+    }
+    if (trialTaskAnswer.trim().length < MIN_TRIAL_TASK) {
+      showToast(`Deneme görevi cevabı en az ${MIN_TRIAL_TASK} karakter olmalıdır.`, 'error');
+      return;
+    }
+    if (conflictScenario.trim().length < MIN_CONFLICT) {
+      showToast(`Ekip davranışı cevabı en az ${MIN_CONFLICT} karakter olmalıdır.`, 'error');
+      return;
+    }
     if (motivationText.trim().length < MIN_MOTIVATION) {
       showToast(`Motivasyon alanı en az ${MIN_MOTIVATION} karakter olmalıdır.`, 'error');
       return;
     }
-    if (!ackVolunteerBasis) {
-      showToast('Gönüllülük ve ileride sembolik destek beyanını onaylamanız gerekir.', 'error');
+    if (!ackVolunteerBasis || !ackAdminReview || !ackLimitedAccess) {
+      showToast('Gönüllülük, admin onayı ve sınırlı erişim beyanlarını onaylamanız gerekir.', 'error');
       return;
     }
 
@@ -114,6 +153,13 @@ const TeamApplication: React.FC = () => {
         motivationText: motivationText.trim(),
         previousExperience: previousExperience.trim() || undefined,
         contributionPlan: contributionPlan.trim(),
+        operationsScenario: operationsScenario.trim(),
+        reviewProcessAnswer: reviewProcessAnswer.trim(),
+        trialTaskPreference,
+        trialTaskAnswer: trialTaskAnswer.trim(),
+        conflictScenario: conflictScenario.trim(),
+        ackAdminReview,
+        ackLimitedAccess,
         ackVolunteerBasis,
       });
       showToast('Ekip başvurunuz kayda alındı. Uygun görülürse size dönüş yapılacaktır.', 'success');
@@ -123,8 +169,15 @@ const TeamApplication: React.FC = () => {
       setSkillsText('');
       setPreviousExperience('');
       setContributionPlan('');
+      setOperationsScenario('');
+      setReviewProcessAnswer('');
+      setTrialTaskPreference(trialTaskOptions[0]);
+      setTrialTaskAnswer('');
+      setConflictScenario('');
       setMotivationText('');
       setAckVolunteerBasis(false);
+      setAckAdminReview(false);
+      setAckLimitedAccess(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Başvuru kaydedilemedi.';
       showToast(msg, 'error');
@@ -151,8 +204,22 @@ const TeamApplication: React.FC = () => {
           </p>
         </header>
 
+        <section className="mb-10 grid gap-4 md:grid-cols-3">
+          {[
+            ['1', 'Başvuru alınır', 'Form admin geri bildirimlerine düşer; kimlik, iletişim ve katkı alanı kontrol edilir.'],
+            ['2', 'Admin onayı', 'Uygun görülen adayla iletişime geçilir; görev alanı ve deneme süreci netleşir.'],
+            ['3', 'Sınırlı görev', 'İlk aşamada sınırlı erişimle küçük işler verilir; düzen ve güven sağlanırsa görev genişler.'],
+          ].map(([step, title, text]) => (
+            <div key={step} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Aşama {step}</p>
+              <h2 className="mt-2 text-lg font-black uppercase italic tracking-tight text-white">{title}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-400">{text}</p>
+            </div>
+          ))}
+        </section>
+
         <section className="mb-10 rounded-2xl border border-primary/25 bg-primary/[0.06] p-5">
-          <div className="flex items-start gap-4">
+          <div className="mb-6 flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-black/30 text-primary">
               <Handshake className="h-5 w-5" strokeWidth={2} />
             </div>
@@ -160,7 +227,8 @@ const TeamApplication: React.FC = () => {
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Nasıl katkı bekleniyor?</p>
               <p className="mt-2 text-sm leading-relaxed text-zinc-200">
                 Küçük ama düzenli katkılar önceliklidir: şikayetleri kontrol etmek, katalog hatalarını bildirmek, duyuru metni hazırlamak, sosyal
-                medya fikri üretmek, yeni özellikleri test etmek veya teknik geliştirmelerde yardımcı olmak. Çeviri yapmak istiyorsanız ayrıca{' '}
+                medya fikri üretmek, yeni özellikleri test etmek, takvimdeki yayın günlerini takip etmek, yeni gelen bölüm ve animeleri kontrol etmek
+                veya teknik geliştirmelerde yardımcı olmak. Çeviri yapmak istiyorsanız ayrıca{' '}
                 <Link to="/cevirmen-basvuru" className="font-semibold text-white underline-offset-4 hover:underline">
                   çevirmen başvurusu
                 </Link>{' '}
@@ -168,6 +236,23 @@ const TeamApplication: React.FC = () => {
               </p>
             </div>
           </div>
+
+          <fieldset className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+            <legend className={labelClass + ' px-1'}>Operasyonel görev örnekleri</legend>
+            <div className="grid gap-4 md:grid-cols-2">
+              {[
+                ['Takvim yönetimi', 'AniList/MAL bilgilerini ve yayın günlerini kontrol edip admin takviminde eksik veya hatalı kayıtları bildirme.'],
+                ['Yeni bölüm takibi', 'Yeni gelen bölümleri izleme sayfalarında kontrol etme, yanlış sezon/bölüm eşleşmelerini raporlama.'],
+                ['Yeni anime takibi', 'Katalogda açılması gereken yeni serileri, sezonları ve kapak/açıklama eksiklerini listeleme.'],
+                ['İçerik kalite kontrol', 'Bozuk video, yanlış başlık, yetişkin içerik etiketi, açıklama veya görsel sorunlarını düzenli bildirme.'],
+              ].map(([title, text]) => (
+                <div key={title} className="rounded-xl border border-white/10 bg-black/25 p-4">
+                  <p className="text-sm font-black uppercase tracking-tight text-white">{title}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">{text}</p>
+                </div>
+              ))}
+            </div>
+          </fieldset>
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-[#0c0c10] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] sm:p-8 md:p-10">
@@ -314,6 +399,96 @@ const TeamApplication: React.FC = () => {
             </div>
 
             <div>
+              <label htmlFor="team-ops" className={labelClass}>
+                Operasyon senaryosu: takvim, yeni bölüm ve anime takibi <span className="text-primary">*</span>
+              </label>
+              <textarea
+                id="team-ops"
+                className={`${inputClass} min-h-[150px] resize-y`}
+                value={operationsScenario}
+                onChange={(e) => setOperationsScenario(e.target.value)}
+                required
+                minLength={MIN_OPERATIONS}
+                placeholder="Örnek: Bir anime için yeni bölüm geldi ama takvimde yok veya sezon numarası yanlış. Bunu nasıl fark eder, hangi bilgileri kontrol eder, admine nasıl raporlarsınız?"
+              />
+              <p className="mt-1 text-right text-[10px] text-zinc-600">{operationsScenario.length} / {MIN_OPERATIONS}+</p>
+            </div>
+
+            <div>
+              <label htmlFor="team-review" className={labelClass}>
+                Admin onayı ve deneme sürecine yaklaşımınız <span className="text-primary">*</span>
+              </label>
+              <textarea
+                id="team-review"
+                className={`${inputClass} min-h-[120px] resize-y`}
+                value={reviewProcessAnswer}
+                onChange={(e) => setReviewProcessAnswer(e.target.value)}
+                required
+                minLength={MIN_REVIEW}
+                placeholder="Başvuru sonrası admin onayı, sınırlı görev ve geri bildirim sürecini nasıl karşılarsınız? Yetki verilmeden önce güven ve düzen oluşturma yaklaşımınızı yazın."
+              />
+              <p className="mt-1 text-right text-[10px] text-zinc-600">{reviewProcessAnswer.length} / {MIN_REVIEW}+</p>
+            </div>
+
+            <fieldset className="space-y-4 rounded-2xl border border-primary/20 bg-primary/[0.04] p-5">
+              <legend className={labelClass + ' px-1 text-primary'}>Mini görev testi ve deneme tercihi</legend>
+              <p className="text-sm leading-relaxed text-zinc-300">
+                Bu bölüm, başvuran kişinin pratik düşünme şeklini görmek içindir. Mükemmel cevap beklenmez; düzenli raporlama, sakin karar verme ve
+                somut aksiyon planı önemlidir.
+              </p>
+
+              <div>
+                <label htmlFor="team-trial-pref" className={labelClass}>
+                  Almak istediğiniz ilk deneme görevi
+                </label>
+                <select
+                  id="team-trial-pref"
+                  className={inputClass}
+                  value={trialTaskPreference}
+                  onChange={(e) => setTrialTaskPreference(e.target.value)}
+                >
+                  {trialTaskOptions.map((task) => (
+                    <option key={task} value={task} className="bg-zinc-950 text-white">
+                      {task}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="team-trial-answer" className={labelClass}>
+                  Bu deneme görevini nasıl yapardınız? <span className="text-primary">*</span>
+                </label>
+                <textarea
+                  id="team-trial-answer"
+                  className={`${inputClass} min-h-[130px] resize-y`}
+                  value={trialTaskAnswer}
+                  onChange={(e) => setTrialTaskAnswer(e.target.value)}
+                  required
+                  minLength={MIN_TRIAL_TASK}
+                  placeholder="Seçtiğiniz deneme görevini hangi adımlarla yapacağınızı, sonucu admine nasıl sunacağınızı ve hangi hataları not alacağınızı yazın."
+                />
+                <p className="mt-1 text-right text-[10px] text-zinc-600">{trialTaskAnswer.length} / {MIN_TRIAL_TASK}+</p>
+              </div>
+
+              <div>
+                <label htmlFor="team-conflict" className={labelClass}>
+                  Ekip davranışı senaryosu <span className="text-primary">*</span>
+                </label>
+                <textarea
+                  id="team-conflict"
+                  className={`${inputClass} min-h-[120px] resize-y`}
+                  value={conflictScenario}
+                  onChange={(e) => setConflictScenario(e.target.value)}
+                  required
+                  minLength={MIN_CONFLICT}
+                  placeholder="Bir ekip arkadaşıyla görev önceliği konusunda anlaşamadınız veya bir kullanıcı sert tepki verdi. Nasıl iletişim kurar ve durumu nasıl çözersiniz?"
+                />
+                <p className="mt-1 text-right text-[10px] text-zinc-600">{conflictScenario.length} / {MIN_CONFLICT}+</p>
+              </div>
+            </fieldset>
+
+            <div>
               <label htmlFor="team-why" className={labelClass}>
                 Neden ekibe katılmak istiyorsunuz? <span className="text-primary">*</span>
               </label>
@@ -341,6 +516,33 @@ const TeamApplication: React.FC = () => {
                 ihtimalinin ayrıca değerlendirileceğini kabul ederim.
               </span>
             </label>
+
+            <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={ackAdminReview}
+                  onChange={(e) => setAckAdminReview(e.target.checked)}
+                  className="mt-1 rounded border-white/30 bg-black text-primary focus:ring-primary"
+                />
+                <span>
+                  Başvurunun doğrudan yetki vermeyeceğini; önce admin tarafından inceleneceğini, uygun görülürse iletişime geçileceğini ve deneme
+                  sürecinden sonra görev verilebileceğini kabul ederim.
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={ackLimitedAccess}
+                  onChange={(e) => setAckLimitedAccess(e.target.checked)}
+                  className="mt-1 rounded border-white/30 bg-black text-primary focus:ring-primary"
+                />
+                <span>
+                  İlk aşamada sınırlı erişim ve küçük görevlerle başlanacağını; admin paneli, kullanıcı verisi veya kritik işlemlere erişimin güvene ve
+                  ihtiyaç durumuna göre ayrı değerlendirileceğini kabul ederim.
+                </span>
+              </label>
+            </div>
 
             <div className="flex flex-col gap-4 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
               <button

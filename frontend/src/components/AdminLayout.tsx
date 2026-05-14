@@ -101,6 +101,7 @@ const AdminLayout: React.FC = () => {
     { label: 'Analitik', path: '/admin/analytics', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z' },
     { label: 'Kullanıcılar', path: '/admin/users', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { label: 'Geri Bildirimler', path: '/admin/feedback', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
+    { label: 'Ekip Başvuruları', path: '/admin/team-applications', icon: 'M17 20h5v-2a4 4 0 00-3-3.874M9 20H4v-2a4 4 0 013-3.874m10 5.874v-2a4 4 0 00-3-3.874M9 20v-2a4 4 0 013-3.874m0 0a4 4 0 10-5 0m5 0a4 4 0 015 0M15 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { label: 'Yorumlar', path: '/admin/comments', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
     { label: 'Canlı Destek', path: '/admin/support', icon: 'M17 8h2a2 2 0 012 2v7a2 2 0 01-2 2h-2v2l-4-2H7a2 2 0 01-2-2v-1m12-8V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2l4 2v-2h4a2 2 0 002-2z' },
     { label: 'Mascot Ayarları', path: '/admin/site-settings/mascots', icon: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
