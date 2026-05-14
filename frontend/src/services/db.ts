@@ -2397,6 +2397,69 @@ export const db = {
   },
 
   /**
+   * Genel ekip başvurusu — admin Geri Bildirimler listesinde [EKİBE KATIL BAŞVURUSU] ön ekiyle görünür.
+   */
+  submitTeamApplication: async (params: {
+    userId: string | null;
+    siteUsername?: string | null;
+    displayName: string;
+    email: string;
+    discordOrSocial?: string;
+    roleInterests: string[];
+    weeklyAvailability: string;
+    skillsText: string;
+    motivationText: string;
+    previousExperience?: string;
+    contributionPlan: string;
+    ackVolunteerBasis: boolean;
+  }): Promise<void> => {
+    if (!checkEnv()) {
+      throw new Error('Supabase yapılandırılmamış');
+    }
+
+    const lines = [
+      '[EKİBE KATIL BAŞVURUSU]',
+      `Ad / görünen ad: ${params.displayName.trim()}`,
+      `E-posta: ${params.email.trim()}`,
+      ...(params.siteUsername?.trim() ? [`Site kullanıcı adı: ${params.siteUsername.trim()}`] : []),
+      ...(params.userId ? [`Hesap user_id: ${params.userId}`] : ['Hesap: giriş yapılmadan gönderildi']),
+      ...(params.discordOrSocial?.trim() ? [`Discord / sosyal: ${params.discordOrSocial.trim()}`] : []),
+      `İlgilendiği alanlar: ${params.roleInterests.join(', ')}`,
+      '--- Haftalık müsaitlik ---',
+      params.weeklyAvailability.trim(),
+      '--- Yetkinlikler / yapabilecekleri ---',
+      params.skillsText.trim(),
+      ...(params.previousExperience?.trim() ? ['--- Önceki deneyim / örnekler ---', params.previousExperience.trim()] : []),
+      '--- ANIRIAS için ilk katkı planı ---',
+      params.contributionPlan.trim(),
+      '--- Motivasyon ---',
+      params.motivationText.trim(),
+      '--- Gönüllülük beyanı ---',
+      params.ackVolunteerBasis
+        ? 'Mevcut aşamada fan katkısı ve gönüllülük esasıyla başlanacağını; site büyüyüp gelir oluşursa harçlık/sembolik destek ihtimalinin ayrıca değerlendirileceğini kabul etti.'
+        : 'Gönüllülük beyanı işaretlenmedi.',
+    ];
+
+    let message = lines.join('\n');
+    const maxLen = 14000;
+    if (message.length > maxLen) {
+      message = `${message.slice(0, maxLen)}\n\n...[metin uzunluğu sınırı — devamı kesildi]`;
+    }
+
+    const { error } = await supabase!.from('feedback').insert({
+      user_id: params.userId,
+      message,
+      rating: null,
+      page_url: typeof window !== 'undefined' ? window.location.href : null,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    });
+    if (error) {
+      if (import.meta.env.DEV) console.error('[db.submitTeamApplication]', error);
+      throw new Error(error.message || 'Başvuru kaydedilemedi');
+    }
+  },
+
+  /**
    * Get site settings by key
    */
   async getSiteSetting(key: string): Promise<any | null> {

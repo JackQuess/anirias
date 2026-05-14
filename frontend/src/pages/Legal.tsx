@@ -168,6 +168,13 @@ const Legal: React.FC = () => {
             ’nı inceleyebilir; KVKK kapsamındaki başvurularınızı aynı e-posta hattından iletebilirsiniz.
           </p>
           <p className="mb-10 text-gray-400">
+            ANIRIAS ekibine moderasyon, içerik, topluluk, sosyal medya, test veya teknik destek alanlarında katılmak isterseniz{' '}
+            <Link to="/ekibe-katil" className="text-primary underline-offset-4 hover:underline">
+              ekibe katıl başvurusu
+            </Link>{' '}
+            formunu doldurabilirsiniz. Çeviri yapmak isteyen adaylar için ayrı ve test içeren form aşağıdadır.
+          </p>
+          <p className="mb-10 text-gray-400">
             Çeviri ekibine katılım talebinde bulunmak için{' '}
             <Link to="/cevirmen-basvuru" className="text-primary underline-offset-4 hover:underline">
               çevirmen başvurusu

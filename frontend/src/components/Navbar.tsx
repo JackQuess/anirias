@@ -146,6 +146,7 @@ const Navbar: React.FC = () => {
     { label: 'Listem', path: '/list' },
     { label: 'Uygulamalar', path: '/uygulamalar' },
     { label: 'Çeviri başvurusu', path: '/cevirmen-basvuru' },
+    { label: 'Ekibe katıl', path: '/ekibe-katil' },
   ];
 
   return (

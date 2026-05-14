@@ -47,6 +47,7 @@ import DesktopAccess from './pages/DesktopAccess';
 import NotFound from './pages/NotFound';
 import Legal from './pages/Legal';
 import TranslatorApplication from './pages/TranslatorApplication';
+import TeamApplication from './pages/TeamApplication';
 import AuthCallback from './pages/AuthCallback';
 import UpdatePassword from './pages/UpdatePassword';
 import SearchPage from './pages/Search';
@@ -98,6 +99,7 @@ const App: React.FC = () => {
             <Route path="/gizlilik" element={<Legal />} />
             <Route path="/iletisim" element={<Legal />} />
             <Route path="/cevirmen-basvuru" element={<TranslatorApplication />} />
+            <Route path="/ekibe-katil" element={<TeamApplication />} />
           </Route>
 
           <Route path="/login" element={<Login />} />
