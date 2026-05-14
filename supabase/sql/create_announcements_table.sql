@@ -13,12 +13,26 @@ ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 -- Everyone can read active announcements
+DROP POLICY IF EXISTS "Anyone can read active announcements" ON public.announcements;
 CREATE POLICY "Anyone can read active announcements"
   ON public.announcements
   FOR SELECT
   USING (is_active = true);
 
+DROP POLICY IF EXISTS "Admins can read announcements" ON public.announcements;
+CREATE POLICY "Admins can read announcements"
+  ON public.announcements
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
 -- Only admins can insert/update/delete
+DROP POLICY IF EXISTS "Only admins can insert announcements" ON public.announcements;
 CREATE POLICY "Only admins can insert announcements"
   ON public.announcements
   FOR INSERT
@@ -30,6 +44,7 @@ CREATE POLICY "Only admins can insert announcements"
     )
   );
 
+DROP POLICY IF EXISTS "Only admins can update announcements" ON public.announcements;
 CREATE POLICY "Only admins can update announcements"
   ON public.announcements
   FOR UPDATE
@@ -41,6 +56,7 @@ CREATE POLICY "Only admins can update announcements"
     )
   );
 
+DROP POLICY IF EXISTS "Only admins can delete announcements" ON public.announcements;
 CREATE POLICY "Only admins can delete announcements"
   ON public.announcements
   FOR DELETE
@@ -64,8 +80,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_announcements_updated_at ON public.announcements;
 CREATE TRIGGER update_announcements_updated_at
   BEFORE UPDATE ON public.announcements
   FOR EACH ROW
   EXECUTE FUNCTION update_announcements_updated_at();
-

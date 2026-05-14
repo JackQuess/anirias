@@ -524,6 +524,7 @@ CREATE POLICY "Only admins can delete site settings" ON public.site_settings FOR
 
 -- Announcements
 CREATE POLICY "Anyone can read active announcements" ON public.announcements FOR SELECT USING (is_active = true);
+CREATE POLICY "Admins can read announcements" ON public.announcements FOR SELECT USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 CREATE POLICY "Only admins can insert announcements" ON public.announcements FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 CREATE POLICY "Only admins can update announcements" ON public.announcements FOR UPDATE USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 CREATE POLICY "Only admins can delete announcements" ON public.announcements FOR DELETE USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));

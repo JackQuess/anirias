@@ -2309,7 +2309,12 @@ export const db = {
     weeklyAvailability: string;
     genresOrSeries: string;
     portfolioText?: string;
-    compensationModel: 'volunteer' | 'open_discussion' | 'paid_preferred';
+    sourceLanguage: 'english' | 'japanese' | 'both' | 'other';
+    rolePreference: 'translator' | 'editor_qc' | 'timer' | 'all_rounder';
+    sampleTranslation: string;
+    subtitleAdaptation: string;
+    timingQcAnswer: string;
+    compensationModel: 'volunteer' | 'future_support' | 'support_required';
     compensationNote?: string;
     whyAnirias: string;
   }): Promise<void> => {
@@ -2318,10 +2323,26 @@ export const db = {
     }
     const compLabel =
       params.compensationModel === 'volunteer'
-        ? 'Gönüllü katkı (ücret beklentisi yok)'
-        : params.compensationModel === 'open_discussion'
-          ? 'Ücret/telafi konuşulabilir'
-          : 'Ücretli iş birliği tercih ediyorum';
+        ? 'Şimdilik fan katkısı / gönüllülük esası'
+        : params.compensationModel === 'future_support'
+          ? 'Şimdilik gönüllü; site geliri oluşursa harçlık tarzı destek bekleyebilir'
+          : 'İleride harçlık/sembolik destek önemli; mevcut aşamada garanti olmadığını biliyor';
+    const sourceLanguageLabel =
+      params.sourceLanguage === 'english'
+        ? 'İngilizce kaynak'
+        : params.sourceLanguage === 'japanese'
+          ? 'Japonca kaynak'
+          : params.sourceLanguage === 'both'
+            ? 'İngilizce + Japonca kaynak'
+            : 'Diğer kaynak dil / özel durum';
+    const rolePreferenceLabel =
+      params.rolePreference === 'translator'
+        ? 'Çevirmen'
+        : params.rolePreference === 'editor_qc'
+          ? 'Editör / kalite kontrol'
+          : params.rolePreference === 'timer'
+            ? 'Timing / senkron'
+            : 'Çeviri + edit + timing';
     const lines = [
       '[ÇEVİRMEN BAŞVURUSU]',
       `Ad / görünen ad: ${params.fullName.trim()}`,
@@ -2340,7 +2361,18 @@ export const db = {
       '--- İlgi alanı, tür veya seri tercihi ---',
       params.genresOrSeries.trim(),
       ...(params.portfolioText?.trim() ? ['--- Portföy / linkler ---', params.portfolioText.trim()] : []),
-      '--- Ücret beklentisi ---',
+      '--- Mini yeterlilik testi: tercih ---',
+      `Kaynak dil: ${sourceLanguageLabel}`,
+      `Görev tercihi: ${rolePreferenceLabel}`,
+      '--- Mini yeterlilik testi: çeviri ---',
+      'Kaynak: “I know everyone expects me to be fine by tomorrow. But if I smile now, it will only make the lie easier to believe. Give me one night to be honest with myself.”',
+      params.sampleTranslation.trim(),
+      '--- Mini yeterlilik testi: altyazı uyarlama ---',
+      'Ham metin: “Senin için endişeleniyorum ve bu yüzden seninle konuşmak istedim ama sen beni dinlemiyorsun çünkü sen her zaman her şeyi tek başına halletmek zorunda olduğunu düşünüyorsun.”',
+      params.subtitleAdaptation.trim(),
+      '--- Mini yeterlilik testi: timing / QC kararı ---',
+      params.timingQcAnswer.trim(),
+      '--- Gönüllülük ve ileride destek beklentisi ---',
       compLabel,
       ...(params.compensationNote?.trim() ? [`Not: ${params.compensationNote.trim()}`] : []),
       '--- Neden ANIRIAS ve izleyiciye taahhüdünüz ---',
@@ -2485,17 +2517,26 @@ export const db = {
       };
 
       if (announcement.id) {
-        payload.id = announcement.id;
+        payload.updated_at = new Date().toISOString();
+        const { error } = await supabase
+          .from('announcements')
+          .update(payload)
+          .eq('id', announcement.id);
+
+        if (error) {
+          if (import.meta.env.DEV) console.error('[db.saveAnnouncement] Update error:', error);
+          return false;
+        }
+
+        return true;
       }
 
       const { error } = await supabase
         .from('announcements')
-        .upsert(payload, {
-          onConflict: 'id'
-        });
+        .insert(payload);
 
       if (error) {
-        if (import.meta.env.DEV) console.error('[db.saveAnnouncement] Error:', error);
+        if (import.meta.env.DEV) console.error('[db.saveAnnouncement] Insert error:', error);
         return false;
       }
 

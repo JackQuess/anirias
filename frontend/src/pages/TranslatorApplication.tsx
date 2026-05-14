@@ -13,8 +13,27 @@ const MIN_TOOLS = 20;
 const MIN_LANG = 40;
 const MIN_WEEKLY = 15;
 const MIN_GENRES = 40;
+const MIN_SAMPLE_TRANSLATION = 180;
+const MIN_SUBTITLE_ADAPTATION = 120;
+const MIN_TIMING_QC = 80;
 
-type Compensation = 'volunteer' | 'open_discussion' | 'paid_preferred';
+type Compensation = 'volunteer' | 'future_support' | 'support_required';
+type SourceLanguage = 'english' | 'japanese' | 'both' | 'other';
+type TranslatorRole = 'translator' | 'editor_qc' | 'timer' | 'all_rounder';
+
+const sourceLanguageLabels: Record<SourceLanguage, string> = {
+  english: 'İngilizce kaynak üzerinden çeviri',
+  japanese: 'Japonca kaynak üzerinden çeviri',
+  both: 'İngilizce ve Japonca kaynakla çalışabilirim',
+  other: 'Başka kaynak dil veya özel durum',
+};
+
+const translatorRoleLabels: Record<TranslatorRole, string> = {
+  translator: 'Çevirmen',
+  editor_qc: 'Editör / kalite kontrol',
+  timer: 'Timing / senkron',
+  all_rounder: 'Çeviri + edit + timing birlikte',
+};
 
 /**
  * Resmî çevirmen başvuru bilgilendirmesi ve elektronik form; kayıtlar `feedback` tablosuna iletilir.
@@ -30,11 +49,17 @@ const TranslatorApplication: React.FC = () => {
   const [weeklyAvailability, setWeeklyAvailability] = useState('');
   const [genresOrSeries, setGenresOrSeries] = useState('');
   const [portfolioText, setPortfolioText] = useState('');
+  const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('english');
+  const [rolePreference, setRolePreference] = useState<TranslatorRole>('translator');
+  const [sampleTranslation, setSampleTranslation] = useState('');
+  const [subtitleAdaptation, setSubtitleAdaptation] = useState('');
+  const [timingQcAnswer, setTimingQcAnswer] = useState('');
   const [compensationModel, setCompensationModel] = useState<Compensation>('volunteer');
   const [compensationNote, setCompensationNote] = useState('');
   const [whyAnirias, setWhyAnirias] = useState('');
   const [ackPolicies, setAckPolicies] = useState(false);
   const [ackService, setAckService] = useState(false);
+  const [ackOriginalWork, setAckOriginalWork] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [socialCtaVisible, setSocialCtaVisible] = useState(false);
 
@@ -91,12 +116,24 @@ const TranslatorApplication: React.FC = () => {
       showToast('İlgi alanlarınızı veya tür tercihlerinizi daha geniş biçimde yazınız.', 'error');
       return;
     }
+    if (sampleTranslation.trim().length < MIN_SAMPLE_TRANSLATION) {
+      showToast(`Mini çeviri testi en az ${MIN_SAMPLE_TRANSLATION} karakter olmalıdır.`, 'error');
+      return;
+    }
+    if (subtitleAdaptation.trim().length < MIN_SUBTITLE_ADAPTATION) {
+      showToast(`Altyazı uyarlama cevabı en az ${MIN_SUBTITLE_ADAPTATION} karakter olmalıdır.`, 'error');
+      return;
+    }
+    if (timingQcAnswer.trim().length < MIN_TIMING_QC) {
+      showToast(`Timing ve kalite kontrol cevabı en az ${MIN_TIMING_QC} karakter olmalıdır.`, 'error');
+      return;
+    }
     if (whyAnirias.trim().length < MIN_WHY) {
       showToast(`«Motivasyon ve taahhüt» alanı en az ${MIN_WHY} karakterden oluşmalıdır.`, 'error');
       return;
     }
-    if (!ackPolicies || !ackService) {
-      showToast('İlerleyebilmek için her iki beyanı da işaretlemeniz gerekmektedir.', 'error');
+    if (!ackPolicies || !ackService || !ackOriginalWork) {
+      showToast('İlerleyebilmek için tüm beyanları işaretlemeniz gerekmektedir.', 'error');
       return;
     }
 
@@ -114,6 +151,11 @@ const TranslatorApplication: React.FC = () => {
         weeklyAvailability: weeklyAvailability.trim(),
         genresOrSeries: genresOrSeries.trim(),
         portfolioText: portfolioText.trim() || undefined,
+        sourceLanguage,
+        rolePreference,
+        sampleTranslation: sampleTranslation.trim(),
+        subtitleAdaptation: subtitleAdaptation.trim(),
+        timingQcAnswer: timingQcAnswer.trim(),
         compensationModel,
         compensationNote: compensationNote.trim() || undefined,
         whyAnirias: whyAnirias.trim(),
@@ -128,10 +170,14 @@ const TranslatorApplication: React.FC = () => {
       setWeeklyAvailability('');
       setGenresOrSeries('');
       setPortfolioText('');
+      setSampleTranslation('');
+      setSubtitleAdaptation('');
+      setTimingQcAnswer('');
       setCompensationNote('');
       setWhyAnirias('');
       setAckPolicies(false);
       setAckService(false);
+      setAckOriginalWork(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Başvurunuz iletilememiştir.';
       showToast(msg, 'error');
@@ -158,7 +204,7 @@ const TranslatorApplication: React.FC = () => {
             İşbu sayfa, ANIRIAS dijital yayın platformunun çeviri ve altyazı katkılarına ilişkin resmî bilgilendirme metnini ve başvuru usulünü
             içermektedir. Sunulan hizmet; güvenilirlik, erişilebilirlik ve tutarlı izleyici deneyimi ilkeleri çerçevesinde yürütülmekte olup metin
             çevirisi ile zamanlama (senkronizasyon) işlemleri, doğrudan izleyici memnuniyetinin ayrılmaz unsurları arasında yer almaktadır. Aşağıda
-            görev tanımı, gönüllülük ve ücret çerçevesi, gizlilik ile fikrî mülkiyet hükümleri ve başvurunun değerlendirilmesine ilişkin hususlar
+            görev tanımı, gönüllülük ve gelir desteği çerçevesi, gizlilik ile fikrî mülkiyet hükümleri ve başvurunun değerlendirilmesine ilişkin hususlar
             açıklanmıştır. Başvuruların, aynı sayfada yer alan elektronik form aracılığıyla iletilmesi gerekmektedir. Başvuruların incelenmesi ile
             tarafınıza geri dönüş sağlanması operasyonel yoğunluğa tabi olup; her başvuruya olumlu veya olumsuz yanıt verilmesi hususunda münderecat
             taahhüt bulunmamaktadır.
@@ -211,21 +257,22 @@ const TranslatorApplication: React.FC = () => {
             yorumlanmamalıdır.
           </p>
 
-          <h2 className="text-white text-xl font-black italic mt-10 mb-4 not-prose">Gönüllülük, ücret ve şeffaflık</h2>
+          <h2 className="text-white text-xl font-black italic mt-10 mb-4 not-prose">Gönüllülük, site gelişimi ve gelir desteği</h2>
           <ul className="list-disc list-inside space-y-3 text-gray-400 ml-2 md:ml-4 mb-6">
             <li>
-              <strong className="text-white">Varsayılan çerçeve:</strong> Fansub geleneğine uygun olarak katkı, çoğu hâlde gönüllülük esasına dayanmaktadır.
-              Bu husus, katkının değersizleştirildiği anlamına gelmemekte; ekip içi saygı, deneyim kazanımı, portföy oluşturma ile döneme bağlı olarak
-              sembolik geri bildirimler söz konusu olabilmektedir. Söz konusu unsurlar <em>taahhüt niteliği taşımamaktadır</em>.
+              <strong className="text-white">Mevcut çerçeve:</strong> ANIRIAS çeviri katkıları şu aşamada fan topluluğu ruhuyla, gönüllülük esasına
+              dayalı olarak yürütülmektedir. Bu, katkının değersiz görüldüğü anlamına gelmez; aksine ekip içi saygı, görünür emek, deneyim kazanımı ve
+              portföy oluşturma imkânı bu sürecin temel parçalarıdır.
             </li>
             <li>
-              <strong className="text-white">Ücret ve telafi:</strong> Belirli projelerde süreklilik, özel uzmanlık veya yoğun sorumluluk hâllerinde ücret,
-              bölüm bazlı ücret veya makul telafi seçenekleri, <strong className="text-white">ayrı görüşme ve yazılı mutabakat</strong> ile
-              değerlendirilecektir. Ön görüşmede belirtilen rakamlar, resmî teklif veya sözleşme imzalanmadıkça bağlayıcı olmayacaktır.
+              <strong className="text-white">Gelecek hedefi:</strong> Site büyüdükçe, bilinirliği arttıkça ve düzenli gelir oluşmaya başladıkça; emek veren
+              ekip üyelerine maaş niteliğinde olmayan, imkânlar ölçüsünde <strong className="text-white">harçlık / sembolik destek</strong> sağlanması
+              hedeflenmektedir. Bu destek, gelirin oluşmasına, proje yoğunluğuna ve ekip içi katkı sürekliliğine bağlıdır.
             </li>
             <li>
-              <strong className="text-white">Vergi ve hukukî statü:</strong> Ücretli iş birliklerinde fatura, vergi mükellefiyeti veya serbest meslek
-              statüsü gibi hususlar ilgili tarafların kendi yükümlülüğündedir. Platform, işletmeci sıfatıyla koşulları proje bazında netleştirmektedir.
+              <strong className="text-white">Şeffaflık:</strong> Başvuru, mevcut durumda sabit maaş veya garanti ödeme vaadi anlamına gelmemektedir.
+              Maddi destek imkânı doğduğunda koşullar açıkça paylaşılacak; hiçbir adaydan bu ihtimal kesinleşmiş bir ödeme taahhüdü gibi
+              değerlendirmesi beklenmeyecektir.
             </li>
           </ul>
 
@@ -435,8 +482,117 @@ const TranslatorApplication: React.FC = () => {
               />
             </div>
 
+            <fieldset className="space-y-4 rounded-2xl border border-primary/20 bg-primary/[0.04] p-5">
+              <legend className={labelClass + ' px-1 text-primary'}>Mini yeterlilik testi</legend>
+              <p className="text-sm leading-relaxed text-zinc-300">
+                Bu bölüm, başvuruyu değerlendiren ekibin pratik çeviri yaklaşımınızı görmesi içindir. Cevapların kusursuz olması beklenmez; doğal
+                Türkçe, bağlamı koruma, altyazı okunabilirliği ve karar gerekçeniz değerlendirilir.
+              </p>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label htmlFor="ta-source-lang" className={labelClass}>
+                    Çalışmak istediğiniz kaynak dil
+                  </label>
+                  <select
+                    id="ta-source-lang"
+                    className={inputClass}
+                    value={sourceLanguage}
+                    onChange={(e) => setSourceLanguage(e.target.value as SourceLanguage)}
+                  >
+                    {Object.entries(sourceLanguageLabels).map(([value, label]) => (
+                      <option key={value} value={value} className="bg-zinc-950 text-white">
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ta-role-pref" className={labelClass}>
+                    Öncelikli görev tercihi
+                  </label>
+                  <select
+                    id="ta-role-pref"
+                    className={inputClass}
+                    value={rolePreference}
+                    onChange={(e) => setRolePreference(e.target.value as TranslatorRole)}
+                  >
+                    {Object.entries(translatorRoleLabels).map(([value, label]) => (
+                      <option key={value} value={value} className="bg-zinc-950 text-white">
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Çeviri testi kaynak metin</p>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                  “I know everyone expects me to be fine by tomorrow. But if I smile now, it will only make the lie easier to believe. Give me one
+                  night to be honest with myself.”
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="ta-sample" className={labelClass}>
+                  Kaynak metni doğal Türkçe altyazı üslubuyla çeviriniz <span className="text-primary">*</span>
+                </label>
+                <textarea
+                  id="ta-sample"
+                  className={`${inputClass} min-h-[150px] resize-y`}
+                  value={sampleTranslation}
+                  onChange={(e) => setSampleTranslation(e.target.value)}
+                  required
+                  minLength={MIN_SAMPLE_TRANSLATION}
+                  placeholder="Kelime kelime çeviri yerine sahnenin duygusunu, konuşma doğallığını ve altyazı okunabilirliğini gözeterek yazınız."
+                />
+                <p className="mt-1 text-right text-[10px] text-zinc-600">{sampleTranslation.length} / {MIN_SAMPLE_TRANSLATION}+</p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Uyarlama testi ham çeviri</p>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                  “Senin için endişeleniyorum ve bu yüzden seninle konuşmak istedim ama sen beni dinlemiyorsun çünkü sen her zaman her şeyi tek başına
+                  halletmek zorunda olduğunu düşünüyorsun.”
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="ta-adapt" className={labelClass}>
+                  Ham çeviriyi iki satırlık, akıcı altyazıya dönüştürünüz <span className="text-primary">*</span>
+                </label>
+                <textarea
+                  id="ta-adapt"
+                  className={`${inputClass} min-h-[130px] resize-y font-mono`}
+                  value={subtitleAdaptation}
+                  onChange={(e) => setSubtitleAdaptation(e.target.value)}
+                  required
+                  minLength={MIN_SUBTITLE_ADAPTATION}
+                  placeholder={'Örnek biçim:\nSenin için endişelendim,\nbu yüzden konuşmak istedim...'}
+                />
+                <p className="mt-1 text-right text-[10px] text-zinc-600">{subtitleAdaptation.length} / {MIN_SUBTITLE_ADAPTATION}+</p>
+              </div>
+
+              <div>
+                <label htmlFor="ta-qc" className={labelClass}>
+                  Timing ve kalite kontrol kararı <span className="text-primary">*</span>
+                </label>
+                <textarea
+                  id="ta-qc"
+                  className={`${inputClass} min-h-[130px] resize-y`}
+                  value={timingQcAnswer}
+                  onChange={(e) => setTimingQcAnswer(e.target.value)}
+                  required
+                  minLength={MIN_TIMING_QC}
+                  placeholder="Bir altyazı 1 saniye ekranda kalıyor ve 95 karakter içeriyor. Ne yaparsınız? Satır bölme, kısaltma, zamanlama veya QC yaklaşımınızı açıklayın."
+                />
+                <p className="mt-1 text-right text-[10px] text-zinc-600">{timingQcAnswer.length} / {MIN_TIMING_QC}+</p>
+              </div>
+            </fieldset>
+
             <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
-              <legend className={labelClass + ' px-1'}>Ücret ve telafi beklentisi</legend>
+              <legend className={labelClass + ' px-1'}>Gönüllülük ve ileride destek beklentisi</legend>
               <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
                 <input
                   type="radio"
@@ -445,39 +601,38 @@ const TranslatorApplication: React.FC = () => {
                   onChange={() => setCompensationModel('volunteer')}
                   className="mt-1 border-white/30 bg-black text-primary focus:ring-primary"
                 />
-                <span>Gönüllü katkı ile başlamayı; ücret talebinin öncelik arz etmemesini kabul ederim.</span>
+                <span>Şimdilik fan katkısı ve gönüllülük esasıyla görev alabileceğimi kabul ederim.</span>
               </label>
               <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
                 <input
                   type="radio"
                   name="comp"
-                  checked={compensationModel === 'open_discussion'}
-                  onChange={() => setCompensationModel('open_discussion')}
+                  checked={compensationModel === 'future_support'}
+                  onChange={() => setCompensationModel('future_support')}
                   className="mt-1 border-white/30 bg-black text-primary focus:ring-primary"
                 />
-                <span>Gönüllülük esası geçerli olmakla birlikte, yoğun projelerde ücret veya telafinin ayrıca yazılı mutabakatla görüşülebileceğini
-                  kabul ederim.</span>
+                <span>Şimdilik gönüllü katkı verebilirim; site büyüyüp gelir oluşursa harçlık tarzı sembolik destek değerlendirilmesini isterim.</span>
               </label>
               <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
                 <input
                   type="radio"
                   name="comp"
-                  checked={compensationModel === 'paid_preferred'}
-                  onChange={() => setCompensationModel('paid_preferred')}
+                  checked={compensationModel === 'support_required'}
+                  onChange={() => setCompensationModel('support_required')}
                   className="mt-1 border-white/30 bg-black text-primary focus:ring-primary"
                 />
-                <span>Öncelikle ücretli iş birliği talep etmekteyim; nitelik ve süre şartlarının ayrıca geçerli olduğunu bilirim.</span>
+                <span>Düzenli katkı için ileride harçlık/sembolik destek benim için önemli olacaktır; mevcut aşamada bunun garanti edilmediğini bilirim.</span>
               </label>
               <div className="pt-2">
                 <label htmlFor="ta-comp-note" className={labelClass}>
-                  Ücret veya telafiye ilişkin ek not (isteğe bağlı)
+                  Destek beklentisine ilişkin ek not (isteğe bağlı)
                 </label>
                 <input
                   id="ta-comp-note"
                   className={inputClass}
                   value={compensationNote}
                   onChange={(e) => setCompensationNote(e.target.value)}
-                  placeholder="Beklentilerinizi kısaca; bağlayıcı teklif ancak yazılı mutabakatla"
+                  placeholder="Şu an gönüllü katkı verebilirim / ileride sembolik destek beklentim olur gibi kısa not"
                 />
               </div>
             </fieldset>
@@ -508,7 +663,7 @@ const TranslatorApplication: React.FC = () => {
                   className="mt-1 rounded border-white/30 bg-black text-primary focus:ring-primary"
                 />
                 <span>
-                  İşbu sayfadaki <strong className="text-white">gönüllülük ve ücret</strong>, <strong className="text-white">gizlilik</strong> ile{' '}
+                  İşbu sayfadaki <strong className="text-white">gönüllülük ve gelir desteği</strong>, <strong className="text-white">gizlilik</strong> ile{' '}
                   <strong className="text-white">fikrî mülkiyet</strong> hükümlerini okuduğumu, anladığımı ve bunlara uyacağımı beyan ederim.
                 </span>
               </label>
@@ -522,6 +677,18 @@ const TranslatorApplication: React.FC = () => {
                 <span>
                   Çeviri hizmetinin <strong className="text-white">izleyiciye doğrudan sunulan bir hizmet</strong> olduğunu; titizlik, revizyon süreçleri
                   ve ekip içi iletişimin profesyonel sorumluluk gerektirdiğini kabul ederim.
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={ackOriginalWork}
+                  onChange={(e) => setAckOriginalWork(e.target.checked)}
+                  className="mt-1 rounded border-white/30 bg-black text-primary focus:ring-primary"
+                />
+                <span>
+                  Mini test cevaplarının tarafımdan hazırlandığını; otomatik çeviri veya üçüncü kişi desteği kullanıldıysa bunu ayrıca belirtmem
+                  gerektiğini kabul ederim.
                 </span>
               </label>
             </div>
