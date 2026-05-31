@@ -39,6 +39,11 @@ router.get('/vtt-proxy', async (req: Request, res: Response) => {
       return res.status(upstream.status).send(`Upstream error ${upstream.status}`);
     }
     const text = await upstream.text();
+    // Sprites VTT files contain image coordinate cues (#xywh=...) — reject them
+    // so the player doesn't display seekbar thumbnail URLs as subtitle text.
+    if (/[^\n]*#xywh=\d+,\d+,\d+,\d+/.test(text)) {
+      return res.status(422).json({ error: 'sprites' });
+    }
     res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.send(text);

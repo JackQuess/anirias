@@ -197,13 +197,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       for (const t of list) {
         try {
           const res = await fetch(t.src, { mode: 'cors', credentials: 'omit' });
-          if (!res.ok) throw new Error(String(res.status));
+          if (!res.ok) {
+            // 4xx/5xx from proxy (e.g. 422 = sprites file) — skip track entirely
+            continue;
+          }
           const text = await res.text();
           const blob = new Blob([text], { type: 'text/vtt;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           blobs.push(url);
           next.push({ ...t, src: url });
         } catch {
+          // Network error (no proxy, CORS not configured) — fall back to direct URL
           next.push({ ...t });
         }
       }
