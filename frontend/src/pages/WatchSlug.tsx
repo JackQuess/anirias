@@ -208,6 +208,12 @@ function toVttCdnUrl(url: string): string {
   return `${VTT_CDN_BASE}/${path}`;
 }
 
+/** Route a VTT CDN URL through the backend proxy for reliable CORS + MIME type. */
+function vttProxySrc(cdnUrl: string, apiBase: string | null): string {
+  if (!apiBase) return cdnUrl;
+  return `${apiBase}/api/vtt-proxy?url=${encodeURIComponent(cdnUrl)}`;
+}
+
 const WatchSlug: React.FC = () => {
   const { animeSlug, seasonNumber, episodeNumber } = useParams<{
     animeSlug: string;
@@ -669,13 +675,26 @@ const WatchSlug: React.FC = () => {
   const rawProg = savedProgress ? Number(savedProgress.progress_seconds) : 0;
   const initialTime = rawProg > 0 && Number.isFinite(rawProg) ? rawProg : 0;
 
-  const subtitleFiles = episode.subtitle_tracks?.length
-    ? episode.subtitle_tracks.map((t) => ({
-        src: toVttCdnUrl(t.url),
+  const _apiBase = getApiBase();
+  const subtitleFiles = (() => {
+    if (episode.subtitle_tracks?.length) {
+      // DB has subtitle_tracks → route through proxy for CORS + sprite filtering
+      return episode.subtitle_tracks.map((t) => ({
+        src: vttProxySrc(toVttCdnUrl(t.url), _apiBase),
         label: !t.label || t.label === 'und' ? 'Türkçe' : t.label,
         srclang: !t.lang || t.lang === 'und' ? 'tr' : t.lang,
-      }))
-    : undefined;
+      }));
+    }
+    // No DB entry → try the standard path derived from episode metadata.
+    // Handles manually-uploaded VTT files that aren't yet registered in subtitle_tracks.
+    const sNum = season?.season_number;
+    if (anime.slug && sNum != null) {
+      const padded = String(episode.episode_number).padStart(2, '0');
+      const fallbackCdn = `${VTT_CDN_BASE}/${anime.slug}/season-${sNum}/episode-${padded}.und.vtt`;
+      return [{ src: vttProxySrc(fallbackCdn, _apiBase), label: 'Türkçe', srclang: 'tr' }];
+    }
+    return undefined;
+  })();
 
   const synopsis = (anime.description_tr || anime.description || '').replace(/<[^>]*>/g, '');
   const hasSubtitles = !!(subtitleFiles && subtitleFiles.length > 0);

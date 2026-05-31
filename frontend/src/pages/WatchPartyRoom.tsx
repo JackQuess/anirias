@@ -47,6 +47,11 @@ function toVttCdnUrl(url: string): string {
   return `${VTT_CDN_BASE}/${path}`;
 }
 
+function vttProxySrc(cdnUrl: string, apiBase: string | null): string {
+  if (!apiBase) return cdnUrl;
+  return `${apiBase}/api/vtt-proxy?url=${encodeURIComponent(cdnUrl)}`;
+}
+
 function profileLabel(profiles: WatchPartyProfileMini[], userId: string): string {
   const p = profiles.find((x) => x.id === userId);
   if (p?.username?.trim()) return p.username.trim();
@@ -400,7 +405,7 @@ const WatchPartyRoom: React.FC = () => {
               subtitleFiles={
                 watchPayload.episode.subtitle_tracks?.length
                   ? watchPayload.episode.subtitle_tracks.map((t) => ({
-                      src: toVttCdnUrl(t.url),
+                      src: vttProxySrc(toVttCdnUrl(t.url), getApiBase()),
                       label: !t.label || t.label === 'und' ? 'Türkçe' : t.label,
                       srclang: !t.lang || t.lang === 'und' ? 'tr' : t.lang,
                     }))

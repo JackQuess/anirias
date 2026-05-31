@@ -458,13 +458,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     subtitlePrefAppliedForSrcRef.current = src;
     try {
       const raw = localStorage.getItem('anirias-player-subtitles');
-      if (!raw) return;
+      if (!raw) {
+        // No saved preference → auto-enable first subtitle track (default-on behaviour)
+        applySubtitleSelection(true, 0);
+        return;
+      }
       const pref = JSON.parse(raw) as { enabled?: boolean; index?: number };
-      if (pref.enabled && typeof pref.index === 'number' && pref.index >= 0 && pref.index < subtitleOptions.length) {
-        applySubtitleSelection(true, pref.index);
+      if (typeof pref.enabled === 'boolean') {
+        if (pref.enabled && typeof pref.index === 'number' && pref.index >= 0 && pref.index < subtitleOptions.length) {
+          applySubtitleSelection(true, pref.index);
+        }
+        // pref.enabled === false → user explicitly disabled, respect that
+      } else {
+        // Malformed preference → auto-enable
+        applySubtitleSelection(true, 0);
       }
     } catch {
-      /* ignore */
+      applySubtitleSelection(true, 0);
     }
   }, [src, subtitleOptions, applySubtitleSelection]);
 
