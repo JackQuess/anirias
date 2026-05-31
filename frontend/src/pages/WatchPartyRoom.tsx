@@ -388,11 +388,17 @@ const WatchPartyRoom: React.FC = () => {
               onPartyViewerSyncHint={role === 'viewer' ? onPartyViewerSyncHint : undefined}
               subtitleFiles={
                 watchPayload.episode.subtitle_tracks?.length
-                  ? watchPayload.episode.subtitle_tracks.map((t) => ({
-                      src: t.url,
-                      label: t.label,
-                      srclang: t.lang,
-                    }))
+                  ? watchPayload.episode.subtitle_tracks.map((t) => {
+                      const vttBase = getApiBase();
+                      const src = vttBase
+                        ? `${vttBase}/api/vtt-proxy?url=${encodeURIComponent(t.url)}`
+                        : t.url;
+                      return {
+                        src,
+                        label: !t.label || t.label === 'und' ? 'Türkçe' : t.label,
+                        srclang: !t.lang || t.lang === 'und' ? 'tr' : t.lang,
+                      };
+                    })
                   : undefined
               }
             />

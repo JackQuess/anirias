@@ -658,12 +658,16 @@ const WatchSlug: React.FC = () => {
   const rawProg = savedProgress ? Number(savedProgress.progress_seconds) : 0;
   const initialTime = rawProg > 0 && Number.isFinite(rawProg) ? rawProg : 0;
 
+  const vttProxyBase = getApiBase();
   const subtitleFiles = episode.subtitle_tracks?.length
-    ? episode.subtitle_tracks.map((t) => ({
-        src: t.url,
-        label: t.label,
-        srclang: t.lang,
-      }))
+    ? episode.subtitle_tracks.map((t) => {
+        const src = vttProxyBase
+          ? `${vttProxyBase}/api/vtt-proxy?url=${encodeURIComponent(t.url)}`
+          : t.url;
+        const label = !t.label || t.label === 'und' ? 'Türkçe' : t.label;
+        const srclang = !t.lang || t.lang === 'und' ? 'tr' : t.lang;
+        return { src, label, srclang };
+      })
     : undefined;
 
   const synopsis = (anime.description_tr || anime.description || '').replace(/<[^>]*>/g, '');

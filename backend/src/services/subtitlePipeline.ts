@@ -5,10 +5,13 @@ import { ANIRIAS_VIDEO_CDN_BASE, type EpisodeSubtitleTrackRow } from './supabase
 
 const LANG_LABELS: Record<string, string> = {
   tr: 'Türkçe',
+  auto_tr: 'Türkçe',
   en: 'English',
+  auto_en: 'English',
   ja: '日本語',
   'pt-br': 'Português',
   ar: 'العربية',
+  und: 'Altyazı',
 };
 
 function remoteSubtitlePath(slug: string, seasonNumber: number, episodeNumber: number, langCode: string) {

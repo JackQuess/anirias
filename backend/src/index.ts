@@ -31,6 +31,7 @@ import commentModerationRouter from './routes/admin/commentModeration.js';
 import teamApplicationsRouter from './routes/admin/teamApplications.js';
 import devicesRouter from './routes/devices.js';
 import revenuecatWebhookRouter from './routes/revenuecatWebhook.js';
+import vttProxyRouter from './routes/vttProxy.js';
 import { startNotificationWorker } from './services/notificationWorker.js';
 import { startAnimelyWatcher } from './services/animelyWatcher.js';
 import { startAutoDownloadWorker } from './services/autoDownloadWorker.js';
@@ -145,6 +146,7 @@ app.use('/api', calendarRouter);
 app.use('/api', episodeSynopsisRouter);
 app.use('/api', devicesRouter);
 app.use('/api/revenuecat', revenuecatWebhookRouter);
+app.use('/api', vttProxyRouter);
 
 const PORT = Number(process.env.PORT || 3001);
 app.listen(PORT, () => {
