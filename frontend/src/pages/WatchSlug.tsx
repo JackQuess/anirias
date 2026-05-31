@@ -197,6 +197,17 @@ const getApiBase = (): string | null => {
   return apiBase.replace(/\/+$/, '');
 };
 
+const VTT_S3_BASE = 'https://anirias-videos.nbg1.your-objectstorage.com';
+const VTT_CDN_BASE = (
+  (import.meta as any).env?.VITE_VIDEO_CDN_BASE as string | undefined
+)?.replace(/\/+$/, '') ?? 'https://anirias-videos.b-cdn.net';
+
+function toVttCdnUrl(url: string): string {
+  if (!url.startsWith(VTT_S3_BASE)) return url;
+  const path = url.slice(VTT_S3_BASE.length).replace(/^\/+/, '').replace(/^animes\//, '');
+  return `${VTT_CDN_BASE}/${path}`;
+}
+
 const WatchSlug: React.FC = () => {
   const { animeSlug, seasonNumber, episodeNumber } = useParams<{
     animeSlug: string;
@@ -658,16 +669,12 @@ const WatchSlug: React.FC = () => {
   const rawProg = savedProgress ? Number(savedProgress.progress_seconds) : 0;
   const initialTime = rawProg > 0 && Number.isFinite(rawProg) ? rawProg : 0;
 
-  const vttProxyBase = getApiBase();
   const subtitleFiles = episode.subtitle_tracks?.length
-    ? episode.subtitle_tracks.map((t) => {
-        const src = vttProxyBase
-          ? `${vttProxyBase}/api/vtt-proxy?url=${encodeURIComponent(t.url)}`
-          : t.url;
-        const label = !t.label || t.label === 'und' ? 'Türkçe' : t.label;
-        const srclang = !t.lang || t.lang === 'und' ? 'tr' : t.lang;
-        return { src, label, srclang };
-      })
+    ? episode.subtitle_tracks.map((t) => ({
+        src: toVttCdnUrl(t.url),
+        label: !t.label || t.label === 'und' ? 'Türkçe' : t.label,
+        srclang: !t.lang || t.lang === 'und' ? 'tr' : t.lang,
+      }))
     : undefined;
 
   const synopsis = (anime.description_tr || anime.description || '').replace(/<[^>]*>/g, '');

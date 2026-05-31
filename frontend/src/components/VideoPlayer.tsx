@@ -198,10 +198,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         try {
           const res = await fetch(t.src, { mode: 'cors', credentials: 'omit' });
           if (!res.ok) {
-            // 4xx/5xx from proxy (e.g. 422 = sprites file) — skip track entirely
+            // 4xx/5xx (e.g. proxy 422 = sprites) — skip track entirely
             continue;
           }
           const text = await res.text();
+          // Skip sprite-sheet VTT files (seekbar thumbnail previews, not dialog subtitles)
+          if (/[^\n]*#xywh=\d+,\d+,\d+,\d+/.test(text)) continue;
           const blob = new Blob([text], { type: 'text/vtt;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           blobs.push(url);

@@ -36,6 +36,17 @@ const getApiBase = (): string | null => {
   return apiBase.replace(/\/+$/, '');
 };
 
+const VTT_S3_BASE = 'https://anirias-videos.nbg1.your-objectstorage.com';
+const VTT_CDN_BASE = (
+  (import.meta as any).env?.VITE_VIDEO_CDN_BASE as string | undefined
+)?.replace(/\/+$/, '') ?? 'https://anirias-videos.b-cdn.net';
+
+function toVttCdnUrl(url: string): string {
+  if (!url.startsWith(VTT_S3_BASE)) return url;
+  const path = url.slice(VTT_S3_BASE.length).replace(/^\/+/, '').replace(/^animes\//, '');
+  return `${VTT_CDN_BASE}/${path}`;
+}
+
 function profileLabel(profiles: WatchPartyProfileMini[], userId: string): string {
   const p = profiles.find((x) => x.id === userId);
   if (p?.username?.trim()) return p.username.trim();
@@ -388,17 +399,11 @@ const WatchPartyRoom: React.FC = () => {
               onPartyViewerSyncHint={role === 'viewer' ? onPartyViewerSyncHint : undefined}
               subtitleFiles={
                 watchPayload.episode.subtitle_tracks?.length
-                  ? watchPayload.episode.subtitle_tracks.map((t) => {
-                      const vttBase = getApiBase();
-                      const src = vttBase
-                        ? `${vttBase}/api/vtt-proxy?url=${encodeURIComponent(t.url)}`
-                        : t.url;
-                      return {
-                        src,
-                        label: !t.label || t.label === 'und' ? 'Türkçe' : t.label,
-                        srclang: !t.lang || t.lang === 'und' ? 'tr' : t.lang,
-                      };
-                    })
+                  ? watchPayload.episode.subtitle_tracks.map((t) => ({
+                      src: toVttCdnUrl(t.url),
+                      label: !t.label || t.label === 'und' ? 'Türkçe' : t.label,
+                      srclang: !t.lang || t.lang === 'und' ? 'tr' : t.lang,
+                    }))
                   : undefined
               }
             />
