@@ -4,6 +4,8 @@
  */
 
 import { getAniListStreamingEpisodeMeta, cleanDescription } from './anilist.js';
+import { translateToTurkish } from './translator.js';
+import { fetchMALEpisodeThumbnails } from './myanimelist.js';
 
 const JIKAN_BASE = 'https://api.jikan.moe/v4';
 const JIKAN_GAP_MS = 400;
@@ -77,6 +79,54 @@ export async function buildEpisodeSynopsisMap(anilistId: number): Promise<Record
       const t = cleanDescription(raw);
       if (t) out[epNum] = t;
     });
+  }
+
+  return out;
+}
+
+export type TranslatedEpisodeSynopsis = {
+  description: string;
+  description_tr: string | null;
+};
+
+/**
+ * AniList id -> bölüm numarası -> kaynak açıklama + TR çeviri.
+ */
+export async function buildTranslatedEpisodeSynopsisMap(
+  anilistId: number
+): Promise<Record<number, TranslatedEpisodeSynopsis>> {
+  const synopses = await buildEpisodeSynopsisMap(anilistId);
+  const out: Record<number, TranslatedEpisodeSynopsis> = {};
+
+  for (const [episodeNumber, description] of Object.entries(synopses)) {
+    const clean = cleanDescription(description);
+    if (!clean) continue;
+
+    out[Number(episodeNumber)] = {
+      description: clean,
+      description_tr: await translateToTurkish(clean),
+    };
+  }
+
+  return out;
+}
+
+export async function buildEpisodeThumbnailMap(anilistId: number): Promise<Record<number, string>> {
+  const meta = await getAniListStreamingEpisodeMeta(anilistId);
+  const out: Record<number, string> = {};
+
+  meta.streamingEpisodeThumbnails.forEach((thumbnail, idx) => {
+    const clean = String(thumbnail || '').trim();
+    if (clean) out[idx + 1] = clean;
+  });
+
+  if (meta.idMal && meta.idMal > 0) {
+    const malThumbnails = await fetchMALEpisodeThumbnails(meta.idMal);
+    for (const [episodeNumber, thumbnail] of Object.entries(malThumbnails)) {
+      if (!out[Number(episodeNumber)] && thumbnail) {
+        out[Number(episodeNumber)] = thumbnail;
+      }
+    }
   }
 
   return out;

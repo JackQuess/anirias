@@ -71,7 +71,7 @@ router.get('/public/latest-episodes', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(season_number, anime:animes(*))')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, description, description_tr, thumbnail_url, air_date, updated_at, created_at, seasons!inner(season_number, anime:animes(*))')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -157,7 +157,7 @@ router.get('/public/:animeId/episodes', async (req: Request, res: Response) => {
 
     let query = supabaseAdmin
       .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, description, description_tr, thumbnail_url, air_date, updated_at, created_at')
       .in('season_id', seasonIds);
 
     if (seasonId) {

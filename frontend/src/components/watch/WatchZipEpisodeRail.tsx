@@ -4,6 +4,7 @@ import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Episode } from '@/types';
 import type { WatchProgressChunk } from './WatchEpisodeList';
+import { proxyImage } from '@/utils/proxyImage';
 
 export interface WatchZipEpisodeRailProps {
   episodes: Episode[];
@@ -35,6 +36,7 @@ const WatchZipEpisodeRail: React.FC<WatchZipEpisodeRailProps> = ({
         const isCurrent = currentEpisodeNumber === epNum;
         const noVideo = blockWithoutVideo && !ep.video_url && !ep.hls_url;
         const thumb =
+          proxyImage(ep.thumbnail_url || '') ||
           posterFallback ||
           `https://loremflickr.com/320/180/anime,scene?lock=${encodeURIComponent(animeSlug + String(i))}`;
         const durLabel = ep.duration_seconds

@@ -2,10 +2,10 @@
  * MyAnimeList API Service
  * 
  * PURPOSE:
- * - Fetch total episode_count for validation ONLY
+ * - Fetch total episode_count for validation
+ * - Optionally fetch episode thumbnails as fallback metadata
  * - DO NOT use MAL for season detection
- * - DO NOT use MAL for episode objects
- * - MAL is ONLY for validation/comparison
+ * - MAL is not a source of truth for episode creation/grouping
  */
 
 export interface MyAnimeListAnime {
@@ -15,6 +15,26 @@ export interface MyAnimeListAnime {
   status: string | null;
   score: number | null;
 }
+
+type MALPicture = {
+  medium?: string | null;
+  large?: string | null;
+};
+
+type MALEpisodeListItem = {
+  node?: {
+    id?: number;
+    title?: string;
+    main_picture?: MALPicture | null;
+  };
+};
+
+type MALEpisodeListResponse = {
+  data?: MALEpisodeListItem[];
+  paging?: {
+    next?: string;
+  };
+};
 
 /**
  * Fetch anime from MyAnimeList by ID
@@ -109,6 +129,57 @@ export async function validateEpisodeCount(
 }
 
 /**
+ * MAL anime id -> bölüm numarası -> thumbnail URL.
+ *
+ * MAL API v2 requires a client id. This is best-effort fallback metadata:
+ * if MAL does not expose episode pictures for a title or credentials are absent,
+ * return an empty map and keep the existing AniList/poster fallback path.
+ */
+export async function fetchMALEpisodeThumbnails(malId: number): Promise<Record<number, string>> {
+  const clientId = process.env.MAL_CLIENT_ID || '';
+  if (!clientId) return {};
+
+  const out: Record<number, string> = {};
+  let nextUrl: string | null =
+    `https://api.myanimelist.net/v2/anime/${malId}/episodes?limit=100&fields=id,title,main_picture`;
+  let episodeIndex = 1;
+
+  try {
+    for (let guard = 0; nextUrl && guard < 20; guard++) {
+      const response = await fetch(nextUrl, {
+        method: 'GET',
+        headers: {
+          'X-MAL-CLIENT-ID': clientId,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status !== 404) {
+          console.warn(`[MyAnimeList] Episode thumbnail fetch skipped: ${response.status}`);
+        }
+        break;
+      }
+
+      const json = (await response.json()) as MALEpisodeListResponse;
+      const rows = Array.isArray(json.data) ? json.data : [];
+
+      for (const row of rows) {
+        const picture = row.node?.main_picture;
+        const url = String(picture?.large || picture?.medium || '').trim();
+        if (url) out[episodeIndex] = url;
+        episodeIndex += 1;
+      }
+
+      nextUrl = typeof json.paging?.next === 'string' && json.paging.next ? json.paging.next : null;
+    }
+  } catch (error: any) {
+    console.warn('[MyAnimeList] Episode thumbnail fetch error (non-critical):', error.message);
+  }
+
+  return out;
+}
+
+/**
  * Search MyAnimeList (optional helper)
  * 
  * NOTE: Not used in the hybrid import flow, but available for manual lookup
@@ -141,4 +212,3 @@ export async function searchMAL(query: string): Promise<MyAnimeListAnime[]> {
     return [];
   }
 }
-

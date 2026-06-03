@@ -31,7 +31,10 @@ router.use((req, res, next) => {
  *   "air_date": string | null,
  *   "status": string,
  *   "episode_number": number,
- *   "short_note": string | null
+ *   "short_note": string | null,
+ *   "description": string | null,
+ *   "description_tr": string | null,
+ *   "thumbnail_url": string | null
  * }
  *
  * Response:
@@ -64,6 +67,14 @@ router.put('/update-episode/:id', async (req: Request, res: Response) => {
     if ('status' in body) updates.status = body.status;
     if ('episode_number' in body) updates.episode_number = body.episode_number;
     if ('short_note' in body) updates.short_note = body.short_note;
+    if ('description' in body) updates.description = body.description;
+    if ('description_tr' in body) updates.description_tr = body.description_tr;
+    if ('thumbnail_url' in body) updates.thumbnail_url = body.thumbnail_url;
+    if ('title' in body) updates.title = body.title;
+    if ('hls_url' in body) updates.hls_url = body.hls_url;
+    if ('video_url' in body) updates.video_url = body.video_url;
+    if ('duration_seconds' in body) updates.duration_seconds = body.duration_seconds;
+    if ('created_at' in body) updates.created_at = body.created_at;
 
     if (Object.keys(updates).length === 1) {
       return res.status(400).json({

@@ -886,7 +886,7 @@ export const db = {
     try {
       const { data, error } = await supabase!
         .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, description, description_tr, thumbnail_url, air_date, updated_at, created_at')
         .eq('season_id', seasonId)
         .order('episode_number', { ascending: true });
       
@@ -909,7 +909,7 @@ export const db = {
     try {
       const { data, error } = await supabase!
         .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, description, description_tr, thumbnail_url, air_date, updated_at, created_at')
         .eq('season_id', seasonId)
         .eq('episode_number', episodeNumber)
         .maybeSingle();
@@ -965,7 +965,7 @@ export const db = {
       // Step 2: Fetch all episodes for these seasons
       let query = supabase!
         .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at')
+        .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, description, description_tr, thumbnail_url, air_date, updated_at, created_at')
         .in('season_id', seasonIds);
       
       // If seasonId is provided (for backward compatibility), filter by it
@@ -1078,7 +1078,7 @@ export const db = {
     // Use seasons!inner(anime:animes(*)) to ensure we get anime via seasons
     let query = supabase!
       .from('episodes')
-      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, air_date, updated_at, created_at, seasons!inner(season_number, anime:animes(*))')
+      .select('id, anime_id, season_id, season_number, episode_number, title, duration_seconds, duration, video_url, hls_url, status, error_message, short_note, description, description_tr, thumbnail_url, air_date, updated_at, created_at, seasons!inner(season_number, anime:animes(*))')
       .order('created_at', { ascending: false }); // Initial order, will be sorted client-side
 
     if (limit !== undefined && offset !== undefined) {
@@ -2056,7 +2056,7 @@ export const db = {
       // Must join through seasons to get anime relation for new imports
       const { data, error } = await supabase!
         .from('episodes')
-        .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, seasons!inner(season_number, anime:animes(*))')
+        .select('id, anime_id, season_id, season_number, episode_number, air_date, status, short_note, description, description_tr, thumbnail_url, seasons!inner(season_number, anime:animes(*))')
         .not('air_date', 'is', null)
         .order('air_date', { ascending: true });
       

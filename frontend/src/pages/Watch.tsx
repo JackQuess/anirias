@@ -13,7 +13,7 @@ import ReportWatchModal from '@/components/ReportWatchModal';
 import { getDisplayTitle } from '@/utils/title';
 import { proxyImage } from '@/utils/proxyImage';
 import { cn } from '@/lib/utils';
-import { WatchProgress } from '../types';
+import { Episode, WatchProgress } from '../types';
 import { computeAnimeMatchPercent, formatMatchLabel } from '@/lib/matchScore';
 
 const Watch: React.FC = () => {
@@ -127,7 +127,6 @@ const Watch: React.FC = () => {
     () => (anime?.description_tr || anime?.description || '').replace(/<[^>]*>/g, ''),
     [anime?.description_tr, anime?.description]
   );
-
   const handleShareZip = useCallback(async () => {
     try {
       if (navigator.share && anime) {
@@ -167,6 +166,10 @@ const Watch: React.FC = () => {
   const currentEpisode = (episodes || []).find(e => e.episode_number === currentEpNum);
   const prevEpisode = (episodes || []).find(e => e.episode_number === currentEpNum - 1);
   const nextEpisode = (episodes || []).find(e => e.episode_number === currentEpNum + 1);
+  const episodeDescriptionPlain = useMemo(
+    () => (currentEpisode?.description_tr || currentEpisode?.description || '').replace(/<[^>]*>/g, ''),
+    [currentEpisode?.description_tr, currentEpisode?.description]
+  );
 
   const { data: episodeLikeSummary, reload: reloadEpisodeLikes } = useLoad(
     () => {
@@ -751,7 +754,8 @@ const Watch: React.FC = () => {
   const rawPoster = anime.banner_image || anime.cover_image || null;
   const poster = proxyImage(rawPoster || fallbackPoster);
   const watchSlug = anime.slug || anime.id;
-  const epThumb = (i: number) =>
+  const epThumb = (ep: Episode, i: number) =>
+    proxyImage(ep.thumbnail_url || '') ||
     poster ||
     `https://loremflickr.com/320/180/anime,scene?lock=${encodeURIComponent(anime.id + String(i))}`;
   // Show controls when: not started, paused, buffering, error, or user interaction
@@ -992,8 +996,10 @@ const Watch: React.FC = () => {
               </div>
             </div>
 
-            {synopsisPlain ? (
-              <p className="text-white/80 text-sm md:text-base leading-relaxed">{synopsisPlain}</p>
+            {(episodeDescriptionPlain || synopsisPlain) ? (
+              <p className="text-white/80 text-sm md:text-base leading-relaxed">
+                {episodeDescriptionPlain || synopsisPlain}
+              </p>
             ) : null}
           </div>
 
@@ -1078,7 +1084,7 @@ const Watch: React.FC = () => {
                   >
                     <div className="relative w-32 aspect-video rounded overflow-hidden shrink-0 bg-black">
                       <img
-                        src={epThumb(i)}
+                        src={epThumb(ep, i)}
                         alt=""
                         className={cn(
                           'w-full h-full object-cover transition-all duration-500',

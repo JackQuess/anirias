@@ -111,6 +111,9 @@ const AdminEpisodes: React.FC = () => {
     episode_number: 1,
     title: '',
     stream_id: '',
+    description: '',
+    description_tr: '',
+    thumbnail_url: '',
     duration_seconds: 1440,
     created_at: new Date().toISOString()
   });
@@ -202,7 +205,7 @@ const AdminEpisodes: React.FC = () => {
 
   const resetForm = () => {
     const nowIso = new Date().toISOString();
-    setNewEp({ episode_number: episodes.length + 1, title: '', stream_id: '', duration_seconds: 1440, created_at: nowIso });
+    setNewEp({ episode_number: episodes.length + 1, title: '', stream_id: '', description: '', description_tr: '', thumbnail_url: '', duration_seconds: 1440, created_at: nowIso });
     setHlsInput('');
     setAirDateInput(nowIso.slice(0,16));
     setEditEp(null);
@@ -407,6 +410,9 @@ const AdminEpisodes: React.FC = () => {
       title: ep.title,
       stream_id: (ep as any).stream_id || ep.video_url,
       hls_url: ep.hls_url,
+      description: ep.description || '',
+      description_tr: ep.description_tr || '',
+      thumbnail_url: ep.thumbnail_url || '',
       duration_seconds: ep.duration_seconds,
       created_at: ep.created_at
     });
@@ -426,6 +432,9 @@ const AdminEpisodes: React.FC = () => {
         title: newEp.title,
         episode_number: newEp.episode_number,
         hls_url: value,
+        description: newEp.description,
+        description_tr: newEp.description_tr,
+        thumbnail_url: newEp.thumbnail_url,
         duration_seconds: newEp.duration_seconds,
         created_at: airDateInput ? new Date(airDateInput).toISOString() : newEp.created_at
       };
@@ -1315,6 +1324,34 @@ const AdminEpisodes: React.FC = () => {
                     type="datetime-local"
                     value={airDateInput}
                     onChange={(e) => setAirDateInput(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-mono text-xs outline-none focus:border-brand-red"
+                  />
+                </div>
+                <div className="col-span-3 space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">BÖLÜM AÇIKLAMASI</label>
+                  <textarea
+                    value={newEp.description || ''}
+                    onChange={e => setNewEp({ ...newEp, description: e.target.value })}
+                    rows={4}
+                    className="w-full resize-y bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white text-sm outline-none focus:border-brand-red"
+                  />
+                </div>
+                <div className="col-span-3 space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">TÜRKÇE AÇIKLAMA</label>
+                  <textarea
+                    value={newEp.description_tr || ''}
+                    onChange={e => setNewEp({ ...newEp, description_tr: e.target.value })}
+                    rows={4}
+                    className="w-full resize-y bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white text-sm outline-none focus:border-brand-red"
+                  />
+                </div>
+                <div className="col-span-3 space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">BÖLÜM GÖRSELİ URL</label>
+                  <input
+                    type="url"
+                    value={newEp.thumbnail_url || ''}
+                    onChange={e => setNewEp({ ...newEp, thumbnail_url: e.target.value })}
+                    placeholder="https://..."
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white font-mono text-xs outline-none focus:border-brand-red"
                   />
                 </div>

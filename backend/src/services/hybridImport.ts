@@ -34,6 +34,11 @@ import {
 import { updateAnimeAdultMetadata } from '../utils/animeAdultDb.js';
 import { syncAiringScheduleForAnime } from './airingSchedule.js';
 import { notifyNewAnimeDetected, notifyImportSuccess, notifyImportWarning } from './adminNotifications.js';
+import {
+  buildEpisodeThumbnailMap,
+  buildTranslatedEpisodeSynopsisMap,
+  type TranslatedEpisodeSynopsis,
+} from './episodeSynopsisMap.js';
 
 export interface HybridImportParams {
   anilistId: number;
@@ -284,6 +289,21 @@ async function generateEpisodes(
     }
   }
 
+  let episodeDescriptions: Record<number, TranslatedEpisodeSynopsis> = {};
+  let episodeThumbnails: Record<number, string> = {};
+  if (anilistId) {
+    try {
+      episodeDescriptions = await buildTranslatedEpisodeSynopsisMap(anilistId);
+    } catch (error) {
+      console.warn(`[hybridImport] Failed to fetch episode descriptions for AniList ID ${anilistId}:`, error);
+    }
+    try {
+      episodeThumbnails = await buildEpisodeThumbnailMap(anilistId);
+    } catch (error) {
+      console.warn(`[hybridImport] Failed to fetch episode thumbnails for AniList ID ${anilistId}:`, error);
+    }
+  }
+
   for (const season of seasons) {
     // Find corresponding AniList range for this season
     const range = anilistRanges.find(r => r.seasonNumber === season.season_number);
@@ -301,12 +321,13 @@ async function generateEpisodes(
     // Check existing episodes for this season
     const { data: existingEpisodes } = await supabaseAdmin
       .from('episodes')
-      .select('episode_number')
+      .select('id, episode_number, description, description_tr, thumbnail_url')
       .eq('anime_id', animeId)
       .eq('season_id', season.id)
       .order('episode_number', { ascending: true });
 
     const existingNumbers = new Set(existingEpisodes?.map(ep => ep.episode_number) || []);
+    const existingByNumber = new Map((existingEpisodes || []).map((ep: any) => [ep.episode_number, ep]));
 
     // Generate missing episodes
     const episodesToCreate = [];
@@ -315,6 +336,8 @@ async function generateEpisodes(
         // Get airing date from AniList schedule if available
         const airingAt = airingSchedule.get(epNum);
         const airDate = airingAt ? new Date(airingAt * 1000).toISOString() : null;
+        const episodeDescription = episodeDescriptions[epNum];
+        const thumbnailUrl = episodeThumbnails[epNum] || null;
 
         episodesToCreate.push({
           anime_id: animeId,
@@ -326,6 +349,9 @@ async function generateEpisodes(
           video_url: null,
           duration_seconds: 1440, // Default 24 minutes
           air_date: airDate,
+          description: episodeDescription?.description || null,
+          description_tr: episodeDescription?.description_tr || null,
+          thumbnail_url: thumbnailUrl,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -344,6 +370,27 @@ async function generateEpisodes(
             .eq('season_id', season.id)
             .eq('episode_number', epNum)
             .is('air_date', null); // Only update if air_date is currently null
+        }
+
+        const existing = existingByNumber.get(epNum) as any;
+        const episodeDescription = episodeDescriptions[epNum];
+        const thumbnailUrl = episodeThumbnails[epNum];
+        if (
+          existing?.id &&
+          ((episodeDescription && (!existing.description || !existing.description_tr)) ||
+            (thumbnailUrl && !existing.thumbnail_url))
+        ) {
+          const updates: Record<string, unknown> = {
+            updated_at: new Date().toISOString(),
+          };
+          if (episodeDescription && !existing.description) updates.description = episodeDescription.description;
+          if (episodeDescription && !existing.description_tr) updates.description_tr = episodeDescription.description_tr;
+          if (thumbnailUrl && !existing.thumbnail_url) updates.thumbnail_url = thumbnailUrl;
+
+          await supabaseAdmin
+            .from('episodes')
+            .update(updates)
+            .eq('id', existing.id);
         }
       }
     }
@@ -496,4 +543,3 @@ function generateSlug(title: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'anime';
 }
-

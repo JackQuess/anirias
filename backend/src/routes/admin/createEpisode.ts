@@ -49,6 +49,9 @@ router.post('/create-episode', async (req: Request, res: Response) => {
       duration_seconds: body.duration_seconds ?? null,
       status: body.status || 'pending',
       short_note: body.short_note ?? null,
+      description: body.description ?? null,
+      description_tr: body.description_tr ?? null,
+      thumbnail_url: body.thumbnail_url ?? null,
       air_date: body.air_date ?? null,
       created_at: body.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -81,4 +84,3 @@ router.post('/create-episode', async (req: Request, res: Response) => {
 });
 
 export default router;
-

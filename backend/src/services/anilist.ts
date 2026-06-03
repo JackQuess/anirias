@@ -98,6 +98,12 @@ export interface AniListAiringSchedule {
   airingAt: number; // UNIX timestamp
 }
 
+export interface AniListStreamingEpisodeMeta {
+  idMal: number | null;
+  streamingEpisodeTitles: string[];
+  streamingEpisodeThumbnails: string[];
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -392,27 +398,27 @@ query ($id: Int!) {
     idMal
     streamingEpisodes {
       title
+      thumbnail
     }
   }
 }
 `;
 
-export async function getAniListStreamingEpisodeMeta(anilistId: number): Promise<{
-  idMal: number | null;
-  streamingEpisodeTitles: string[];
-}> {
+export async function getAniListStreamingEpisodeMeta(anilistId: number): Promise<AniListStreamingEpisodeMeta> {
   try {
     const json = await postAniList(EPISODE_STREAMING_QUERY, { id: anilistId });
     const m = json.data?.Media;
-    if (!m) return { idMal: null, streamingEpisodeTitles: [] };
+    if (!m) return { idMal: null, streamingEpisodeTitles: [], streamingEpisodeThumbnails: [] };
     const titles = (m.streamingEpisodes || [])
       .map((x: { title?: string | null }) => String(x?.title || '').trim())
       .filter(Boolean);
+    const thumbnails = (m.streamingEpisodes || [])
+      .map((x: { thumbnail?: string | null }) => String(x?.thumbnail || '').trim());
     const idMal = m.idMal != null && Number.isFinite(Number(m.idMal)) ? Number(m.idMal) : null;
-    return { idMal, streamingEpisodeTitles: titles };
+    return { idMal, streamingEpisodeTitles: titles, streamingEpisodeThumbnails: thumbnails };
   } catch (error: any) {
     console.error('[AniList] Streaming episode meta error:', error);
-    return { idMal: null, streamingEpisodeTitles: [] };
+    return { idMal: null, streamingEpisodeTitles: [], streamingEpisodeThumbnails: [] };
   }
 }
 

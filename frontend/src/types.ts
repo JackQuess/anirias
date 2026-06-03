@@ -88,6 +88,9 @@ export interface Episode {
   status?: string | null;
   error_message?: string | null;
   short_note?: string | null;
+  description?: string | null;
+  description_tr?: string | null;
+  thumbnail_url?: string | null;
   air_date?: string | null;
   intro_start?: number | null;
   intro_end?: number | null;
