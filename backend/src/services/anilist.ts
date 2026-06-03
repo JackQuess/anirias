@@ -31,6 +31,8 @@ export interface AniListMedia {
   genres?: string[] | null;
   format?: string | null;
   episodes?: number | null;
+  /** Average episode duration in minutes. */
+  duration?: number | null;
   status?: string | null;
   /** AniList resmi yetişkin işareti */
   isAdult?: boolean | null;
@@ -180,6 +182,7 @@ query ($search: String) {
       seasonYear
       genres
       episodes
+      duration
       status
       format
       isAdult
@@ -200,6 +203,7 @@ query ($id: Int!) {
     seasonYear
     genres
     episodes
+    duration
     status
     format
     isAdult

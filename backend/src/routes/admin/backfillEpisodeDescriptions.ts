@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../../services/supabaseAdmin.js';
 import { normalizeOrigin } from '../../utils/cors.js';
 import {
+  buildEpisodeDurationSeconds,
   buildEpisodeThumbnailMap,
   buildTranslatedEpisodeSynopsisMap,
 } from '../../services/episodeSynopsisMap.js';
@@ -73,14 +74,15 @@ router.post('/backfill-episode-descriptions', async (req: Request, res: Response
       }
     }
 
-    const [descriptions, thumbnails] = await Promise.all([
+    const [descriptions, thumbnails, durationSeconds] = await Promise.all([
       buildTranslatedEpisodeSynopsisMap(anilistId),
       buildEpisodeThumbnailMap(anilistId),
+      buildEpisodeDurationSeconds(anilistId),
     ]);
 
     let episodeQuery = supabaseAdmin
       .from('episodes')
-      .select('id, episode_number, description, description_tr, thumbnail_url')
+      .select('id, episode_number, description, description_tr, thumbnail_url, duration_seconds')
       .order('episode_number', { ascending: true });
 
     episodeQuery = episodeQuery.eq('anime_id', animeId);
@@ -101,7 +103,11 @@ router.post('/backfill-episode-descriptions', async (req: Request, res: Response
       const episodeNumber = Number((episode as any).episode_number);
       const next = descriptions[episodeNumber];
       const thumbnailUrl = thumbnails[episodeNumber];
-      if (!next && !thumbnailUrl) {
+      const shouldPatchDuration =
+        durationSeconds != null &&
+        durationSeconds > 0 &&
+        (!(episode as any).duration_seconds || (episode as any).duration_seconds === 1440);
+      if (!next && !thumbnailUrl && !shouldPatchDuration) {
         skipped += 1;
         details.push({ id: (episode as any).id, episode_number: episodeNumber, status: 'skipped', reason: 'No API metadata' });
         continue;
@@ -111,6 +117,7 @@ router.post('/backfill-episode-descriptions', async (req: Request, res: Response
       if (next && !(episode as any).description) patch.description = next.description;
       if (next && !(episode as any).description_tr) patch.description_tr = next.description_tr;
       if (thumbnailUrl && !(episode as any).thumbnail_url) patch.thumbnail_url = thumbnailUrl;
+      if (shouldPatchDuration) patch.duration_seconds = durationSeconds;
 
       if (Object.keys(patch).length === 1) {
         skipped += 1;

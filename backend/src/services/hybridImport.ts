@@ -35,6 +35,7 @@ import { updateAnimeAdultMetadata } from '../utils/animeAdultDb.js';
 import { syncAiringScheduleForAnime } from './airingSchedule.js';
 import { notifyNewAnimeDetected, notifyImportSuccess, notifyImportWarning } from './adminNotifications.js';
 import {
+  buildEpisodeDurationSeconds,
   buildEpisodeThumbnailMap,
   buildTranslatedEpisodeSynopsisMap,
   type TranslatedEpisodeSynopsis,
@@ -269,7 +270,8 @@ async function generateEpisodes(
   animeId: string,
   seasons: SeasonRow[],
   anilistRanges: AniListSeasonRange[],
-  anilistId?: number
+  anilistId?: number,
+  anilistDurationMinutes?: number | null
 ): Promise<number> {
   let totalEpisodesCreated = 0;
 
@@ -291,6 +293,7 @@ async function generateEpisodes(
 
   let episodeDescriptions: Record<number, TranslatedEpisodeSynopsis> = {};
   let episodeThumbnails: Record<number, string> = {};
+  let episodeDurationSeconds: number | null = null;
   if (anilistId) {
     try {
       episodeDescriptions = await buildTranslatedEpisodeSynopsisMap(anilistId);
@@ -301,6 +304,11 @@ async function generateEpisodes(
       episodeThumbnails = await buildEpisodeThumbnailMap(anilistId);
     } catch (error) {
       console.warn(`[hybridImport] Failed to fetch episode thumbnails for AniList ID ${anilistId}:`, error);
+    }
+    try {
+      episodeDurationSeconds = await buildEpisodeDurationSeconds(anilistId, anilistDurationMinutes);
+    } catch (error) {
+      console.warn(`[hybridImport] Failed to fetch episode duration for AniList ID ${anilistId}:`, error);
     }
   }
 
@@ -321,7 +329,7 @@ async function generateEpisodes(
     // Check existing episodes for this season
     const { data: existingEpisodes } = await supabaseAdmin
       .from('episodes')
-      .select('id, episode_number, description, description_tr, thumbnail_url')
+      .select('id, episode_number, description, description_tr, thumbnail_url, duration_seconds')
       .eq('anime_id', animeId)
       .eq('season_id', season.id)
       .order('episode_number', { ascending: true });
@@ -347,7 +355,7 @@ async function generateEpisodes(
           title: `Bölüm ${epNum}`,
           status: 'pending',
           video_url: null,
-          duration_seconds: 1440, // Default 24 minutes
+          duration_seconds: episodeDurationSeconds ?? 1440, // Default 24 minutes
           air_date: airDate,
           description: episodeDescription?.description || null,
           description_tr: episodeDescription?.description_tr || null,
@@ -378,7 +386,8 @@ async function generateEpisodes(
         if (
           existing?.id &&
           ((episodeDescription && (!existing.description || !existing.description_tr)) ||
-            (thumbnailUrl && !existing.thumbnail_url))
+            (thumbnailUrl && !existing.thumbnail_url) ||
+            (episodeDurationSeconds && (!existing.duration_seconds || existing.duration_seconds === 1440)))
         ) {
           const updates: Record<string, unknown> = {
             updated_at: new Date().toISOString(),
@@ -386,6 +395,9 @@ async function generateEpisodes(
           if (episodeDescription && !existing.description) updates.description = episodeDescription.description;
           if (episodeDescription && !existing.description_tr) updates.description_tr = episodeDescription.description_tr;
           if (thumbnailUrl && !existing.thumbnail_url) updates.thumbnail_url = thumbnailUrl;
+          if (episodeDurationSeconds && (!existing.duration_seconds || existing.duration_seconds === 1440)) {
+            updates.duration_seconds = episodeDurationSeconds;
+          }
 
           await supabaseAdmin
             .from('episodes')
@@ -467,7 +479,7 @@ export async function hybridImportAnime(params: HybridImportParams): Promise<Hyb
     }
 
     // STEP 5: Generate episodes for each season
-    const episodesCreated = await generateEpisodes(animeId, seasons, anilistRanges, anilistId);
+    const episodesCreated = await generateEpisodes(animeId, seasons, anilistRanges, anilistId, media.duration);
 
     try {
       const cal = await syncAiringScheduleForAnime(animeId);

@@ -3,9 +3,9 @@
  * AniList tek başına uzun bölüm özeti sunmaz; streamingEpisodes sadece başlık.
  */
 
-import { getAniListStreamingEpisodeMeta, cleanDescription } from './anilist.js';
+import { getAniListMedia, getAniListStreamingEpisodeMeta, cleanDescription } from './anilist.js';
 import { translateToTurkish } from './translator.js';
-import { fetchMALEpisodeThumbnails } from './myanimelist.js';
+import { fetchMALEpisodeThumbnails, getMALAnime } from './myanimelist.js';
 
 const JIKAN_BASE = 'https://api.jikan.moe/v4';
 const JIKAN_GAP_MS = 400;
@@ -130,6 +130,34 @@ export async function buildEpisodeThumbnailMap(anilistId: number): Promise<Recor
   }
 
   return out;
+}
+
+function anilistDurationToSeconds(durationMinutes: number | null | undefined): number | null {
+  const minutes = Number(durationMinutes);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return Math.round(minutes * 60);
+}
+
+export async function buildEpisodeDurationSeconds(
+  anilistId: number,
+  knownAniListDurationMinutes?: number | null
+): Promise<number | null> {
+  const known = anilistDurationToSeconds(knownAniListDurationMinutes);
+  if (known) return known;
+
+  try {
+    const media = await getAniListMedia(anilistId);
+    const fromAniList = anilistDurationToSeconds(media?.duration);
+    if (fromAniList) return fromAniList;
+  } catch {
+    // Duration is optional metadata; keep fallback path silent.
+  }
+
+  const meta = await getAniListStreamingEpisodeMeta(anilistId);
+  if (!meta.idMal || meta.idMal <= 0) return null;
+
+  const mal = await getMALAnime(meta.idMal);
+  return mal?.averageEpisodeDurationSeconds || null;
 }
 
 const cache = new Map<number, { at: number; data: Record<number, string> }>();

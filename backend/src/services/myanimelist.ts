@@ -14,6 +14,7 @@ export interface MyAnimeListAnime {
   episodes: number | null;
   status: string | null;
   score: number | null;
+  averageEpisodeDurationSeconds: number | null;
 }
 
 type MALPicture = {
@@ -53,7 +54,7 @@ export async function getMALAnime(malId: number): Promise<MyAnimeListAnime | nul
     // For now, using a placeholder structure
     // In production, implement actual MAL API v2 authentication
     
-    const response = await fetch(`https://api.myanimelist.net/v2/anime/${malId}?fields=id,title,episodes,status,mean`, {
+    const response = await fetch(`https://api.myanimelist.net/v2/anime/${malId}?fields=id,title,episodes,status,mean,average_episode_duration`, {
       method: 'GET',
       headers: {
         'X-MAL-CLIENT-ID': process.env.MAL_CLIENT_ID || '', // Requires MAL API credentials
@@ -75,6 +76,10 @@ export async function getMALAnime(malId: number): Promise<MyAnimeListAnime | nul
       episodes: data.num_episodes || data.episodes || null,
       status: data.status || null,
       score: data.mean || null,
+      averageEpisodeDurationSeconds:
+        Number.isFinite(Number(data.average_episode_duration)) && Number(data.average_episode_duration) > 0
+          ? Number(data.average_episode_duration)
+          : null,
     };
   } catch (error: any) {
     // MAL API is optional - log but don't fail
@@ -206,6 +211,7 @@ export async function searchMAL(query: string): Promise<MyAnimeListAnime[]> {
       episodes: item.node.num_episodes || null,
       status: null,
       score: null,
+      averageEpisodeDurationSeconds: null,
     }));
   } catch (error: any) {
     console.warn('[MyAnimeList] Search error (non-critical):', error.message);
